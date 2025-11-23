@@ -6,7 +6,6 @@ __pycache__/
 .Python
 env/
 venv/
-.env
 .venv
 pip-log.txt
 pip-delete-this-directory.txt
@@ -30,7 +29,51 @@ build/
 .packages
 .pub-cache/
 .pub/
+*.iml
+*.ipr
+*.iws
+pubspec.lock
+
+# Environment
+.env
+.env.local
 
 # General
 .DS_Store
 Thumbs.db
+
+# Android
+app/android/local.properties
+app/android/.gradle/
+app/android/gradle/
+app/android/captures/
+app/android/app/debug/
+app/android/app/profile/
+app/android/app/release/
+app/android/key.properties
+
+# iOS
+app/ios/Flutter/flutter_export_environment.sh
+app/ios/Flutter/Generated.xcconfig
+app/ios/Pods/
+app/ios/.symlinks/
+app/ios/Flutter/.last_build_id
+app/ios/Runner.xcworkspace/
+
+# Windows
+app/windows/flutter/
+
+# macOS
+app/macos/Flutter/
+app/macos/Pods/
+
+# Linux
+app/linux/flutter/
+
+# Web
+app/.dart_tool/
+app/build/
+
+# Hive
+*.hive
+*.lock
