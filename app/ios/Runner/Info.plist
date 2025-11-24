@@ -51,5 +51,7 @@
 	<string>We need access to your photo library to select photos for attachments.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>We need access to your microphone for voice messages.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>We need permission to save images to your photo library.</string>
 </dict>
 </plist>
