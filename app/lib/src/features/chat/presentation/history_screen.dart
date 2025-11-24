@@ -62,134 +62,111 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
             Padding(
               padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: AppColors.surface,
+                        borderRadius: BorderRadius.circular(24),
+                        border: Border.all(
+                          color: AppColors.secondary.withOpacity(0.1),
+                        ),
+                      ),
+                      child: TextField(
+                        controller: _searchController,
+                        onChanged: (value) {
+                          _debounceTimer?.cancel();
+                          if (value.isEmpty) {
+                            setState(() {
+                              _searchQuery = '';
+                              _isSearching = false;
+                            });
+                            return;
+                          }
+                          setState(() {
+                            _isSearching = true;
+                          });
+                          _debounceTimer = Timer(
+                            const Duration(milliseconds: 300),
+                            () {
+                              setState(() {
+                                _searchQuery = value.toLowerCase();
+                                _isSearching = false;
+                              });
+                            },
+                          );
+                        },
+                        style: GoogleFonts.inter(
+                          color: AppColors.secondary,
+                          fontSize: 14,
+                        ),
+                        decoration: InputDecoration(
+                          hintText: 'Search chat history',
+                          hintStyle: GoogleFonts.inter(
+                            color: AppColors.secondary.withOpacity(0.5),
+                            fontSize: 14,
+                          ),
+                          prefixIcon: Icon(
+                            LucideIcons.search,
+                            color: AppColors.secondary.withOpacity(0.5),
+                            size: 20,
+                          ),
+                          suffixIcon: _searchController.text.isNotEmpty
+                              ? _isSearching
+                                  ? Padding(
+                                      padding: const EdgeInsets.all(12),
+                                      child: SizedBox(
+                                        width: 20,
+                                        height: 20,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          valueColor:
+                                              AlwaysStoppedAnimation<Color>(
+                                            AppColors.primary.withOpacity(0.7),
+                                          ),
+                                        ),
+                                      ),
+                                    )
+                                  : IconButton(
+                                      icon: Icon(
+                                        LucideIcons.x,
+                                        color: AppColors.secondary
+                                            .withOpacity(0.5),
+                                        size: 18,
+                                      ),
+                                      tooltip: 'Clear search',
+                                      onPressed: () {
+                                        _searchController.clear();
+                                        _debounceTimer?.cancel();
+                                        setState(() {
+                                          _searchQuery = '';
+                                          _isSearching = false;
+                                        });
+                                      },
+                                    )
+                              : null,
+                          border: InputBorder.none,
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 12,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
                   IconButton(
                     icon: const Icon(LucideIcons.x, color: AppColors.secondary),
+                    tooltip: 'Close history',
                     onPressed: () => context.pop(),
-                  ),
-                  SvgPicture.asset(
-                    'assets/images/logo.svg',
-                    width: 28,
-                    height: 28,
-                    colorFilter: const ColorFilter.mode(
-                      AppColors.primary,
-                      BlendMode.srcIn,
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(
-                      LucideIcons.settings,
-                      color: AppColors.secondary,
-                    ),
-                    onPressed: () => context.push(AppRoutes.config),
                   ),
                 ],
               ),
             ),
 
-            const SizedBox(height: 4),
-
-            // Search Bar
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: AppColors.surface,
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(
-                    color: AppColors.secondary.withOpacity(0.1),
-                  ),
-                ),
-                child: TextField(
-                  controller: _searchController,
-                  onChanged: (value) {
-                    // Cancel previous timer
-                    _debounceTimer?.cancel();
-
-                    if (value.isEmpty) {
-                      setState(() {
-                        _searchQuery = '';
-                        _isSearching = false;
-                      });
-                      return;
-                    }
-
-                    // Show loading immediately
-                    setState(() {
-                      _isSearching = true;
-                    });
-
-                    // Debounce the search
-                    _debounceTimer = Timer(
-                      const Duration(milliseconds: 300),
-                      () {
-                        setState(() {
-                          _searchQuery = value.toLowerCase();
-                          _isSearching = false;
-                        });
-                      },
-                    );
-                  },
-                  style: GoogleFonts.inter(
-                    color: AppColors.secondary,
-                    fontSize: 14,
-                  ),
-                  decoration: InputDecoration(
-                    hintText: 'Search chat history',
-                    hintStyle: GoogleFonts.inter(
-                      color: AppColors.secondary.withOpacity(0.5),
-                      fontSize: 14,
-                    ),
-                    prefixIcon: Icon(
-                      LucideIcons.search,
-                      color: AppColors.secondary.withOpacity(0.5),
-                      size: 20,
-                    ),
-                    suffixIcon: _searchController.text.isNotEmpty
-                        ? _isSearching
-                              ? Padding(
-                                  padding: const EdgeInsets.all(12),
-                                  child: SizedBox(
-                                    width: 20,
-                                    height: 20,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      valueColor: AlwaysStoppedAnimation<Color>(
-                                        AppColors.primary.withOpacity(0.7),
-                                      ),
-                                    ),
-                                  ),
-                                )
-                              : IconButton(
-                                  icon: Icon(
-                                    LucideIcons.x,
-                                    color: AppColors.secondary.withOpacity(0.5),
-                                    size: 18,
-                                  ),
-                                  onPressed: () {
-                                    _searchController.clear();
-                                    _debounceTimer?.cancel();
-                                    setState(() {
-                                      _searchQuery = '';
-                                      _isSearching = false;
-                                    });
-                                  },
-                                )
-                        : null,
-                    border: InputBorder.none,
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 12,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-
             // New Chat Button
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+              padding: const EdgeInsets.all(16),
               child: Container(
                 decoration: BoxDecoration(
                   color: AppColors.primary,
@@ -211,14 +188,18 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                     },
                     borderRadius: BorderRadius.circular(16),
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      padding: const EdgeInsets.symmetric(vertical: 10),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          const Icon(
-                            LucideIcons.edit3,
-                            size: 20,
-                            color: AppColors.background,
+                          SvgPicture.asset(
+                            'assets/icons/new_chat.svg',
+                            width: 20,
+                            height: 20,
+                            colorFilter: const ColorFilter.mode(
+                              AppColors.background,
+                              BlendMode.srcIn,
+                            ),
                           ),
                           const SizedBox(width: 12),
                           Text(
@@ -264,15 +245,57 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
 
             // Footer
             Padding(
-              padding: const EdgeInsets.all(20),
-              child: Text(
-                'Parallax Connect v1.0',
-                style: GoogleFonts.inter(
-                  color: AppColors.secondary.withOpacity(0.4),
-                  fontSize: 11,
-                  letterSpacing: 0.5,
-                ),
-                textAlign: TextAlign.center,
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  SvgPicture.asset(
+                    'assets/images/logo.svg',
+                    width: 28,
+                    height: 28,
+                    colorFilter: const ColorFilter.mode(
+                      AppColors.primary,
+                      BlendMode.srcIn,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Text(
+                    'Parallax Connect v1.0',
+                    style: GoogleFonts.inter(
+                      color: AppColors.secondary,
+                      fontSize: 11,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                  const SizedBox(width: 40),
+                  IconButton(
+                    icon: const Icon(
+                      LucideIcons.settings,
+                      color: AppColors.secondary,
+                    ),
+                    tooltip: 'Open settings',
+                    onPressed: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            'Settings coming soon',
+                            style: GoogleFonts.inter(
+                              color: AppColors.secondary,
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                  IconButton(
+                    icon: const Icon(
+                      LucideIcons.monitorSmartphone,
+                      color: AppColors.secondary,
+                    ),
+                    tooltip: 'Open Connection Setup',
+                    onPressed: () => context.push(AppRoutes.config),
+                  ),
+                ],
               ),
             ),
           ],
@@ -400,23 +423,6 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             child: Row(
               children: [
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: isActive
-                        ? AppColors.primary.withOpacity(0.15)
-                        : AppColors.secondary.withOpacity(0.08),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Icon(
-                    LucideIcons.messageSquare,
-                    size: 18,
-                    color: isActive
-                        ? AppColors.primary
-                        : AppColors.secondary.withOpacity(0.7),
-                  ),
-                ),
-                const SizedBox(width: 14),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
