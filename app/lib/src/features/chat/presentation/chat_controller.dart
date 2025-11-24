@@ -134,7 +134,7 @@ class ChatController extends Notifier<ChatState> {
       String response;
 
       // 🧪 In test mode, use mock responses
-      if (TEST_MODE) {
+      if (TestConfig.enabled) {
         await Future.delayed(
           const Duration(seconds: 2),
         ); // Simulate network delay
@@ -184,7 +184,7 @@ class ChatController extends Notifier<ChatState> {
 
   // 🧪 Mock responses for test mode
   String _getMockResponse(String prompt) {
-    switch (MOCK_RESPONSE_TYPE) {
+    switch (TestConfig.mockResponseType) {
       case 'plain':
         return 'This is a simple plain text response without any formatting. You can use this to test basic message rendering and scrolling behavior.';
 
@@ -388,7 +388,7 @@ This long response helps you verify that:
         final responses = [
           'This is a **test response** from the AI assistant.',
           'Great! The UI is working perfectly. Try different features! 🚀',
-          'You can change `MOCK_RESPONSE_TYPE` in `app_constants.dart` to test different response types like: `plain`, `code`, `markdown`, `mixed`, or `long`.',
+          'You can change `TestConfig.mockResponseType` in `app_constants.dart` to test different response types like: `plain`, `code`, `markdown`, `mixed`, or `long`.',
         ];
         return responses[state.messages.length % responses.length];
     }

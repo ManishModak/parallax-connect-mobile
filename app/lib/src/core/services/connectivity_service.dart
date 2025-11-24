@@ -1,6 +1,8 @@
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../utils/logger.dart';
+
 /// Provider for connectivity service
 final connectivityServiceProvider = Provider<ConnectivityService>((ref) {
   return ConnectivityService();
@@ -15,36 +17,70 @@ final connectivityStatusProvider = StreamProvider<ConnectivityResult>((ref) {
 /// Service to monitor network connectivity
 class ConnectivityService {
   final Connectivity _connectivity = Connectivity();
+  static const _timeout = Duration(seconds: 5);
 
   /// Stream of connectivity changes
   Stream<ConnectivityResult> get onConnectivityChanged => _connectivity
       .onConnectivityChanged
       .map((List<ConnectivityResult> results) {
-        // Return the first result or none if empty
-        return results.isNotEmpty ? results.first : ConnectivityResult.none;
+        final result = results.isNotEmpty
+            ? results.first
+            : ConnectivityResult.none;
+        logger.network('Connectivity changed: $result');
+        return result;
       });
 
   /// Check current connectivity status
   Future<bool> get isConnected async {
-    final results = await _connectivity.checkConnectivity();
-    return results.isNotEmpty && results.first != ConnectivityResult.none;
+    try {
+      final results = await _connectivity.checkConnectivity().timeout(_timeout);
+      final connected =
+          results.isNotEmpty && results.first != ConnectivityResult.none;
+      logger.network(
+        'Connection status: ${connected ? 'connected' : 'disconnected'}',
+      );
+      return connected;
+    } catch (e) {
+      logger.e('Failed to check connectivity: $e');
+      return false;
+    }
   }
 
   /// Check if connected and has internet (for cloud mode)
   Future<bool> get hasInternetConnection async {
-    final results = await _connectivity.checkConnectivity();
-    if (results.isEmpty || results.first == ConnectivityResult.none) {
+    try {
+      final results = await _connectivity.checkConnectivity().timeout(_timeout);
+      if (results.isEmpty || results.first == ConnectivityResult.none) {
+        logger.network('No internet connection');
+        return false;
+      }
+
+      // Check for mobile or wifi connection
+      final hasConnection =
+          results.first == ConnectivityResult.wifi ||
+          results.first == ConnectivityResult.mobile;
+      logger.network(
+        'Internet connection: ${hasConnection ? 'available' : 'unavailable'}',
+      );
+      return hasConnection;
+    } catch (e) {
+      logger.e('Failed to check internet connection: $e');
       return false;
     }
-
-    // Check for mobile or wifi connection
-    return results.first == ConnectivityResult.wifi ||
-        results.first == ConnectivityResult.mobile;
   }
 
   /// Get connectivity result type
   Future<ConnectivityResult> get connectivityResult async {
-    final results = await _connectivity.checkConnectivity();
-    return results.isNotEmpty ? results.first : ConnectivityResult.none;
+    try {
+      final results = await _connectivity.checkConnectivity().timeout(_timeout);
+      final result = results.isNotEmpty
+          ? results.first
+          : ConnectivityResult.none;
+      logger.network('Connectivity result: $result');
+      return result;
+    } catch (e) {
+      logger.e('Failed to get connectivity result: $e');
+      return ConnectivityResult.none;
+    }
   }
 }

@@ -6,6 +6,7 @@ import '../../features/chat/presentation/chat_screen.dart';
 import '../../features/chat/presentation/history_screen.dart';
 import '../../features/config/presentation/config_screen.dart';
 import '../../features/splash/presentation/splash_screen.dart';
+import '../utils/logger.dart';
 
 // Route paths
 class AppRoutes {
@@ -15,61 +16,116 @@ class AppRoutes {
   static const history = '/history';
 }
 
+/// Common fade transition builder
+CustomTransitionPage _buildFadeTransition({
+  required LocalKey key,
+  required Widget child,
+}) {
+  return CustomTransitionPage(
+    key: key,
+    child: child,
+    transitionsBuilder: (context, animation, secondaryAnimation, child) {
+      return FadeTransition(opacity: animation, child: child);
+    },
+  );
+}
+
+/// Slide from left transition builder
+CustomTransitionPage _buildSlideTransition({
+  required LocalKey key,
+  required Widget child,
+}) {
+  return CustomTransitionPage(
+    key: key,
+    child: child,
+    transitionsBuilder: (context, animation, secondaryAnimation, child) {
+      const begin = Offset(-1.0, 0.0);
+      const end = Offset.zero;
+      const curve = Curves.easeOutCubic;
+      var tween = Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
+      return SlideTransition(position: animation.drive(tween), child: child);
+    },
+  );
+}
+
 // GoRouter provider
 final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
     initialLocation: AppRoutes.chat,
+    navigatorKey: GlobalKey<NavigatorState>(),
+    debugLogDiagnostics: true,
+
+    // Error builder for 404 and other errors
+    errorBuilder: (context, state) {
+      logger.e('Navigation error: ${state.error}');
+      return Scaffold(
+        backgroundColor: Colors.black,
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.error_outline, size: 64, color: Colors.red),
+              const SizedBox(height: 16),
+              const Text(
+                'Page not found',
+                style: TextStyle(fontSize: 24, color: Colors.white),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                state.uri.toString(),
+                style: const TextStyle(color: Colors.grey),
+              ),
+              const SizedBox(height: 24),
+              ElevatedButton(
+                onPressed: () => context.go(AppRoutes.chat),
+                child: const Text('Go to Chat'),
+              ),
+            ],
+          ),
+        ),
+      );
+    },
+
     routes: [
       GoRoute(
         path: AppRoutes.splash,
-        pageBuilder: (context, state) => CustomTransitionPage(
-          key: state.pageKey,
-          child: const SplashScreen(),
-          transitionsBuilder: (context, animation, secondaryAnimation, child) {
-            return FadeTransition(opacity: animation, child: child);
-          },
-        ),
+        pageBuilder: (context, state) {
+          logger.navigation('Navigating to Splash');
+          return _buildFadeTransition(
+            key: state.pageKey,
+            child: const SplashScreen(),
+          );
+        },
       ),
       GoRoute(
         path: AppRoutes.config,
-        pageBuilder: (context, state) => CustomTransitionPage(
-          key: state.pageKey,
-          child: const ConfigScreen(),
-          transitionsBuilder: (context, animation, secondaryAnimation, child) {
-            return FadeTransition(opacity: animation, child: child);
-          },
-        ),
+        pageBuilder: (context, state) {
+          logger.navigation('Navigating to Config');
+          return _buildFadeTransition(
+            key: state.pageKey,
+            child: const ConfigScreen(),
+          );
+        },
       ),
       GoRoute(
         path: AppRoutes.chat,
-        pageBuilder: (context, state) => CustomTransitionPage(
-          key: state.pageKey,
-          child: const ChatScreen(),
-          transitionsBuilder: (context, animation, secondaryAnimation, child) {
-            return FadeTransition(opacity: animation, child: child);
-          },
-        ),
+        pageBuilder: (context, state) {
+          logger.navigation('Navigating to Chat');
+          return _buildFadeTransition(
+            key: state.pageKey,
+            child: const ChatScreen(),
+          );
+        },
       ),
       GoRoute(
         path: AppRoutes.history,
-        pageBuilder: (context, state) => CustomTransitionPage(
-          key: state.pageKey,
-          child: const HistoryScreen(),
-          transitionsBuilder: (context, animation, secondaryAnimation, child) {
-            // Slide from left
-            const begin = Offset(-1.0, 0.0);
-            const end = Offset.zero;
-            const curve = Curves.easeOutCubic;
-            var tween = Tween(
-              begin: begin,
-              end: end,
-            ).chain(CurveTween(curve: curve));
-            return SlideTransition(
-              position: animation.drive(tween),
-              child: child,
-            );
-          },
-        ),
+        pageBuilder: (context, state) {
+          logger.navigation('Navigating to History');
+          return _buildSlideTransition(
+            key: state.pageKey,
+            child: const HistoryScreen(),
+          );
+        },
       ),
     ],
   );

@@ -33,7 +33,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
     if (!mounted) return;
 
     // 🧪 In test mode, skip config screen
-    if (TEST_MODE) {
+    if (TestConfig.enabled) {
       context.go(AppRoutes.chat);
       return;
     }
