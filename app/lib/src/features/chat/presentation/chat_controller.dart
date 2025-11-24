@@ -198,6 +198,42 @@ def greet(name):
 print(greet("World"))
 ```
 
+And a longer JavaScript example:
+
+```javascript
+class UserManager {
+  constructor() {
+    this.users = [];
+  }
+
+  addUser(name, email) {
+    const user = {
+      id: this.users.length + 1,
+      name: name,
+      email: email,
+      createdAt: new Date()
+    };
+    this.users.push(user);
+    return user;
+  }
+
+  findUser(id) {
+    return this.users.find(u => u.id === id);
+  }
+
+  getAllUsers() {
+    return this.users;
+  }
+}
+
+// Usage example
+const manager = new UserManager();
+manager.addUser("John Doe", "john@example.com");
+manager.addUser("Jane Smith", "jane@example.com");
+
+console.log(manager.getAllUsers());
+```
+
 Try copying these code blocks!''';
 
       case 'markdown':
