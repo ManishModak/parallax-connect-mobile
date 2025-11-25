@@ -169,8 +169,6 @@ class ChatController extends Notifier<ChatState> {
           }
         }
 
-        }
-
         final systemPrompt = _settingsStorage.getSystemPrompt();
         response = await _repository.generateText(
           text,

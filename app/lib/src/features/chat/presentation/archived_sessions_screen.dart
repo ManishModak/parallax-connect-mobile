@@ -126,14 +126,14 @@ class _ArchivedSessionsScreenState
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(LucideIcons.archive, size: 64, color: AppColors.textSecondary),
+          Icon(LucideIcons.archive, size: 64, color: AppColors.secondary),
           const SizedBox(height: 16),
           Text(
             _searchQuery.isEmpty ? 'No archived sessions' : 'No sessions found',
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w600,
-              color: AppColors.textPrimary,
+              color: AppColors.primary,
             ),
           ),
           const SizedBox(height: 8),
@@ -141,7 +141,7 @@ class _ArchivedSessionsScreenState
             _searchQuery.isEmpty
                 ? 'Start new chats to create archived sessions'
                 : 'Try a different search query',
-            style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
+            style: TextStyle(fontSize: 14, color: AppColors.secondary),
           ),
         ],
       ),
@@ -223,7 +223,7 @@ class _ArchivedSessionsScreenState
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
-                          color: AppColors.textPrimary,
+                          color: AppColors.primary,
                         ),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
@@ -232,7 +232,7 @@ class _ArchivedSessionsScreenState
                     Icon(
                       LucideIcons.chevronRight,
                       size: 20,
-                      color: AppColors.textSecondary,
+                      color: AppColors.secondary,
                     ),
                   ],
                 ),
@@ -242,28 +242,28 @@ class _ArchivedSessionsScreenState
                     Icon(
                       LucideIcons.calendar,
                       size: 14,
-                      color: AppColors.textSecondary,
+                      color: AppColors.secondary,
                     ),
                     const SizedBox(width: 6),
                     Text(
                       dateFormat.format(session.timestamp),
                       style: TextStyle(
                         fontSize: 12,
-                        color: AppColors.textSecondary,
+                        color: AppColors.secondary,
                       ),
                     ),
                     const SizedBox(width: 16),
                     Icon(
                       LucideIcons.messageSquare,
                       size: 14,
-                      color: AppColors.textSecondary,
+                      color: AppColors.secondary,
                     ),
                     const SizedBox(width: 6),
                     Text(
                       '${session.messageCount} messages',
                       style: TextStyle(
                         fontSize: 12,
-                        color: AppColors.textSecondary,
+                        color: AppColors.secondary,
                       ),
                     ),
                   ],

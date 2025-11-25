@@ -65,6 +65,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),
+        children: [
+          Text(
             'Choose how images/documents are processed',
             style: GoogleFonts.inter(color: AppColors.secondary, fontSize: 14),
           ),

@@ -147,7 +147,7 @@ class ArchivedSessionDetailScreen extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: isUser ? AppColors.primary : AppColors.surface,
+                color: isUser ? AppColors.brand : AppColors.surface,
                 borderRadius: BorderRadius.only(
                   topLeft: const Radius.circular(16),
                   topRight: const Radius.circular(16),
