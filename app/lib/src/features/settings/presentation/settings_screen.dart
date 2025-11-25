@@ -66,6 +66,21 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          // Section 1: App Settings
+          _buildSectionHeader('App Settings'),
+          const SizedBox(height: 16),
+          _buildHapticsSelector(context, state.hapticsLevel, controller, ref),
+          const SizedBox(height: 32),
+
+          // Section 2: Response Preference
+          _buildSectionHeader('Response Preference'),
+          const SizedBox(height: 16),
+          _buildResponsePreferenceSection(context, state, controller, ref),
+          const SizedBox(height: 32),
+
+          // Section 3: Vision Pipeline
+          _buildSectionHeader('Vision Pipeline'),
+          const SizedBox(height: 8),
           Text(
             'Choose how images/documents are processed',
             style: GoogleFonts.inter(color: AppColors.secondary, fontSize: 14),
@@ -97,7 +112,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ),
           const SizedBox(height: 32),
 
-          // Section 3: Document Strategy
+          // Section 4: Document Strategy
           _buildSectionHeader('Document Strategy'),
           const SizedBox(height: 16),
           _buildSmartContextSwitch(state.isSmartContextEnabled, (val) {
@@ -109,12 +124,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ref.read(hapticsHelperProvider).triggerHaptics();
             controller.setMaxContextTokens(val.toInt());
           }),
-          const SizedBox(height: 32),
-
-          // Section 4: Response Preference
-          _buildSectionHeader('Response Preference'),
-          const SizedBox(height: 16),
-          _buildResponsePreferenceSection(context, state, controller, ref),
           const SizedBox(height: 32),
 
           // Section 5: About
