@@ -412,7 +412,14 @@ async def models_endpoint():
             if resp.status_code == 200:
                 response_data = resp.json()
                 # Parallax returns: {type: "model_list", data: [{name, vram_gb}, ...]}
+                # Fallback to OpenAI standard format: {data: [{id, ...}]} or just [{id, ...}]
                 raw_models = response_data.get("data", [])
+                # If data is empty, try treating response as direct array (OpenAI /v1/models format)
+                if not raw_models and isinstance(response_data, list):
+                    raw_models = response_data
+                # Also handle OpenAI format where models have 'id' instead of 'name'
+                if raw_models and "id" in raw_models[0] and "name" not in raw_models[0]:
+                    raw_models = [{"name": m.get("id"), **m} for m in raw_models]
                 
                 # Normalize model format for the app
                 models = [
@@ -430,9 +437,26 @@ async def models_endpoint():
                 async with client.stream("GET", "http://localhost:3001/cluster/status", timeout=2.0) as stream:
                     async for line in stream.aiter_lines():
                         if line.strip():
-                            status_data = json.loads(line)
-                            active_model = status_data.get("data", {}).get("model_name")
-                            break
+                            # Handle SSE format: "data: {...}"
+                            line_data = line
+                            if line.startswith("data: "):
+                                line_data = line[6:]
+                            if line_data == "[DONE]":
+                                break
+                            try:
+                                status_data = json.loads(line_data)
+                                # Parallax format: {data: {model_name: "..."}}
+                                active_model = status_data.get("data", {}).get("model_name")
+                                # Fallback: try direct model_name field
+                                if not active_model:
+                                    active_model = status_data.get("model_name")
+                                # Fallback: try model field (OpenAI standard)
+                                if not active_model:
+                                    active_model = status_data.get("model")
+                                if active_model:
+                                    break
+                            except json.JSONDecodeError:
+                                continue
             except Exception as e:
                 logger.debug(f"Could not get cluster status: {e}")
                 
@@ -500,7 +524,14 @@ async def info_endpoint():
             if resp.status_code == 200:
                 model_data = resp.json()
                 # Parallax returns: {type: "model_list", data: [{name, vram_gb}, ...]}
+                # Fallback to OpenAI standard format or direct array
                 models = model_data.get("data", [])
+                if not models and isinstance(model_data, list):
+                    models = model_data
+                # Handle OpenAI format where models have 'id' instead of 'name'
+                if models and isinstance(models[0], dict):
+                    if "id" in models[0] and "name" not in models[0]:
+                        models = [{"name": m.get("id"), **m} for m in models]
                 
                 if models:
                     # Get max VRAM requirement from available models
@@ -618,8 +649,14 @@ async def chat_endpoint(request: ChatRequest):
 
                 # Parse OpenAI response format
                 # Note: Parallax uses "messages" (plural) not "message" in the response
+                # Fallback to standard "message" (singular) if they switch to OpenAI standard
                 data = resp.json()
-                raw_content = data["choices"][0]["messages"]["content"]
+                choice = data["choices"][0]
+                raw_content = (
+                    choice.get("messages", {}).get("content")
+                    or choice.get("message", {}).get("content")
+                    or ""
+                )
 
                 # Clean response - remove <think>...</think> tags that some models include
                 content = re.sub(
@@ -777,8 +814,23 @@ async def chat_stream_endpoint(request: ChatRequest):
                                 data = json.loads(data_str)
                                 
                                 # Extract token from SSE chunk
-                                delta = data.get("choices", [{}])[0].get("delta", {})
-                                content = delta.get("content", "")
+                                # Parallax may use different formats, add fallbacks
+                                choices = data.get("choices", [{}])
+                                if choices:
+                                    choice = choices[0]
+                                    # Try delta (OpenAI streaming standard)
+                                    delta = choice.get("delta", {})
+                                    content = delta.get("content", "")
+                                    # Fallback: try message/messages (non-standard)
+                                    if not content:
+                                        content = choice.get("message", {}).get("content", "")
+                                    if not content:
+                                        content = choice.get("messages", {}).get("content", "")
+                                    # Fallback: try text field (some APIs use this)
+                                    if not content:
+                                        content = choice.get("text", "")
+                                else:
+                                    content = ""
                                 
                                 # Update token counts
                                 usage = data.get("usage", {})
