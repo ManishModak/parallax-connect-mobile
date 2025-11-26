@@ -53,7 +53,7 @@ CustomTransitionPage _buildSlideTransition({
 // GoRouter provider
 final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
-    initialLocation: AppRoutes.chat,
+    initialLocation: AppRoutes.splash,
     navigatorKey: GlobalKey<NavigatorState>(),
     debugLogDiagnostics: true,
 

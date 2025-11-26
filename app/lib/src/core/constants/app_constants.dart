@@ -8,7 +8,7 @@ class AppMetadata {
 /// Test mode configuration
 class TestConfig {
   // 🧪 TEST MODE - Set to true to test UI without backend
-  static const bool enabled = true;
+  static const bool enabled = false;
 
   // 🧪 MOCK RESPONSE TYPE - Choose which type of response to test
   // Options: 'plain', 'code', 'markdown', 'mixed', 'long'

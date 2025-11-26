@@ -376,7 +376,29 @@ async def chat_endpoint(request: ChatRequest):
 
                 # Parse OpenAI response format
                 data = resp.json()
-                content = data["choices"][0]["message"]["content"]
+                logger.info(f"🔍 [{request_id}] Parallax response structure: {data}")
+
+                # Try to extract content safely
+                try:
+                    content = data["choices"][0]["message"]["content"]
+                except KeyError as e:
+                    logger.error(f"❌ [{request_id}] Missing key in response: {e}")
+                    logger.error(f"❌ [{request_id}] Full response: {data}")
+                    # Try alternative structure
+                    if "choices" in data and len(data["choices"]) > 0:
+                        choice = data["choices"][0]
+                        logger.info(f"🔍 [{request_id}] Choice structure: {choice}")
+                        # Some APIs use 'text' instead of 'message.content'
+                        if "text" in choice:
+                            content = choice["text"]
+                        elif "delta" in choice and "content" in choice["delta"]:
+                            content = choice["delta"]["content"]
+                        else:
+                            raise KeyError(
+                                f"Could not find content in response structure. Choice keys: {choice.keys()}"
+                            )
+                    else:
+                        raise
 
                 # Extract usage metadata (token counts)
                 usage = data.get("usage", {})
