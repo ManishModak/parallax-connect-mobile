@@ -5,6 +5,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 
 import '../../../core/storage/chat_archive_storage.dart';
 import '../../../core/constants/app_colors.dart';
+import 'chat_controller.dart';
 import 'archived_session_detail_screen.dart';
 
 class ArchivedSessionsScreen extends ConsumerStatefulWidget {
@@ -33,9 +34,26 @@ class _ArchivedSessionsScreenState
     });
 
     final archiveStorage = ref.read(chatArchiveStorageProvider);
-    final sessions = _searchQuery.isEmpty
+    var sessions = _searchQuery.isEmpty
         ? archiveStorage.getArchivedSessions()
         : archiveStorage.searchSessions(_searchQuery);
+
+    // Include current active chat if it exists
+    final currentMessages = ref.read(chatControllerProvider).messages;
+
+    if (currentMessages.isNotEmpty) {
+      // Create a virtual session for the current active chat
+      final currentSession = ChatSession(
+        id: 'current_active',
+        title: '💬 Current Chat',
+        messages: currentMessages.map((m) => m.toMap()).toList(),
+        timestamp: DateTime.now(),
+        messageCount: currentMessages.length,
+      );
+
+      // Add current session at the top
+      sessions = [currentSession, ...sessions];
+    }
 
     setState(() {
       _sessions = sessions;
@@ -76,15 +94,23 @@ class _ArchivedSessionsScreenState
       _loadSessions();
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Session deleted')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Session deleted')));
       }
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    // Listen to chat controller changes and reload sessions
+    ref.listen(chatControllerProvider, (previous, next) {
+      // Reload when messages change
+      if (previous?.messages.length != next.messages.length) {
+        _loadSessions();
+      }
+    });
+
     return Scaffold(
       appBar: AppBar(
         title: const Text(

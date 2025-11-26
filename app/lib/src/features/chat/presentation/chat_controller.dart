@@ -50,20 +50,12 @@ class ChatController extends Notifier<ChatState> {
       try {
         final messageMaps = state.messages.map((m) => m.toMap()).toList();
 
-        if (state.currentSessionId != null) {
-          // Update existing session
-          await _archiveStorage.updateSession(
-            sessionId: state.currentSessionId!,
-            messages: messageMaps,
-          );
-          logger.i('Updated archived session: ${state.currentSessionId}');
-        } else {
-          // Create new session
-          await _archiveStorage.archiveSession(messages: messageMaps);
-          logger.i('Created new archived session');
-        }
+        // Always create a new session when starting new chat
+        // Don't try to update - this prevents "session not found" errors
+        await _archiveStorage.archiveSession(messages: messageMaps);
+        logger.i('Created new archived session');
       } catch (e) {
-        logger.e('Failed to archive/update session: $e');
+        logger.e('Failed to archive session: $e');
         // Continue with clearing even if archiving fails
       }
     }
