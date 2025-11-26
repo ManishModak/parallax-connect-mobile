@@ -12,6 +12,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/services/connectivity_service.dart';
+import '../../../core/services/model_selection_service.dart';
 import '../../../core/storage/config_storage.dart';
 import '../../../core/utils/haptics_helper.dart';
 import '../../chat/data/chat_repository.dart';
@@ -132,6 +133,8 @@ class _ConfigScreenState extends ConsumerState<ConfigScreen> {
 
       if (isConnected) {
         _showSuccessSnackBar('Successfully connected to server!');
+        // Fetch available models after successful connection
+        ref.read(modelSelectionProvider.notifier).fetchModels();
         await Future.delayed(const Duration(milliseconds: 500));
         if (!mounted) return;
         context.go(AppRoutes.chat);

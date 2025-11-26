@@ -9,9 +9,12 @@ import 'package:file_picker/file_picker.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/utils/haptics_helper.dart';
+import '../../settings/presentation/settings_controller.dart';
 import 'chat_controller.dart';
 import 'widgets/chat_message_bubble.dart';
 import 'widgets/chat_input_area.dart';
+import 'widgets/streaming_message_bubble.dart';
+import 'widgets/thinking_indicator.dart';
 
 class ChatScreen extends ConsumerStatefulWidget {
   const ChatScreen({super.key});
@@ -44,9 +47,18 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     final chatState = ref.watch(chatControllerProvider);
     final chatController = ref.read(chatControllerProvider.notifier);
 
-    // Auto-scroll to bottom when new messages arrive
+    // Auto-scroll to bottom when new messages arrive or streaming content updates
     ref.listen(chatControllerProvider, (previous, next) {
-      if (next.messages.length > (previous?.messages.length ?? 0)) {
+      final hasNewMessage =
+          next.messages.length > (previous?.messages.length ?? 0);
+      final isStreaming = next.isStreaming;
+      final contentChanged =
+          next.streamingContent != (previous?.streamingContent ?? '');
+      final thinkingChanged =
+          next.thinkingContent != (previous?.thinkingContent ?? '');
+
+      if (hasNewMessage ||
+          (isStreaming && (contentChanged || thinkingChanged))) {
         Future.delayed(const Duration(milliseconds: 100), _scrollToBottom);
       }
     });
@@ -183,7 +195,37 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                           }, childCount: chatState.messages.length),
                         ),
                       ),
-                      if (chatState.isLoading)
+                      // Show thinking indicator when streaming and thinking
+                      if (chatState.isStreaming && chatState.isThinking)
+                        SliverToBoxAdapter(
+                          child: Builder(
+                            builder: (context) {
+                              final showThinking = ref.watch(
+                                settingsControllerProvider.select(
+                                  (s) => s.showThinking,
+                                ),
+                              );
+                              if (!showThinking) {
+                                return const ChatMessageBubble(isShimmer: true);
+                              }
+                              return ThinkingIndicator(
+                                thinkingContent: chatState.thinkingContent,
+                                isThinking: chatState.isThinking,
+                              );
+                            },
+                          ),
+                        ),
+                      // Show streaming content
+                      if (chatState.isStreaming &&
+                          chatState.streamingContent.isNotEmpty)
+                        SliverToBoxAdapter(
+                          child: StreamingMessageBubble(
+                            content: chatState.streamingContent,
+                            isComplete: false,
+                          ),
+                        ),
+                      // Show shimmer for non-streaming loading
+                      if (chatState.isLoading && !chatState.isStreaming)
                         const SliverToBoxAdapter(
                           child: ChatMessageBubble(isShimmer: true),
                         ),

@@ -1,9 +1,14 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/router/app_router.dart';
+import '../../../../core/services/feature_flags_service.dart';
+import '../../../../core/services/model_selection_service.dart';
+import '../../../../core/utils/feature_snackbar.dart';
 import '../../../../core/utils/haptics_helper.dart';
 import '../../utils/file_type_helper.dart';
 import 'attachment_menu.dart';
@@ -133,6 +138,156 @@ class _ChatInputAreaState extends ConsumerState<ChatInputArea> {
     });
   }
 
+  Widget _buildAttachmentButton() {
+    final featureFlags = ref.watch(featureFlagsProvider);
+    final attachmentStatus = featureFlags.attachments;
+    final isEnabled = attachmentStatus.canUse;
+
+    return Container(
+      width: 36,
+      height: 36,
+      decoration: BoxDecoration(
+        color: isEnabled
+            ? AppColors.surfaceLight.withValues(alpha: 0.5)
+            : AppColors.surfaceLight.withValues(alpha: 0.2),
+        shape: BoxShape.circle,
+      ),
+      child: IconButton(
+        icon: Icon(
+          LucideIcons.paperclip,
+          size: 18,
+          color: isEnabled
+              ? AppColors.primary
+              : AppColors.secondary.withValues(alpha: 0.5),
+        ),
+        onPressed: () {
+          if (isEnabled) {
+            _toggleAttachmentMenu();
+          } else {
+            // Show snackbar explaining why attachments are disabled
+            ref.read(hapticsHelperProvider).triggerHaptics();
+            FeatureSnackbar.showDisabled(
+              context,
+              featureName: 'Attachments',
+              status: attachmentStatus,
+              onSettingsTap: attachmentStatus.isAvailable
+                  ? () => context.push(AppRoutes.settings)
+                  : null,
+            );
+          }
+        },
+        padding: EdgeInsets.zero,
+      ),
+    );
+  }
+
+  Widget _buildModelSelector() {
+    final modelState = ref.watch(modelSelectionProvider);
+    final activeModel = modelState.activeModel;
+
+    // Show active model name, or "No Model" if scheduler not initialized
+    final displayName = activeModel?.name ?? 'No Model';
+    // Truncate long model names (e.g., "Qwen/Qwen3-0.6B" -> "Qwen3-0.6B")
+    final shortName = displayName.contains('/')
+        ? displayName.split('/').last
+        : displayName;
+
+    return GestureDetector(
+      onTap: () {
+        ref.read(hapticsHelperProvider).triggerHaptics();
+        _showModelInfoSnackbar(modelState);
+      },
+      child: Container(
+        height: 36,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        decoration: BoxDecoration(
+          color: modelState.hasActiveModel
+              ? AppColors.surfaceLight.withValues(alpha: 0.5)
+              : AppColors.warning.withValues(alpha: 0.2),
+          borderRadius: BorderRadius.circular(18),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              LucideIcons.cpu,
+              size: 14,
+              color: modelState.hasActiveModel
+                  ? AppColors.secondary
+                  : AppColors.warning,
+            ),
+            const SizedBox(width: 6),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 100),
+              child: Text(
+                shortName,
+                style: GoogleFonts.inter(
+                  color: modelState.hasActiveModel
+                      ? AppColors.secondary
+                      : AppColors.warning,
+                  fontSize: 12,
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showModelInfoSnackbar(ModelSelectionState modelState) {
+    final activeModel = modelState.activeModel;
+
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            Icon(
+              modelState.hasActiveModel
+                  ? LucideIcons.cpu
+                  : LucideIcons.alertCircle,
+              color: AppColors.primary,
+              size: 20,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    modelState.hasActiveModel
+                        ? activeModel!.name
+                        : 'No model running',
+                    style: GoogleFonts.inter(
+                      color: AppColors.primary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  Text(
+                    'Change model in Parallax Web UI',
+                    style: GoogleFonts.inter(
+                      color: AppColors.primaryMildVariant,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: modelState.hasActiveModel
+            ? AppColors.surfaceLight
+            : AppColors.warning.withValues(alpha: 0.9),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        duration: const Duration(seconds: 3),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return TapRegion(
@@ -212,7 +367,9 @@ class _ChatInputAreaState extends ConsumerState<ChatInputArea> {
                               child: Container(
                                 padding: const EdgeInsets.all(4),
                                 decoration: BoxDecoration(
-                                  color: AppColors.background.withValues(alpha: 0.6),
+                                  color: AppColors.background.withValues(
+                                    alpha: 0.6,
+                                  ),
                                   shape: BoxShape.circle,
                                 ),
                                 child: const Icon(
@@ -257,24 +414,11 @@ class _ChatInputAreaState extends ConsumerState<ChatInputArea> {
                   // Attachment Button
                   CompositedTransformTarget(
                     link: _layerLink,
-                    child: Container(
-                      width: 36,
-                      height: 36,
-                      decoration: BoxDecoration(
-                        color: AppColors.surfaceLight.withValues(alpha: 0.5),
-                        shape: BoxShape.circle,
-                      ),
-                      child: IconButton(
-                        icon: const Icon(
-                          LucideIcons.paperclip,
-                          size: 18,
-                          color: AppColors.primary,
-                        ),
-                        onPressed: _toggleAttachmentMenu,
-                        padding: EdgeInsets.zero,
-                      ),
-                    ),
+                    child: _buildAttachmentButton(),
                   ),
+                  const SizedBox(width: 8),
+                  // Model Selector
+                  _buildModelSelector(),
                   const Spacer(),
                   // Send/Voice Button
                   Container(

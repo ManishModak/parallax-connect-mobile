@@ -16,42 +16,70 @@ class HapticsSelector extends StatelessWidget {
     this.onHapticFeedback,
   });
 
+  String _getDescription() {
+    switch (currentLevel) {
+      case 'none':
+        return 'No haptic feedback';
+      case 'min':
+        return 'Light feedback on button taps';
+      case 'max':
+        return 'Button taps + typing feel during streaming';
+      default:
+        return '';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: 48,
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.secondary.withValues(alpha: 0.1)),
-      ),
-      child: Row(
-        children: [
-          _HapticOption(
-            label: 'None',
-            value: 'none',
-            icon: LucideIcons.smartphone,
-            isSelected: currentLevel == 'none',
-            onTap: _handleSelection,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          height: 48,
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: AppColors.secondary.withValues(alpha: 0.1),
+            ),
           ),
-          _divider(),
-          _HapticOption(
-            label: 'Min',
-            value: 'min',
-            icon: LucideIcons.vibrate,
-            isSelected: currentLevel == 'min',
-            onTap: _handleSelection,
+          child: Row(
+            children: [
+              _HapticOption(
+                label: 'None',
+                value: 'none',
+                icon: LucideIcons.smartphone,
+                isSelected: currentLevel == 'none',
+                onTap: _handleSelection,
+              ),
+              _divider(),
+              _HapticOption(
+                label: 'Min',
+                value: 'min',
+                icon: LucideIcons.vibrate,
+                isSelected: currentLevel == 'min',
+                onTap: _handleSelection,
+              ),
+              _divider(),
+              _HapticOption(
+                label: 'Max',
+                value: 'max',
+                icon: LucideIcons.waves,
+                isSelected: currentLevel == 'max',
+                onTap: _handleSelection,
+              ),
+            ],
           ),
-          _divider(),
-          _HapticOption(
-            label: 'Max',
-            value: 'max',
-            icon: LucideIcons.waves,
-            isSelected: currentLevel == 'max',
-            onTap: _handleSelection,
+        ),
+        const SizedBox(height: 8),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          child: Text(
+            _getDescription(),
+            style: GoogleFonts.inter(color: AppColors.secondary, fontSize: 12),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -113,4 +141,3 @@ class _HapticOption extends StatelessWidget {
     );
   }
 }
-

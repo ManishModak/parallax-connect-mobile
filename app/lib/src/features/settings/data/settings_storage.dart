@@ -10,6 +10,8 @@ class SettingsStorage {
   static const _keyMaxContextTokens = 'settings_max_context_tokens';
   static const _keySystemPrompt = 'settings_system_prompt';
   static const _keyResponseStyle = 'settings_response_style';
+  static const _keyStreamingEnabled = 'settings_streaming_enabled';
+  static const _keyShowThinking = 'settings_show_thinking';
 
   final SharedPreferences _prefs;
 
@@ -17,12 +19,16 @@ class SettingsStorage {
 
   // Haptics Level
   // Values: 'none', 'min', 'max'
+  // - none: No haptic feedback
+  // - min: Light feedback on button taps
+  // - max: min + typing feel during streaming responses
   Future<void> setHapticsLevel(String level) async {
     await _prefs.setString(_keyHapticsLevel, level);
   }
 
   String getHapticsLevel() {
-    return _prefs.getString(_keyHapticsLevel) ?? 'min';
+    return _prefs.getString(_keyHapticsLevel) ??
+        'max'; // Default to max for best UX
   }
 
   // Vision Pipeline Mode
@@ -80,6 +86,30 @@ class SettingsStorage {
     return _prefs.getString(_keyResponseStyle) ?? 'Neutral';
   }
 
+  // Streaming Enabled
+  // Controls whether responses are streamed token-by-token
+  Future<void> setStreamingEnabled(bool enabled) async {
+    await _prefs.setBool(_keyStreamingEnabled, enabled);
+  }
+
+  /// Get streaming enabled
+  /// Returns true when responses should stream in real-time
+  bool getStreamingEnabled() {
+    return _prefs.getBool(_keyStreamingEnabled) ?? true;
+  }
+
+  // Show Thinking
+  // Controls whether model's thinking/reasoning is displayed
+  Future<void> setShowThinking(bool show) async {
+    await _prefs.setBool(_keyShowThinking, show);
+  }
+
+  /// Get show thinking
+  /// Returns true when model's thinking process should be visible
+  bool getShowThinking() {
+    return _prefs.getBool(_keyShowThinking) ?? true;
+  }
+
   // Clear all settings (reset to defaults)
   Future<void> clearSettings() async {
     await _prefs.remove(_keyHapticsLevel);
@@ -88,6 +118,8 @@ class SettingsStorage {
     await _prefs.remove(_keyMaxContextTokens);
     await _prefs.remove(_keySystemPrompt);
     await _prefs.remove(_keyResponseStyle);
+    await _prefs.remove(_keyStreamingEnabled);
+    await _prefs.remove(_keyShowThinking);
   }
 }
 

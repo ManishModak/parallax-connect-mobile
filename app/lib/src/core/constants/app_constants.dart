@@ -21,4 +21,5 @@ class StorageKeys {
   static const String baseUrl = 'base_url';
   static const String isLocal = 'is_local';
   static const String password = 'password';
+  static const String selectedModel = 'selected_model';
 }

@@ -5,6 +5,8 @@ class SettingsState {
   final int maxContextTokens;
   final String systemPrompt;
   final String responseStyle;
+  final bool isStreamingEnabled;
+  final bool showThinking;
 
   SettingsState({
     required this.hapticsLevel,
@@ -13,6 +15,8 @@ class SettingsState {
     required this.maxContextTokens,
     required this.systemPrompt,
     required this.responseStyle,
+    this.isStreamingEnabled = true,
+    this.showThinking = true,
   });
 
   SettingsState copyWith({
@@ -22,6 +26,8 @@ class SettingsState {
     int? maxContextTokens,
     String? systemPrompt,
     String? responseStyle,
+    bool? isStreamingEnabled,
+    bool? showThinking,
   }) {
     return SettingsState(
       hapticsLevel: hapticsLevel ?? this.hapticsLevel,
@@ -31,7 +37,8 @@ class SettingsState {
       maxContextTokens: maxContextTokens ?? this.maxContextTokens,
       systemPrompt: systemPrompt ?? this.systemPrompt,
       responseStyle: responseStyle ?? this.responseStyle,
+      isStreamingEnabled: isStreamingEnabled ?? this.isStreamingEnabled,
+      showThinking: showThinking ?? this.showThinking,
     );
   }
 }
-

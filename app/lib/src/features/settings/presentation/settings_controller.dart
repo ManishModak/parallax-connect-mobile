@@ -20,6 +20,8 @@ class SettingsController extends Notifier<SettingsState> {
       maxContextTokens: _settingsStorage.getMaxContextTokens(),
       systemPrompt: _settingsStorage.getSystemPrompt(),
       responseStyle: _settingsStorage.getResponseStyle(),
+      isStreamingEnabled: _settingsStorage.getStreamingEnabled(),
+      showThinking: _settingsStorage.getShowThinking(),
     );
   }
 
@@ -86,6 +88,16 @@ class SettingsController extends Notifier<SettingsState> {
     }
   }
 
+  Future<void> setStreamingEnabled(bool enabled) async {
+    await _settingsStorage.setStreamingEnabled(enabled);
+    state = state.copyWith(isStreamingEnabled: enabled);
+  }
+
+  Future<void> setShowThinking(bool show) async {
+    await _settingsStorage.setShowThinking(show);
+    state = state.copyWith(showThinking: show);
+  }
+
   Future<void> clearAllData() async {
     await _chatHistoryStorage.clearHistory();
     await _settingsStorage.clearSettings();
@@ -98,6 +110,8 @@ class SettingsController extends Notifier<SettingsState> {
       maxContextTokens: _settingsStorage.getMaxContextTokens(),
       systemPrompt: _settingsStorage.getSystemPrompt(),
       responseStyle: _settingsStorage.getResponseStyle(),
+      isStreamingEnabled: _settingsStorage.getStreamingEnabled(),
+      showThinking: _settingsStorage.getShowThinking(),
     );
   }
 }

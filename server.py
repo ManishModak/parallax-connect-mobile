@@ -1,5 +1,7 @@
+import asyncio
 import getpass
 import glob
+import json
 import os
 import re
 import socket
@@ -260,6 +262,7 @@ class ChatRequest(BaseModel):
     # === REQUIRED ===
     prompt: str  # The user's message/question
     system_prompt: Optional[str] = None  # Optional system instructions
+    model: Optional[str] = None  # Model ID to use (defaults to "default")
 
     # === CONVERSATION HISTORY (FOR MULTI-TURN CHAT) ===
     messages: Optional[List[dict]] = None
@@ -372,6 +375,169 @@ async def status_endpoint():
     return status
 
 
+@app.get("/models", dependencies=[Depends(check_password)])
+async def models_endpoint():
+    """
+    Returns available and active models from Parallax.
+    
+    IMPORTANT: Parallax runs ONE model at a time. The model is set when the
+    scheduler is initialized via the Web UI or /scheduler/init endpoint.
+    The 'model' field in chat requests is IGNORED - it uses the active model.
+    
+    Parallax endpoints:
+    - /model/list: returns {type: "model_list", data: [{name, vram_gb}, ...]} - all SUPPORTED models
+    - /cluster/status: SSE stream with {data: {model_name: "..."}} - the ACTIVE model
+    
+    We return:
+    - models: list of supported models
+    - active: the currently running model (from cluster status)
+    - default: same as active, or first model if no active
+    """
+    if SERVER_MODE == "MOCK":
+        return {
+            "models": [
+                {"id": "mock-model", "name": "Mock Model", "context_length": 4096, "vram_gb": 8}
+            ],
+            "active": "mock-model",
+            "default": "mock-model",
+        }
+
+    active_model = None
+    models = []
+    
+    try:
+        async with httpx.AsyncClient() as client:
+            # Get supported models list
+            resp = await client.get("http://localhost:3001/model/list", timeout=5.0)
+            if resp.status_code == 200:
+                response_data = resp.json()
+                # Parallax returns: {type: "model_list", data: [{name, vram_gb}, ...]}
+                raw_models = response_data.get("data", [])
+                
+                # Normalize model format for the app
+                models = [
+                    {
+                        "id": m.get("name", "unknown"),
+                        "name": m.get("name", "Unknown Model"),
+                        "context_length": 32768,
+                        "vram_gb": m.get("vram_gb", 0),
+                    }
+                    for m in raw_models
+                ]
+            
+            # Get active model from cluster status (SSE - read first line only)
+            try:
+                async with client.stream("GET", "http://localhost:3001/cluster/status", timeout=2.0) as stream:
+                    async for line in stream.aiter_lines():
+                        if line.strip():
+                            status_data = json.loads(line)
+                            active_model = status_data.get("data", {}).get("model_name")
+                            break
+            except Exception as e:
+                logger.debug(f"Could not get cluster status: {e}")
+                
+    except Exception as e:
+        logger.error(f"❌ Failed to fetch models: {e}")
+
+    # Determine default: active model if set, otherwise first in list
+    default_model = active_model or (models[0]["id"] if models else "default")
+    
+    logger.info(f"📋 Models: {len(models)} available, active: {active_model or 'none'}")
+    
+    return {
+        "models": models,
+        "active": active_model,  # Currently running model (None if scheduler not initialized)
+        "default": default_model,
+    }
+
+
+@app.get("/info", dependencies=[Depends(check_password)])
+async def info_endpoint():
+    """
+    Returns server capabilities for dynamic feature configuration.
+    
+    The mobile app uses this to enable/disable features based on:
+    - VRAM availability (Full Multimodal requires >=16GB)
+    - Vision model support
+    - Document processing support
+    - Model context window size
+    """
+    info = {
+        "server_version": "1.0.0",
+        "mode": SERVER_MODE,
+        "capabilities": {
+            # Default conservative values - features disabled until verified
+            "vram_gb": 0,
+            "vision_supported": False,
+            "document_processing": False,
+            "max_context_window": 4096,
+            "multimodal_supported": False,
+        },
+        "timestamp": datetime.now().isoformat(),
+    }
+
+    if SERVER_MODE == "MOCK":
+        # Mock mode: return limited capabilities
+        info["capabilities"] = {
+            "vram_gb": 8,
+            "vision_supported": False,
+            "document_processing": False,
+            "max_context_window": 4096,
+            "multimodal_supported": False,
+        }
+        return info
+
+    # PROXY mode: query Parallax for actual capabilities
+    # NOTE: Parallax API provides:
+    # - /model/list: returns {type, data: [{name, vram_gb}, ...]}
+    # - /cluster/status: SSE stream (not useful for one-time query)
+    # - Vision/multimodal is NOT currently supported by Parallax executor
+    # - Document processing is done client-side (Edge OCR / Smart Context)
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.get("http://localhost:3001/model/list", timeout=5.0)
+            
+            if resp.status_code == 200:
+                model_data = resp.json()
+                # Parallax returns: {type: "model_list", data: [{name, vram_gb}, ...]}
+                models = model_data.get("data", [])
+                
+                if models:
+                    # Get max VRAM requirement from available models
+                    # This gives us an idea of what the cluster can handle
+                    max_vram = max((m.get("vram_gb", 0) for m in models), default=0)
+                    
+                    # Estimate available VRAM based on largest model supported
+                    # If cluster can run a 16GB model, it likely has 16GB+ VRAM
+                    info["capabilities"]["vram_gb"] = max_vram if max_vram > 0 else 8
+                    
+                    # Vision/multimodal: NOT supported by Parallax currently
+                    # The executor doesn't process images - only text
+                    info["capabilities"]["vision_supported"] = False
+                    info["capabilities"]["multimodal_supported"] = False
+                    
+                    # Document processing: This is done client-side via:
+                    # - Edge OCR (ML Kit on device)
+                    # - Smart Context (chunking before sending)
+                    # Server just needs decent context window for text
+                    # Most models support 4K-32K context
+                    info["capabilities"]["document_processing"] = True
+                    info["capabilities"]["max_context_window"] = 32768  # Most modern models
+                    
+                    # Add model info for reference
+                    info["active_models"] = [m.get("name", "unknown") for m in models[:5]]
+                
+                logger.info(f"📊 Server capabilities: {info['capabilities']}")
+            else:
+                logger.warning(f"⚠️ Could not fetch model info: {resp.status_code}")
+                
+    except Exception as e:
+        logger.error(f"❌ Failed to fetch server capabilities: {e}")
+        # Return conservative defaults on error
+
+    return info
+
+
 @app.post("/chat", dependencies=[Depends(check_password)])
 async def chat_endpoint(request: ChatRequest):
     request_id = datetime.now().strftime("%Y%m%d%H%M%S%f")
@@ -418,7 +584,7 @@ async def chat_endpoint(request: ChatRequest):
                 # Currently supported by Parallax executor: temperature, top_p, top_k
                 # (repetition_penalty, presence_penalty, frequency_penalty, stop are TODO in Parallax)
                 payload = {
-                    "model": "default",
+                    "model": request.model or "default",
                     "messages": messages,
                     "stream": False,
                     "max_tokens": request.max_tokens,
@@ -511,6 +677,178 @@ async def chat_endpoint(request: ChatRequest):
         except Exception as e:
             logger.error(f"❌ [{request_id}] Proxy error: {e}", exc_info=True)
             raise HTTPException(status_code=500, detail=f"Remote Service Error: {e}")
+
+
+@app.post("/chat/stream", dependencies=[Depends(check_password)])
+async def chat_stream_endpoint(request: ChatRequest):
+    """
+    Streaming chat endpoint that returns Server-Sent Events (SSE).
+    
+    Streams tokens as they're generated, including thinking content.
+    Format: Each SSE event contains JSON with either:
+    - {"type": "thinking", "content": "..."} - Model's reasoning (inside <think> tags)
+    - {"type": "content", "content": "..."} - Final response content
+    - {"type": "done", "metadata": {...}} - Stream complete with usage stats
+    - {"type": "error", "message": "..."} - Error occurred
+    """
+    request_id = datetime.now().strftime("%Y%m%d%H%M%S%f")
+    logger.info(f"🌊 [{request_id}] Streaming chat request: {request.prompt[:50]}...")
+
+    if SERVER_MODE == "MOCK":
+        async def mock_stream():
+            # Simulate thinking
+            thinking_lines = [
+                "Let me analyze this question...",
+                "Considering the context provided...",
+                "Breaking down the key points...",
+                "Formulating a comprehensive response...",
+            ]
+            for line in thinking_lines:
+                yield f"data: {json.dumps({'type': 'thinking', 'content': line})}\n\n"
+                await asyncio.sleep(0.3)
+            
+            # Simulate response
+            response = f"[MOCK] Server received: '{request.prompt}'. This is a simulated streaming response."
+            words = response.split()
+            for word in words:
+                yield f"data: {json.dumps({'type': 'content', 'content': word + ' '})}\n\n"
+                await asyncio.sleep(0.1)
+            
+            yield f"data: {json.dumps({'type': 'done', 'metadata': {'prompt_tokens': 10, 'completion_tokens': len(words)}})}\n\n"
+        
+        return StreamingResponse(mock_stream(), media_type="text/event-stream")
+
+    # PROXY mode - forward to Parallax with streaming
+    async def stream_from_parallax():
+        start_time = datetime.now()
+        try:
+            # Build messages array
+            if request.messages:
+                messages = list(request.messages)
+                if request.system_prompt:
+                    messages.insert(0, {"role": "system", "content": request.system_prompt})
+            else:
+                messages = []
+                if request.system_prompt:
+                    messages.append({"role": "system", "content": request.system_prompt})
+                messages.append({"role": "user", "content": request.prompt})
+
+            payload = {
+                "model": request.model or "default",
+                "messages": messages,
+                "stream": True,  # Enable streaming
+                "max_tokens": request.max_tokens,
+                "sampling_params": {
+                    "temperature": request.temperature,
+                    "top_p": request.top_p,
+                    "top_k": request.top_k,
+                },
+            }
+
+            async with httpx.AsyncClient() as client:
+                async with client.stream(
+                    "POST",
+                    PARALLAX_SERVICE_URL,
+                    json=payload,
+                    timeout=None,  # No timeout for streaming
+                ) as response:
+                    if response.status_code != 200:
+                        error_text = await response.aread()
+                        yield f"data: {json.dumps({'type': 'error', 'message': f'Parallax error: {error_text.decode()}'})}\n\n"
+                        return
+
+                    # Track state for parsing <think> tags
+                    buffer = ""
+                    in_thinking = False
+                    thinking_started = False
+                    prompt_tokens = 0
+                    completion_tokens = 0
+
+                    async for line in response.aiter_lines():
+                        if not line.strip() or line.startswith(":"):
+                            continue
+                        
+                        if line.startswith("data: "):
+                            data_str = line[6:]
+                            if data_str == "[DONE]":
+                                break
+                            
+                            try:
+                                data = json.loads(data_str)
+                                
+                                # Extract token from SSE chunk
+                                delta = data.get("choices", [{}])[0].get("delta", {})
+                                content = delta.get("content", "")
+                                
+                                # Update token counts
+                                usage = data.get("usage", {})
+                                if usage.get("prompt_tokens"):
+                                    prompt_tokens = usage["prompt_tokens"]
+                                if usage.get("completion_tokens"):
+                                    completion_tokens = usage["completion_tokens"]
+                                
+                                if content:
+                                    buffer += content
+                                    
+                                    # Check for <think> tag start
+                                    if "<think>" in buffer and not in_thinking:
+                                        in_thinking = True
+                                        thinking_started = True
+                                        # Remove the tag from buffer
+                                        buffer = buffer.replace("<think>", "")
+                                    
+                                    # Check for </think> tag end
+                                    if "</think>" in buffer and in_thinking:
+                                        in_thinking = False
+                                        # Send remaining thinking content
+                                        think_content = buffer.split("</think>")[0]
+                                        if think_content.strip():
+                                            yield f"data: {json.dumps({'type': 'thinking', 'content': think_content})}\n\n"
+                                        # Keep content after </think>
+                                        buffer = buffer.split("</think>", 1)[1] if "</think>" in buffer else ""
+                                        continue
+                                    
+                                    # Stream content based on state
+                                    if in_thinking:
+                                        # Send thinking content in chunks (by newline or every ~50 chars)
+                                        if "\n" in buffer or len(buffer) > 50:
+                                            yield f"data: {json.dumps({'type': 'thinking', 'content': buffer})}\n\n"
+                                            buffer = ""
+                                    else:
+                                        # Stream regular content immediately
+                                        if buffer:
+                                            yield f"data: {json.dumps({'type': 'content', 'content': buffer})}\n\n"
+                                            buffer = ""
+                                
+                            except json.JSONDecodeError:
+                                continue
+
+                    # Flush any remaining buffer
+                    if buffer.strip():
+                        msg_type = "thinking" if in_thinking else "content"
+                        yield f"data: {json.dumps({'type': msg_type, 'content': buffer})}\n\n"
+
+                    elapsed = (datetime.now() - start_time).total_seconds()
+                    logger.info(f"✅ [{request_id}] Stream completed ({elapsed:.2f}s)")
+                    
+                    yield f"data: {json.dumps({'type': 'done', 'metadata': {'prompt_tokens': prompt_tokens, 'completion_tokens': completion_tokens, 'duration_seconds': round(elapsed, 2)}})}\n\n"
+
+        except httpx.ConnectError as e:
+            logger.error(f"🔌 [{request_id}] Cannot connect to Parallax: {e}")
+            yield f"data: {json.dumps({'type': 'error', 'message': 'Cannot connect to Parallax. Make sure it is running.'})}\n\n"
+        except Exception as e:
+            logger.error(f"❌ [{request_id}] Stream error: {e}", exc_info=True)
+            yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
+
+    return StreamingResponse(
+        stream_from_parallax(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",  # Disable nginx buffering
+        },
+    )
 
 
 @app.post("/vision", dependencies=[Depends(check_password)])

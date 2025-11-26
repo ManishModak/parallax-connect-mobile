@@ -36,6 +36,7 @@ dependencies:
   cupertino_icons: ^1.0.8
   flutter_riverpod: ^3.0.3
   dio: ^5.9.0
+  http: ^1.2.0
   logger: ^2.6.2
   flutter_dotenv: ^6.0.0
   flutter_animate: ^4.5.2

@@ -7,26 +7,21 @@ import 'package:lucide_icons/lucide_icons.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/utils/haptics_helper.dart';
 import '../../../core/storage/chat_archive_storage.dart';
+import '../../../core/services/feature_flags_service.dart';
+import '../../../core/services/server_capabilities_service.dart';
 import '../../chat/presentation/chat_controller.dart';
 import 'settings_controller.dart';
 import 'widgets/about_card.dart';
 import 'widgets/clear_history_confirmation_dialog.dart';
 import 'widgets/context_slider.dart';
+import 'widgets/feature_info_dialog.dart';
+import 'widgets/feature_toggle_tile.dart';
 import 'widgets/haptics_selector.dart';
 import 'widgets/response_preference_section.dart';
 import 'widgets/section_header.dart';
 import 'widgets/smart_context_switch.dart';
+import 'widgets/streaming_settings_section.dart';
 import 'widgets/vision_option_tile.dart';
-
-// TODO: Implement dynamic feature disabling based on requirements:
-// - Client device specs (minimum device capabilities for certain features)
-// - Parallax server capabilities:
-//   * VRAM availability (disable Full Multimodal if <16GB)
-//   * Vision model support (disable Full Multimodal if vision not supported)
-//   * Document processing support (auto-enable Smart Context if not supported)
-//   * Model context window size (adjust max context slider range)
-// Features should query server /info endpoint and device capabilities to
-// show/hide or disable options that won't work with current configuration.
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -44,12 +39,281 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     _systemPromptController = TextEditingController(
       text: ref.read(settingsControllerProvider).systemPrompt,
     );
+    // Fetch server capabilities on screen load
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(featureFlagsProvider.notifier).refreshCapabilities();
+    });
   }
 
   @override
   void dispose() {
     _systemPromptController.dispose();
     super.dispose();
+  }
+
+  Widget _buildFeatureCapabilitiesSection(HapticsHelper hapticsHelper) {
+    final featureFlags = ref.watch(featureFlagsProvider);
+    final capsAsync = ref.watch(serverCapabilitiesProvider);
+    final featureFlagsNotifier = ref.read(featureFlagsProvider.notifier);
+    final caps = capsAsync.value;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Expanded(child: SectionHeader(title: 'Feature Capabilities')),
+            // Refresh button
+            capsAsync.when(
+              loading: () => const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+              error: (_, __) => IconButton(
+                icon: Icon(
+                  LucideIcons.refreshCw,
+                  color: AppColors.error,
+                  size: 20,
+                ),
+                onPressed: () {
+                  hapticsHelper.triggerHaptics();
+                  featureFlagsNotifier.refreshCapabilities();
+                },
+                tooltip: 'Retry fetching capabilities',
+              ),
+              data: (_) => IconButton(
+                icon: Icon(
+                  LucideIcons.refreshCw,
+                  color: AppColors.secondary,
+                  size: 20,
+                ),
+                onPressed: () {
+                  hapticsHelper.triggerHaptics();
+                  featureFlagsNotifier.refreshCapabilities();
+                },
+                tooltip: 'Refresh server capabilities',
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        // Info banner
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: AppColors.primary.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
+          ),
+          child: Row(
+            children: [
+              Icon(LucideIcons.info, color: AppColors.primary, size: 16),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  featureFlags.capabilitiesFetched
+                      ? 'Tap on a feature to configure it. Features are disabled by default for safety.'
+                      : 'Connect to your Parallax server to detect available features.',
+                  style: GoogleFonts.inter(
+                    color: AppColors.secondary,
+                    fontSize: 12,
+                    height: 1.4,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        // Attachments toggle
+        FeatureToggleTile(
+          title: 'Attachments',
+          badgeText: 'BETA',
+          description: 'Send images and documents in chat.',
+          status: featureFlags.attachments,
+          onTap: () => _showAttachmentsDialog(
+            hapticsHelper,
+            featureFlags,
+            featureFlagsNotifier,
+            caps,
+          ),
+        ),
+        const SizedBox(height: 12),
+        // Multimodal Vision toggle
+        FeatureToggleTile(
+          title: 'Full Multimodal Vision',
+          badgeText: 'EXPERIMENTAL',
+          description: 'Process images on server for deep understanding.',
+          infoNote: featureFlags.capabilitiesFetched
+              ? 'Server VRAM: ${caps?.vramGb ?? 0}GB'
+              : null,
+          status: featureFlags.multimodalVision,
+          onTap: () => _showMultimodalDialog(
+            hapticsHelper,
+            featureFlags,
+            featureFlagsNotifier,
+            caps,
+          ),
+        ),
+        const SizedBox(height: 12),
+        // Document Processing toggle
+        FeatureToggleTile(
+          title: 'Server Document Processing',
+          badgeText: 'BETA',
+          description: 'Process documents directly on the server.',
+          infoNote: featureFlags.capabilitiesFetched
+              ? 'Max context: ${featureFlags.maxContextTokens} tokens'
+              : null,
+          status: featureFlags.documentProcessing,
+          onTap: () => _showDocumentProcessingDialog(
+            hapticsHelper,
+            featureFlags,
+            featureFlagsNotifier,
+            caps,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _showAttachmentsDialog(
+    HapticsHelper hapticsHelper,
+    FeatureFlags featureFlags,
+    FeatureFlagsNotifier notifier,
+    ServerCapabilities? caps,
+  ) async {
+    hapticsHelper.triggerHaptics();
+
+    final result = await showDialog<String>(
+      context: context,
+      builder: (context) => FeatureInfoDialog(
+        featureName: 'Attachments',
+        featureDescription:
+            'Enable this to send images and documents in your chat conversations.\n\n'
+            'How it works:\n'
+            '• Images are processed locally using Edge OCR (Google ML Kit)\n'
+            '• Text is extracted on your device, then sent to Parallax\n'
+            '• Documents are chunked via Smart Context before sending\n\n'
+            'Note: Parallax receives only the extracted text, not raw images.',
+        options: [
+          FeatureOption(
+            title: 'Enable Attachments',
+            description:
+                'Allow sending images and documents. They will be processed locally using Edge OCR before sending text to Parallax.',
+            recommendation:
+                'Uses on-device processing - works with any Parallax setup',
+            isRecommended: true,
+            value: 'enable',
+          ),
+          FeatureOption(
+            title: 'Keep Disabled',
+            description:
+                'Attachments will remain disabled. You can enable this later.',
+            value: 'disable',
+          ),
+        ],
+        currentValue: featureFlags.attachments.isEnabled ? 'enable' : 'disable',
+      ),
+    );
+
+    if (result != null) {
+      await notifier.setAttachmentsEnabled(result == 'enable');
+    }
+  }
+
+  Future<void> _showMultimodalDialog(
+    HapticsHelper hapticsHelper,
+    FeatureFlags featureFlags,
+    FeatureFlagsNotifier notifier,
+    ServerCapabilities? caps,
+  ) async {
+    hapticsHelper.triggerHaptics();
+
+    // Show info dialog explaining that multimodal is not supported
+    await showDialog<void>(
+      context: context,
+      builder: (context) => FeatureInfoDialog(
+        featureName: 'Full Multimodal Vision',
+        featureDescription:
+            'Server-side image processing is not currently supported by Parallax.\n\n'
+            'The Parallax executor only processes text - it cannot analyze raw images directly.\n\n'
+            'Instead, use Edge OCR which:\n'
+            '• Processes images locally on your device\n'
+            '• Extracts text using Google ML Kit\n'
+            '• Sends only the extracted text to Parallax\n\n'
+            'This works with any Parallax setup and is actually faster!',
+        warningMessage:
+            'This feature is not available because Parallax does not support server-side image processing.',
+        options: [
+          FeatureOption(
+            title: 'Use Edge OCR (Recommended)',
+            description:
+                'Process images locally on your device using ML Kit. Works with any Parallax setup.',
+            recommendation: 'This is the only supported option',
+            isRecommended: true,
+            value: 'edge',
+          ),
+        ],
+        currentValue: 'edge',
+      ),
+    );
+
+    // Always set to edge OCR since multimodal is not supported
+    ref.read(settingsControllerProvider.notifier).setVisionPipelineMode('edge');
+  }
+
+  Future<void> _showDocumentProcessingDialog(
+    HapticsHelper hapticsHelper,
+    FeatureFlags featureFlags,
+    FeatureFlagsNotifier notifier,
+    ServerCapabilities? caps,
+  ) async {
+    hapticsHelper.triggerHaptics();
+
+    final maxContext = caps?.maxContextWindow ?? 4096;
+
+    final result = await showDialog<String>(
+      context: context,
+      builder: (context) => FeatureInfoDialog(
+        featureName: 'Document Processing',
+        featureDescription:
+            'Enable document processing to send PDFs and text files in chat.\n\n'
+            'How it works:\n'
+            '• Documents are processed locally using Smart Context\n'
+            '• Large documents are intelligently chunked\n'
+            '• Only relevant text is sent to Parallax\n\n'
+            'Your server supports up to $maxContext tokens per request.',
+        options: [
+          FeatureOption(
+            title: 'Enable with Smart Context',
+            description:
+                'Process documents locally with intelligent chunking. Automatically splits large documents to fit context window.',
+            recommendation: 'Works with any Parallax setup',
+            isRecommended: true,
+            value: 'enable',
+          ),
+          FeatureOption(
+            title: 'Keep Disabled',
+            description: 'Document processing will remain disabled.',
+            value: 'disable',
+          ),
+        ],
+        currentValue: featureFlags.documentProcessing.isEnabled
+            ? 'enable'
+            : 'disable',
+      ),
+    );
+
+    if (result != null) {
+      if (result == 'enable') {
+        await notifier.setDocumentProcessingEnabled(true);
+        // Enable Smart Context for document chunking
+        ref.read(settingsControllerProvider.notifier).toggleSmartContext(true);
+      } else {
+        await notifier.setDocumentProcessingEnabled(false);
+      }
+    }
   }
 
   @override
@@ -104,6 +368,49 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ),
           const SizedBox(height: 32),
 
+          // Streaming Settings Section
+          const SectionHeader(title: 'Response Streaming'),
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: AppColors.accent.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: AppColors.accent.withValues(alpha: 0.2),
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(LucideIcons.zap, color: AppColors.accent, size: 16),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Streaming shows responses in real-time as they\'re generated, improving perceived speed.',
+                    style: GoogleFonts.inter(
+                      color: AppColors.secondary,
+                      fontSize: 12,
+                      height: 1.4,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          StreamingSettingsSection(
+            isStreamingEnabled: state.isStreamingEnabled,
+            showThinking: state.showThinking,
+            onStreamingChanged: controller.setStreamingEnabled,
+            onShowThinkingChanged: controller.setShowThinking,
+            onHapticFeedback: hapticsHelper.triggerHaptics,
+          ),
+          const SizedBox(height: 32),
+
+          // Feature Capabilities Section
+          _buildFeatureCapabilitiesSection(hapticsHelper),
+          const SizedBox(height: 32),
+
           const SectionHeader(title: 'Response Preference'),
           const SizedBox(height: 16),
           ResponsePreferenceSection(
@@ -137,16 +444,67 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             },
           ),
           const SizedBox(height: 12),
-          VisionOptionTile(
-            title: 'Full Multimodal (Experimental)',
-            description:
-                'Choose this when your Parallax server has vision-capable models and >16GB VRAM. Best for complex visuals that need deep understanding.',
-            value: 'multimodal',
-            groupValue: state.visionPipelineMode,
-            onChanged: (val) {
-              if (val == null) return;
-              hapticsHelper.triggerHaptics();
-              controller.setVisionPipelineMode(val);
+          Builder(
+            builder: (context) {
+              final featureFlags = ref.watch(featureFlagsProvider);
+              final multimodalAvailable =
+                  featureFlags.multimodalVision.isAvailable;
+
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  VisionOptionTile(
+                    title: 'Full Multimodal (Experimental)',
+                    description: multimodalAvailable
+                        ? 'Choose this when your Parallax server has vision-capable models and >16GB VRAM. Best for complex visuals that need deep understanding.'
+                        : 'Not available: ${featureFlags.multimodalVision.disabledMessage}',
+                    value: 'multimodal',
+                    groupValue: state.visionPipelineMode,
+                    onChanged: multimodalAvailable
+                        ? (val) {
+                            if (val == null) return;
+                            hapticsHelper.triggerHaptics();
+                            controller.setVisionPipelineMode(val);
+                          }
+                        : null,
+                  ),
+                  if (!multimodalAvailable &&
+                      state.visionPipelineMode == 'multimodal')
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: AppColors.error.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: AppColors.error.withValues(alpha: 0.2),
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              LucideIcons.alertTriangle,
+                              color: AppColors.error,
+                              size: 16,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Multimodal is selected but not available on your server. Consider switching to Edge OCR.',
+                                style: GoogleFonts.inter(
+                                  color: AppColors.error,
+                                  fontSize: 12,
+                                  height: 1.4,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                ],
+              );
             },
           ),
           const SizedBox(height: 32),
@@ -225,9 +583,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                               .read(chatArchiveStorageProvider)
                               .clearAllSessionsExcept(currentSessionId);
                           // Trigger history screen refresh
-                          ref
-                              .read(archiveRefreshProvider.notifier)
-                              .refresh();
+                          ref.read(archiveRefreshProvider.notifier).refresh();
                           messenger.showSnackBar(
                             SnackBar(
                               content: Text(

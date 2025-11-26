@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/services/connectivity_service.dart';
@@ -6,6 +8,7 @@ import '../../../core/services/vision_service.dart';
 import '../../../core/storage/chat_archive_storage.dart';
 import '../../../core/storage/chat_history_storage.dart';
 import '../../../core/storage/config_storage.dart';
+import '../../../core/utils/haptics_helper.dart';
 import '../../settings/data/settings_storage.dart';
 import '../../../core/utils/logger.dart';
 import '../../../core/constants/app_constants.dart';
@@ -24,6 +27,7 @@ class ChatController extends Notifier<ChatState> {
   late final SettingsStorage _settingsStorage;
   late final VisionService _visionService;
   late final DocumentService _documentService;
+  late final HapticsHelper _hapticsHelper;
 
   @override
   ChatState build() {
@@ -35,6 +39,7 @@ class ChatController extends Notifier<ChatState> {
     _settingsStorage = ref.read(settingsStorageProvider);
     _visionService = ref.read(visionServiceProvider);
     _documentService = ref.read(documentServiceProvider);
+    _hapticsHelper = ref.read(hapticsHelperProvider);
 
     // Load history and return initial state with messages
     final history = _historyStorage.getHistory();
@@ -78,6 +83,39 @@ class ChatController extends Notifier<ChatState> {
     state = state.copyWith(isPrivateMode: false, messages: [], error: null);
   }
 
+  StreamSubscription<StreamEvent>? _streamSubscription;
+
+  void cancelStreaming() {
+    _streamSubscription?.cancel();
+    _streamSubscription = null;
+
+    // If we were streaming, finalize the message
+    if (state.isStreaming && state.streamingContent.isNotEmpty) {
+      final aiMessage = ChatMessage(
+        text: state.streamingContent,
+        isUser: false,
+        timestamp: DateTime.now(),
+      );
+
+      state = state.copyWith(
+        messages: [...state.messages, aiMessage],
+        isStreaming: false,
+        isLoading: false,
+        streamingContent: '',
+        thinkingContent: '',
+        isThinking: false,
+      );
+    } else {
+      state = state.copyWith(
+        isStreaming: false,
+        isLoading: false,
+        streamingContent: '',
+        thinkingContent: '',
+        isThinking: false,
+      );
+    }
+  }
+
   Future<void> sendMessage(
     String text, {
     List<String> attachmentPaths = const [],
@@ -103,110 +141,221 @@ class ChatController extends Notifier<ChatState> {
     }
 
     try {
-      String response;
+      // Check if streaming is enabled
+      final isStreamingEnabled = _settingsStorage.getStreamingEnabled();
 
-      // 🧪 In test mode, use mock responses
+      // 🧪 In test mode, use mock responses (non-streaming)
       if (TestConfig.enabled) {
-        await Future.delayed(
-          const Duration(seconds: 2),
-        ); // Simulate network delay
-        response = MockResponses.getMockResponse(text, state.messages.length);
-      } else {
-        // Check connectivity for cloud mode (not needed for edge vision)
-        final isLocal = _configStorage.getIsLocal();
-        final visionMode = _settingsStorage.getVisionPipelineMode();
+        await _sendNonStreamingMessage(text, attachmentPaths);
+        return;
+      }
 
-        final docAttachments = attachmentPaths
-            .where(
-              (path) =>
-                  FileTypeHelper.isPdfFile(path) ||
-                  FileTypeHelper.isTextFile(path),
-            )
-            .toList();
-        String contextText = text;
-        if (docAttachments.isNotEmpty) {
-          final docContent = await _documentService.extractText(
-            docAttachments.first,
-          );
-          contextText =
-              'Document content:\n$docContent\n\nUser question: $text';
-        }
+      // Check connectivity for cloud mode (not needed for edge vision)
+      final isLocal = _configStorage.getIsLocal();
+      final visionMode = _settingsStorage.getVisionPipelineMode();
 
-        // Check for image attachments
-        final imageAttachments = attachmentPaths
-            .where((path) => FileTypeHelper.isImageFile(path))
-            .toList();
+      final docAttachments = attachmentPaths
+          .where(
+            (path) =>
+                FileTypeHelper.isPdfFile(path) ||
+                FileTypeHelper.isTextFile(path),
+          )
+          .toList();
+      String contextText = text;
+      if (docAttachments.isNotEmpty) {
+        final docContent = await _documentService.extractText(
+          docAttachments.first,
+        );
+        contextText = 'Document content:\n$docContent\n\nUser question: $text';
+      }
 
-        // Only check connectivity if not local and not using edge vision
-        if (!isLocal &&
-            !(imageAttachments.isNotEmpty && visionMode == 'edge')) {
-          final hasInternet = await _connectivityService.hasInternetConnection;
-          if (!hasInternet) {
-            throw Exception(
-              'No internet connection. Cloud mode requires an active connection.',
-            );
-          }
-        }
+      // Check for image attachments
+      final imageAttachments = attachmentPaths
+          .where((path) => FileTypeHelper.isImageFile(path))
+          .toList();
 
-        if (imageAttachments.isNotEmpty) {
-          // Use vision service for image analysis
-          response = await _visionService.analyzeImage(
-            imageAttachments.first,
-            text.isEmpty ? 'Describe this image' : text,
-          );
-        } else {
-          // Text-only: use chat generation
-          final systemPrompt = _settingsStorage.getSystemPrompt();
-
-          // Get conversation history (exclude current message - it's passed as prompt)
-          final history = state.messages.length > 1
-              ? state.messages.sublist(0, state.messages.length - 1)
-              : <ChatMessage>[];
-
-          response = await _repository.generateText(
-            contextText,
-            systemPrompt: systemPrompt,
-            history: history,
+      // Only check connectivity if not local and not using edge vision
+      if (!isLocal && !(imageAttachments.isNotEmpty && visionMode == 'edge')) {
+        final hasInternet = await _connectivityService.hasInternetConnection;
+        if (!hasInternet) {
+          throw Exception(
+            'No internet connection. Cloud mode requires an active connection.',
           );
         }
       }
 
-      final aiMessage = ChatMessage(
-        text: response,
-        isUser: false,
-        timestamp: DateTime.now(),
-      );
-
-      state = state.copyWith(
-        messages: [...state.messages, aiMessage],
-        isLoading: false,
-      );
-
-      // Only save to history if not in private mode
-      if (!state.isPrivateMode) {
-        await _historyStorage.saveMessage(aiMessage.toMap());
-
-        // Auto-archive the session so it appears in history immediately
-        final messageMaps = state.messages.map((m) => m.toMap()).toList();
-        if (state.currentSessionId != null) {
-          // Update existing session
-          await _archiveStorage.updateSession(
-            sessionId: state.currentSessionId!,
-            messages: messageMaps,
-          );
-        } else {
-          // Create new archive session and track its ID
-          final sessionId = await _archiveStorage.archiveSession(
-            messages: messageMaps,
-          );
-          state = state.copyWith(currentSessionId: sessionId);
-        }
+      if (imageAttachments.isNotEmpty) {
+        // Use vision service for image analysis (non-streaming)
+        final response = await _visionService.analyzeImage(
+          imageAttachments.first,
+          text.isEmpty ? 'Describe this image' : text,
+        );
+        await _finalizeMessage(response);
+      } else if (isStreamingEnabled) {
+        // Use streaming for text-only chat
+        await _sendStreamingMessage(contextText);
+      } else {
+        // Use non-streaming for text-only chat
+        await _sendNonStreamingMessage(contextText, attachmentPaths);
       }
     } catch (e) {
       state = state.copyWith(
         isLoading: false,
+        isStreaming: false,
         error: e.toString().replaceAll('Exception: ', ''),
       );
+    }
+  }
+
+  Future<void> _sendStreamingMessage(String contextText) async {
+    final systemPrompt = _settingsStorage.getSystemPrompt();
+    final history = state.messages.length > 1
+        ? state.messages.sublist(0, state.messages.length - 1)
+        : <ChatMessage>[];
+
+    state = state.copyWith(
+      isLoading: false,
+      isStreaming: true,
+      streamingContent: '',
+      thinkingContent: '',
+      isThinking: false,
+    );
+
+    final completer = Completer<void>();
+
+    _streamSubscription = _repository
+        .generateTextStream(
+          contextText,
+          systemPrompt: systemPrompt,
+          history: history,
+        )
+        .listen(
+          (event) {
+            if (event.isThinking) {
+              state = state.copyWith(
+                isThinking: true,
+                thinkingContent:
+                    (state.thinkingContent + (event.content ?? '')),
+              );
+            } else if (event.isContent) {
+              // Trigger haptic feedback for streaming content (typing feel)
+              _hapticsHelper.triggerStreamingHaptic();
+
+              state = state.copyWith(
+                isThinking: false,
+                streamingContent:
+                    state.streamingContent + (event.content ?? ''),
+              );
+            } else if (event.isDone) {
+              _finalizeStreamingMessage();
+              completer.complete();
+            } else if (event.isError) {
+              state = state.copyWith(
+                isStreaming: false,
+                isLoading: false,
+                error: event.errorMessage,
+              );
+              completer.complete();
+            }
+          },
+          onError: (e) {
+            state = state.copyWith(
+              isStreaming: false,
+              isLoading: false,
+              error: e.toString(),
+            );
+            completer.complete();
+          },
+          onDone: () {
+            if (!completer.isCompleted) {
+              _finalizeStreamingMessage();
+              completer.complete();
+            }
+          },
+        );
+
+    await completer.future;
+  }
+
+  void _finalizeStreamingMessage() {
+    if (state.streamingContent.isEmpty) return;
+
+    final aiMessage = ChatMessage(
+      text: state.streamingContent,
+      isUser: false,
+      timestamp: DateTime.now(),
+    );
+
+    state = state.copyWith(
+      messages: [...state.messages, aiMessage],
+      isStreaming: false,
+      streamingContent: '',
+      thinkingContent: '',
+      isThinking: false,
+    );
+
+    _saveAiMessage(aiMessage);
+  }
+
+  Future<void> _sendNonStreamingMessage(
+    String contextText,
+    List<String> attachmentPaths,
+  ) async {
+    String response;
+
+    if (TestConfig.enabled) {
+      await Future.delayed(const Duration(seconds: 2));
+      response = MockResponses.getMockResponse(
+        contextText,
+        state.messages.length,
+      );
+    } else {
+      final systemPrompt = _settingsStorage.getSystemPrompt();
+      final history = state.messages.length > 1
+          ? state.messages.sublist(0, state.messages.length - 1)
+          : <ChatMessage>[];
+
+      response = await _repository.generateText(
+        contextText,
+        systemPrompt: systemPrompt,
+        history: history,
+      );
+    }
+
+    await _finalizeMessage(response);
+  }
+
+  Future<void> _finalizeMessage(String response) async {
+    final aiMessage = ChatMessage(
+      text: response,
+      isUser: false,
+      timestamp: DateTime.now(),
+    );
+
+    state = state.copyWith(
+      messages: [...state.messages, aiMessage],
+      isLoading: false,
+    );
+
+    await _saveAiMessage(aiMessage);
+  }
+
+  Future<void> _saveAiMessage(ChatMessage aiMessage) async {
+    if (!state.isPrivateMode) {
+      await _historyStorage.saveMessage(aiMessage.toMap());
+
+      final messageMaps = state.messages.map((m) => m.toMap()).toList();
+      if (state.currentSessionId != null) {
+        await _archiveStorage.updateSession(
+          sessionId: state.currentSessionId!,
+          messages: messageMaps,
+        );
+      } else {
+        final sessionId = await _archiveStorage.archiveSession(
+          messages: messageMaps,
+        );
+        state = state.copyWith(currentSessionId: sessionId);
+      }
     }
   }
 
