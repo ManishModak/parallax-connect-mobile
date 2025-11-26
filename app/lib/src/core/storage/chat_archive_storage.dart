@@ -18,7 +18,7 @@ class ChatArchiveStorage {
 
   static Future<void> init() async {
     await Hive.openBox(boxName);
-    logger.storage('Chat archive storage initialized');
+    Log.storage('Archive storage initialized');
   }
 
   /// Archive the current chat session
@@ -45,11 +45,11 @@ class ChatArchiveStorage {
       );
 
       await _box.put(sessionId, session.toMap());
-      logger.storage('Session archived: $title ($sessionId)');
+      Log.storage('Archived: $title');
 
       return sessionId;
     } catch (e) {
-      logger.e('Failed to archive session: $e');
+      Log.e('Failed to archive session', e);
       rethrow;
     }
   }
@@ -64,13 +64,10 @@ class ChatArchiveStorage {
           )
           .toList();
 
-      // Sort by timestamp, newest first
       sessions.sort((a, b) => b.timestamp.compareTo(a.timestamp));
-
-      logger.storage('Retrieved ${sessions.length} archived sessions');
       return sessions;
     } catch (e) {
-      logger.e('Failed to get archived sessions: $e');
+      Log.e('Failed to get archived sessions', e);
       return [];
     }
   }
@@ -83,7 +80,7 @@ class ChatArchiveStorage {
 
       return ChatSession.fromMap(Map<String, dynamic>.from(data as Map));
     } catch (e) {
-      logger.e('Failed to get session by ID: $e');
+      Log.e('Failed to get session by ID', e);
       return null;
     }
   }
@@ -92,9 +89,9 @@ class ChatArchiveStorage {
   Future<void> deleteSession(String sessionId) async {
     try {
       await _box.delete(sessionId);
-      logger.storage('Deleted archived session: $sessionId');
+      Log.storage('Deleted session: $sessionId');
     } catch (e) {
-      logger.e('Failed to delete session: $e');
+      Log.e('Failed to delete session', e);
       rethrow;
     }
   }
@@ -109,9 +106,9 @@ class ChatArchiveStorage {
 
       final updatedSession = session.copyWith(title: newTitle);
       await _box.put(sessionId, updatedSession.toMap());
-      logger.storage('Renamed session: $sessionId to "$newTitle"');
+      Log.storage('Renamed: $newTitle');
     } catch (e) {
-      logger.e('Failed to rename session: $e');
+      Log.e('Failed to rename session', e);
       rethrow;
     }
   }
@@ -134,11 +131,9 @@ class ChatArchiveStorage {
       );
 
       await _box.put(sessionId, updatedSession.toMap());
-      logger.storage(
-        'Updated session: $sessionId with ${messages.length} messages',
-      );
+      Log.storage('Updated session: ${messages.length} msgs');
     } catch (e) {
-      logger.e('Failed to update session: $e');
+      Log.e('Failed to update session', e);
       rethrow;
     }
   }
@@ -174,13 +169,10 @@ class ChatArchiveStorage {
           })
           .toList();
 
-      // Sort by timestamp, newest first
       sessions.sort((a, b) => b.timestamp.compareTo(a.timestamp));
-
-      logger.storage('Found ${sessions.length} sessions for query: $query');
       return sessions;
     } catch (e) {
-      logger.e('Failed to search sessions: $e');
+      Log.e('Failed to search sessions', e);
       return [];
     }
   }
@@ -194,9 +186,9 @@ class ChatArchiveStorage {
   Future<void> clearAllArchives() async {
     try {
       await _box.clear();
-      logger.storage('All archived sessions cleared');
+      Log.storage('All archives cleared');
     } catch (e) {
-      logger.e('Failed to clear archives: $e');
+      Log.e('Failed to clear archives', e);
       rethrow;
     }
   }
@@ -205,9 +197,49 @@ class ChatArchiveStorage {
   Future<void> clearAllSessions() async {
     try {
       await _box.clear();
-      logger.storage('All archived sessions cleared');
+      Log.storage('All sessions cleared');
     } catch (e) {
-      logger.e('Failed to clear archives: $e');
+      Log.e('Failed to clear archives', e);
+      rethrow;
+    }
+  }
+
+  /// Clear all archived sessions except the specified one and important ones
+  Future<void> clearAllSessionsExcept(
+    String? excludeSessionId, {
+    bool keepImportant = true,
+  }) async {
+    try {
+      final keysToDelete = <dynamic>[];
+      for (final key in _box.keys) {
+        if (key == excludeSessionId) continue;
+        if (keepImportant) {
+          final session = getSessionById(key as String);
+          if (session?.isImportant == true) continue;
+        }
+        keysToDelete.add(key);
+      }
+      await _box.deleteAll(keysToDelete);
+      Log.storage('Cleared ${keysToDelete.length} sessions');
+    } catch (e) {
+      Log.e('Failed to clear archives', e);
+      rethrow;
+    }
+  }
+
+  /// Toggle important status for a session
+  Future<void> toggleImportant(String sessionId) async {
+    try {
+      final session = getSessionById(sessionId);
+      if (session == null) {
+        throw Exception('Session not found');
+      }
+
+      final updatedSession = session.copyWith(isImportant: !session.isImportant);
+      await _box.put(sessionId, updatedSession.toMap());
+      Log.storage('Important: ${updatedSession.isImportant}');
+    } catch (e) {
+      Log.e('Failed to toggle important', e);
       rethrow;
     }
   }
@@ -240,3 +272,14 @@ final chatArchiveStorageProvider = Provider<ChatArchiveStorage>((ref) {
   final box = Hive.box(ChatArchiveStorage.boxName);
   return ChatArchiveStorage(box);
 });
+
+/// Notifier to track archive changes and trigger UI updates
+class ArchiveRefreshNotifier extends Notifier<int> {
+  @override
+  int build() => 0;
+
+  void refresh() => state++;
+}
+
+final archiveRefreshProvider =
+    NotifierProvider<ArchiveRefreshNotifier, int>(ArchiveRefreshNotifier.new);

@@ -35,23 +35,27 @@ class FileService {
   /// Pick an image file
   Future<File?> pickImage() async {
     try {
-      // Request permissions
-      final status = await Permission.photos.request();
-
-      if (status.isDenied) {
-        logger.w('Photo permission denied');
-        throw FileServiceException(
-          'Permission to access photos was denied',
-          FileServiceError.permissionDenied,
-        );
-      }
-
+      // Check permission status first before requesting
+      var status = await Permission.photos.status;
+      
       if (status.isPermanentlyDenied) {
-        logger.w('Photo permission permanently denied');
+        Log.w('Photo permission permanently denied');
         throw FileServiceException(
           'Permission to access photos is permanently denied. Please enable it in settings.',
           FileServiceError.permissionDenied,
         );
+      }
+
+      if (!status.isGranted) {
+        status = await Permission.photos.request();
+        
+        if (status.isDenied) {
+          Log.w('Photo permission denied');
+          throw FileServiceException(
+            'Permission to access photos was denied',
+            FileServiceError.permissionDenied,
+          );
+        }
       }
 
       // Pick file
@@ -61,12 +65,11 @@ class FileService {
       );
 
       if (result == null) {
-        logger.d('File picker cancelled');
         return null; // User cancelled
       }
 
       if (result.files.single.path == null) {
-        logger.e('File path is null');
+        Log.e('File path is null');
         throw FileServiceException(
           'Failed to get file path',
           FileServiceError.unknown,
@@ -78,19 +81,19 @@ class FileService {
       // Validate file size
       final fileSize = await file.length();
       if (fileSize > maxFileSizeBytes) {
-        logger.w('File too large: $fileSize bytes');
+        Log.w('File too large: $fileSize bytes');
         throw FileServiceException(
           'File is too large. Maximum size is ${maxFileSizeBytes ~/ (1024 * 1024)} MB',
           FileServiceError.fileTooLarge,
         );
       }
 
-      logger.d('Image picked successfully: ${file.path}');
+      Log.d('Image picked: ${file.path}');
       return file;
     } on FileServiceException {
       rethrow;
     } catch (e) {
-      logger.e('Failed to pick image: $e');
+      Log.e('Failed to pick image', e);
       throw FileServiceException(
         'Failed to pick image: $e',
         FileServiceError.unknown,
@@ -110,13 +113,10 @@ class FileService {
         allowMultiple: false,
       );
 
-      if (result == null) {
-        logger.d('File picker cancelled');
-        return null;
-      }
+      if (result == null) return null;
 
       if (result.files.single.path == null) {
-        logger.e('File path is null');
+        Log.e('File path is null');
         throw FileServiceException(
           'Failed to get file path',
           FileServiceError.unknown,
@@ -124,23 +124,21 @@ class FileService {
       }
 
       final file = File(result.files.single.path!);
-
-      // Validate file size
       final fileSize = await file.length();
       if (fileSize > maxFileSizeBytes) {
-        logger.w('File too large: $fileSize bytes');
+        Log.w('File too large: $fileSize bytes');
         throw FileServiceException(
           'File is too large. Maximum size is ${maxFileSizeBytes ~/ (1024 * 1024)} MB',
           FileServiceError.fileTooLarge,
         );
       }
 
-      logger.d('File picked successfully: ${file.path}');
+      Log.d('File picked: ${file.path}');
       return file;
     } on FileServiceException {
       rethrow;
     } catch (e) {
-      logger.e('Failed to pick file: $e');
+      Log.e('Failed to pick file', e);
       throw FileServiceException(
         'Failed to pick file: $e',
         FileServiceError.unknown,

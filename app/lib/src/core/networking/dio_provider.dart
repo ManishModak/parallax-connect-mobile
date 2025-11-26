@@ -1,7 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:pretty_dio_logger/pretty_dio_logger.dart';
 
 import '../utils/logger.dart';
 import 'network_exceptions.dart';
@@ -15,25 +14,12 @@ final dioProvider = Provider<Dio>((ref) {
     ),
   );
 
-  // Add retry interceptor
   dio.interceptors.add(_RetryInterceptor(dio));
-
-  // Add error handling interceptor
   dio.interceptors.add(_ErrorHandlerInterceptor());
 
-  // Add logger only in debug mode
+  // Minimal API logging in debug mode
   if (kDebugMode) {
-    dio.interceptors.add(
-      PrettyDioLogger(
-        requestHeader: true,
-        requestBody: true,
-        responseHeader: false, // Reduced verbosity
-        responseBody: true,
-        error: true,
-        compact: true,
-        maxWidth: 90,
-      ),
-    );
+    dio.interceptors.add(_MinimalLogInterceptor());
   }
 
   return dio;
@@ -55,43 +41,46 @@ class _RetryInterceptor extends Interceptor {
     final extra = err.requestOptions.extra;
     final retryCount = extra['retryCount'] ?? 0;
 
-    // Don't retry on client errors (4xx) or if max retries exceeded
+    // Don't retry on client errors (4xx)
     if (err.response?.statusCode != null &&
         err.response!.statusCode! >= 400 &&
         err.response!.statusCode! < 500) {
-      logger.w('Client error, not retrying: ${err.response?.statusCode}');
       return handler.next(err);
     }
 
     if (retryCount >= maxRetries) {
-      logger.e('Max retries ($maxRetries) exceeded');
+      Log.w('Max retries exceeded');
       return handler.next(err);
     }
 
-    // Check if error is retryable
     if (!_shouldRetry(err.type)) {
-      logger.w('Error type not retryable: ${err.type}');
       return handler.next(err);
     }
 
-    // Increment retry count
     extra['retryCount'] = retryCount + 1;
-
-    logger.network(
-      'Retrying request (${retryCount + 1}/$maxRetries) after ${retryDelay.inMilliseconds}ms',
-    );
+    Log.network('Retry ${retryCount + 1}/$maxRetries');
 
     // Wait before retrying
     await Future.delayed(retryDelay);
 
     try {
+      final opts = err.requestOptions;
       final response = await dio.request(
-        err.requestOptions.path,
-        data: err.requestOptions.data,
-        queryParameters: err.requestOptions.queryParameters,
+        opts.path,
+        data: opts.data,
+        queryParameters: opts.queryParameters,
         options: Options(
-          method: err.requestOptions.method,
-          headers: err.requestOptions.headers,
+          method: opts.method,
+          headers: opts.headers,
+          responseType: opts.responseType,
+          contentType: opts.contentType,
+          validateStatus: opts.validateStatus,
+          receiveDataWhenStatusError: opts.receiveDataWhenStatusError,
+          followRedirects: opts.followRedirects,
+          maxRedirects: opts.maxRedirects,
+          requestEncoder: opts.requestEncoder,
+          responseDecoder: opts.responseDecoder,
+          listFormat: opts.listFormat,
           extra: extra,
         ),
       );
@@ -115,9 +104,42 @@ class _ErrorHandlerInterceptor extends Interceptor {
   @override
   void onError(DioException err, ErrorInterceptorHandler handler) {
     final exception = handleDioError(err);
-    logger.e('Network error: ${exception.message}');
-    handler.next(
-      err,
-    ); // Pass original error, caller can use handleDioError if needed
+    Log.e('Network: ${exception.message}');
+    // Reject with custom exception so callers receive the transformed error
+    handler.reject(
+      DioException(
+        requestOptions: err.requestOptions,
+        response: err.response,
+        type: err.type,
+        error: exception,
+        message: exception.message,
+      ),
+    );
+  }
+}
+
+/// Minimal single-line API logging
+class _MinimalLogInterceptor extends Interceptor {
+  final Stopwatch _stopwatch = Stopwatch();
+
+  @override
+  void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
+    _stopwatch.reset();
+    _stopwatch.start();
+    Log.api(options.method, options.uri.toString());
+    handler.next(options);
+  }
+
+  @override
+  void onResponse(Response response, ResponseInterceptorHandler handler) {
+    _stopwatch.stop();
+    final ms = _stopwatch.elapsedMilliseconds;
+    Log.api(
+      response.requestOptions.method,
+      response.requestOptions.uri.toString(),
+      status: response.statusCode,
+    );
+    Log.d('    ↳ ${ms}ms');
+    handler.next(response);
   }
 }

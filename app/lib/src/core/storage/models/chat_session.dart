@@ -4,6 +4,7 @@ class ChatSession {
   final List<Map<String, dynamic>> messages;
   final DateTime timestamp;
   final int messageCount;
+  final bool isImportant;
 
   const ChatSession({
     required this.id,
@@ -11,6 +12,7 @@ class ChatSession {
     required this.messages,
     required this.timestamp,
     required this.messageCount,
+    this.isImportant = false,
   });
 
   ChatSession copyWith({
@@ -19,6 +21,7 @@ class ChatSession {
     List<Map<String, dynamic>>? messages,
     DateTime? timestamp,
     int? messageCount,
+    bool? isImportant,
   }) {
     return ChatSession(
       id: id ?? this.id,
@@ -26,6 +29,7 @@ class ChatSession {
       messages: messages ?? this.messages,
       timestamp: timestamp ?? this.timestamp,
       messageCount: messageCount ?? this.messageCount,
+      isImportant: isImportant ?? this.isImportant,
     );
   }
 
@@ -36,6 +40,7 @@ class ChatSession {
       'messages': messages,
       'timestamp': timestamp.toIso8601String(),
       'messageCount': messageCount,
+      'isImportant': isImportant,
     };
   }
 
@@ -50,6 +55,7 @@ class ChatSession {
       ),
       timestamp: DateTime.parse(map['timestamp'] as String),
       messageCount: map['messageCount'] as int,
+      isImportant: map['isImportant'] as bool? ?? false,
     );
   }
 }

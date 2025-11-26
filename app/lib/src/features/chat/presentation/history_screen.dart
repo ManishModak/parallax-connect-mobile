@@ -95,6 +95,20 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
       }
     }
 
+    // Sort each category: important first (except Today), then by timestamp
+    for (final category in categorized.keys) {
+      categorized[category]!.sort((a, b) {
+        // For Today, only sort by timestamp (most recent first)
+        if (category == 'Today') {
+          return b.timestamp.compareTo(a.timestamp);
+        }
+        // For other categories, important first, then by timestamp
+        if (a.isImportant && !b.isImportant) return -1;
+        if (!a.isImportant && b.isImportant) return 1;
+        return b.timestamp.compareTo(a.timestamp);
+      });
+    }
+
     // Remove empty categories
     categorized.removeWhere((key, value) => value.isEmpty);
     return categorized;
@@ -219,12 +233,31 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
     }
   }
 
+  Future<void> _handleToggleImportant(ChatSession session) async {
+    try {
+      await ref.read(chatArchiveStorageProvider).toggleImportant(session.id);
+      _loadSessions();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Failed to update chat',
+              style: GoogleFonts.inter(color: AppColors.error),
+            ),
+            backgroundColor: AppColors.surface,
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    // Reload sessions when search query changes
-    if (_searchQuery.isNotEmpty) {
+    // Watch for archive changes to trigger reload
+    ref.listen(archiveRefreshProvider, (previous, next) {
       _loadSessions();
-    }
+    });
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -465,6 +498,8 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
       );
     }
 
+    final currentSessionId = ref.read(chatControllerProvider).currentSessionId;
+
     return ListView.builder(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       itemCount: _categorizedSessions.length,
@@ -492,7 +527,8 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
               (session) => HistoryItemTile(
                 title: session.title,
                 time: _formatRelativeTime(session.timestamp),
-                isActive: index == 0 && sessions.indexOf(session) == 0,
+                isActive: session.id == currentSessionId,
+                isImportant: session.isImportant,
                 onTap: () {
                   ref
                       .read(chatControllerProvider.notifier)
@@ -502,6 +538,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                 onDelete: () => _handleDelete(session),
                 onRename: () => _handleRename(session),
                 onExport: () => _handleExport(session),
+                onToggleImportant: () => _handleToggleImportant(session),
               ),
             ),
             const SizedBox(height: 16),
@@ -544,6 +581,8 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
       );
     }
 
+    final currentSessionId = ref.read(chatControllerProvider).currentSessionId;
+
     return ListView.builder(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       itemCount: _sessions.length,
@@ -552,7 +591,8 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
         return HistoryItemTile(
           title: session.title,
           time: _formatRelativeTime(session.timestamp),
-          isActive: false,
+          isActive: session.id == currentSessionId,
+          isImportant: session.isImportant,
           onTap: () {
             ref
                 .read(chatControllerProvider.notifier)
@@ -562,6 +602,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
           onDelete: () => _handleDelete(session),
           onRename: () => _handleRename(session),
           onExport: () => _handleExport(session),
+          onToggleImportant: () => _handleToggleImportant(session),
         );
       },
     );

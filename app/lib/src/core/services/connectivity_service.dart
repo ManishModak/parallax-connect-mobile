@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -18,68 +20,65 @@ final connectivityStatusProvider = StreamProvider<ConnectivityResult>((ref) {
 class ConnectivityService {
   final Connectivity _connectivity = Connectivity();
   static const _timeout = Duration(seconds: 5);
+  static const _reachabilityHosts = ['google.com', 'cloudflare.com', '1.1.1.1'];
 
   /// Stream of connectivity changes
   Stream<ConnectivityResult> get onConnectivityChanged => _connectivity
       .onConnectivityChanged
       .map((List<ConnectivityResult> results) {
-        final result = results.isNotEmpty
-            ? results.first
-            : ConnectivityResult.none;
-        logger.network('Connectivity changed: $result');
-        return result;
+        return results.isNotEmpty ? results.first : ConnectivityResult.none;
       });
 
-  /// Check current connectivity status
+  /// Check if device has any network connection (wifi/mobile/ethernet)
   Future<bool> get isConnected async {
     try {
       final results = await _connectivity.checkConnectivity().timeout(_timeout);
-      final connected =
-          results.isNotEmpty && results.first != ConnectivityResult.none;
-      logger.network(
-        'Connection status: ${connected ? 'connected' : 'disconnected'}',
-      );
-      return connected;
+      return results.isNotEmpty && results.first != ConnectivityResult.none;
     } catch (e) {
-      logger.e('Failed to check connectivity: $e');
+      Log.e('Connectivity check failed', e);
       return false;
     }
   }
 
-  /// Check if connected and has internet (for cloud mode)
+  /// Check if device can actually reach the internet (not just connected to network)
   Future<bool> get hasInternetConnection async {
     try {
       final results = await _connectivity.checkConnectivity().timeout(_timeout);
       if (results.isEmpty || results.first == ConnectivityResult.none) {
-        logger.network('No internet connection');
         return false;
       }
-
-      // Check for mobile or wifi connection
-      final hasConnection =
-          results.first == ConnectivityResult.wifi ||
-          results.first == ConnectivityResult.mobile;
-      logger.network(
-        'Internet connection: ${hasConnection ? 'available' : 'unavailable'}',
-      );
-      return hasConnection;
+      
+      // Actually verify internet reachability by attempting DNS lookup
+      return await _checkInternetReachability();
     } catch (e) {
-      logger.e('Failed to check internet connection: $e');
+      Log.e('Internet check failed', e);
       return false;
     }
   }
 
-  /// Get connectivity result type
+  /// Verify actual internet connectivity by attempting to reach known hosts
+  Future<bool> _checkInternetReachability() async {
+    for (final host in _reachabilityHosts) {
+      try {
+        final result = await InternetAddress.lookup(host).timeout(_timeout);
+        if (result.isNotEmpty && result.first.rawAddress.isNotEmpty) {
+          return true;
+        }
+      } catch (_) {
+        // Try next host
+        continue;
+      }
+    }
+    Log.w('Internet reachability check failed for all hosts');
+    return false;
+  }
+
   Future<ConnectivityResult> get connectivityResult async {
     try {
       final results = await _connectivity.checkConnectivity().timeout(_timeout);
-      final result = results.isNotEmpty
-          ? results.first
-          : ConnectivityResult.none;
-      logger.network('Connectivity result: $result');
-      return result;
+      return results.isNotEmpty ? results.first : ConnectivityResult.none;
     } catch (e) {
-      logger.e('Failed to get connectivity result: $e');
+      Log.e('Connectivity result failed', e);
       return ConnectivityResult.none;
     }
   }

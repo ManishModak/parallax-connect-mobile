@@ -22,7 +22,7 @@ class VisionService {
   /// - 'multimodal': Server-side processing
   Future<String> analyzeImage(String imagePath, String prompt) async {
     final mode = _settingsStorage.getVisionPipelineMode();
-    logger.i('Analyzing image with pipeline mode: $mode');
+    Log.i('Vision mode: $mode');
 
     if (mode == 'edge') {
       return _analyzeWithMLKit(imagePath, prompt);
@@ -105,10 +105,10 @@ class VisionService {
     try {
       final recognizedText = await textRecognizer.processImage(inputImage);
       if (recognizedText.text.trim().isEmpty) return null;
-      logger.i('OCR extracted ${recognizedText.text.length} characters');
+      Log.d('OCR: ${recognizedText.text.length} chars');
       return recognizedText.text.trim();
     } catch (e) {
-      logger.e('Text recognition failed', error: e);
+      Log.e('Text recognition failed', e);
       return null;
     } finally {
       textRecognizer.close();
@@ -123,7 +123,7 @@ class VisionService {
       final filtered = labels.where((l) => l.confidence > 0.6).toList();
       if (filtered.isEmpty) return null;
 
-      logger.i('Detected ${filtered.length} labels');
+      Log.d('Labels: ${filtered.length}');
       return filtered
           .map(
             (l) =>
@@ -131,7 +131,7 @@ class VisionService {
           )
           .join('\n');
     } catch (e) {
-      logger.e('Image labeling failed', error: e);
+      Log.e('Image labeling failed', e);
       return null;
     } finally {
       labeler.close();
@@ -151,7 +151,7 @@ class VisionService {
       final objects = await objectDetector.processImage(inputImage);
       if (objects.isEmpty) return null;
 
-      logger.i('Detected ${objects.length} objects');
+      Log.d('Objects: ${objects.length}');
       final descriptions = <String>[];
 
       for (final obj in objects) {
@@ -165,7 +165,7 @@ class VisionService {
 
       return descriptions.isEmpty ? null : descriptions.join('\n');
     } catch (e) {
-      logger.e('Object detection failed', error: e);
+      Log.e('Object detection failed', e);
       return null;
     } finally {
       objectDetector.close();
@@ -177,10 +177,10 @@ class VisionService {
     try {
       final bytes = await File(imagePath).readAsBytes();
       final base64Image = base64Encode(bytes);
-      logger.i('Sending image to server for analysis (${bytes.length} bytes)');
+      Log.network('Sending image (${bytes.length} bytes)');
       return _chatRepository.analyzeImage(prompt, base64Image);
     } catch (e) {
-      logger.e('Server image analysis failed', error: e);
+      Log.e('Server image analysis failed', e);
       rethrow;
     }
   }

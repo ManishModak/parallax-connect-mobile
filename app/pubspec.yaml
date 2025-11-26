@@ -37,7 +37,6 @@ dependencies:
   flutter_riverpod: ^3.0.3
   dio: ^5.9.0
   logger: ^2.6.2
-  pretty_dio_logger: ^1.4.0
   flutter_dotenv: ^6.0.0
   flutter_animate: ^4.5.2
   google_fonts: ^6.3.2

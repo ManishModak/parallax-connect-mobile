@@ -51,44 +51,40 @@ class ConfigStorage {
         await _prefs.remove(StorageKeys.password);
       }
 
-      logger.storage('Configuration saved');
+      Log.storage('Config saved');
     } catch (e) {
-      logger.e('Failed to save config: $e');
+      Log.e('Failed to save config', e);
       rethrow;
     }
   }
 
-  /// Get base URL
   String? getBaseUrl() {
     try {
       return _prefs.getString(StorageKeys.baseUrl);
     } catch (e) {
-      logger.e('Failed to get base URL: $e');
+      Log.e('Failed to get base URL', e);
       return null;
     }
   }
 
-  /// Get connection mode (local or cloud)
   bool getIsLocal() {
     try {
       return _prefs.getBool(StorageKeys.isLocal) ?? false;
     } catch (e) {
-      logger.e('Failed to get connection mode: $e');
+      Log.e('Failed to get connection mode', e);
       return false;
     }
   }
 
-  /// Get password (decrypted)
   String? getPassword() {
     try {
       final encryptedPassword = _prefs.getString(StorageKeys.password);
       if (encryptedPassword == null) return null;
 
-      // Decrypt password
       final encrypted = encrypt.Encrypted.fromBase64(encryptedPassword);
       return _encrypter.decrypt(encrypted, iv: _iv);
     } catch (e) {
-      logger.e('Failed to get password: $e');
+      Log.e('Failed to get password', e);
       return null;
     }
   }
@@ -104,9 +100,9 @@ class ConfigStorage {
       await _prefs.remove(StorageKeys.baseUrl);
       await _prefs.remove(StorageKeys.isLocal);
       await _prefs.remove(StorageKeys.password);
-      logger.storage('Configuration cleared');
+      Log.storage('Config cleared');
     } catch (e) {
-      logger.e('Failed to clear config: $e');
+      Log.e('Failed to clear config', e);
       rethrow;
     }
   }

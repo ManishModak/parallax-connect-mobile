@@ -59,7 +59,7 @@ final routerProvider = Provider<GoRouter>((ref) {
 
     // Error builder for 404 and other errors
     errorBuilder: (context, state) {
-      logger.e('Navigation error: ${state.error}');
+      Log.e('Navigation error: ${state.error}');
       return Scaffold(
         backgroundColor: Colors.black,
         body: Center(
@@ -92,7 +92,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.splash,
         pageBuilder: (context, state) {
-          logger.navigation('Navigating to Splash');
+          Log.nav('Splash');
           return _buildFadeTransition(
             key: state.pageKey,
             child: const SplashScreen(),
@@ -102,7 +102,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.config,
         pageBuilder: (context, state) {
-          logger.navigation('Navigating to Config');
+          Log.nav('Config');
           return _buildFadeTransition(
             key: state.pageKey,
             child: const ConfigScreen(),
@@ -112,7 +112,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.chat,
         pageBuilder: (context, state) {
-          logger.navigation('Navigating to Chat');
+          Log.nav('Chat');
           return _buildFadeTransition(
             key: state.pageKey,
             child: const ChatScreen(),
@@ -122,7 +122,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.history,
         pageBuilder: (context, state) {
-          logger.navigation('Navigating to History');
+          Log.nav('History');
           return _buildSlideTransition(
             key: state.pageKey,
             child: const HistoryScreen(),
@@ -132,7 +132,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.settings,
         pageBuilder: (context, state) {
-          logger.navigation('Navigating to Settings');
+          Log.nav('Settings');
           return _buildFadeTransition(
             key: state.pageKey,
             child: const SettingsScreen(),

@@ -30,7 +30,6 @@ class _ArchivedSessionsScreenState
   }
 
   void _loadSessions() {
-    logger.d('📋 Loading sessions for History screen...');
     setState(() {
       _isLoading = true;
     });
@@ -40,14 +39,10 @@ class _ArchivedSessionsScreenState
         ? archiveStorage.getArchivedSessions()
         : archiveStorage.searchSessions(_searchQuery);
 
-    logger.d('📋 Found ${sessions.length} archived sessions');
-
     // Include current active chat if it exists
     final currentMessages = ref.read(chatControllerProvider).messages;
-    logger.d('📋 Current active chat has ${currentMessages.length} messages');
 
     if (currentMessages.isNotEmpty) {
-      // Create a virtual session for the current active chat
       final currentSession = ChatSession(
         id: 'current_active',
         title: '💬 Current Chat',
@@ -55,18 +50,10 @@ class _ArchivedSessionsScreenState
         timestamp: DateTime.now(),
         messageCount: currentMessages.length,
       );
-
-      logger.d(
-        '📋 Created virtual current session with ${currentMessages.length} messages',
-      );
-
-      // Add current session at the top
       sessions = [currentSession, ...sessions];
-    } else {
-      logger.d('📋 No current active chat to display');
     }
 
-    logger.d('📋 Total sessions to display: ${sessions.length}');
+    Log.d('Loaded ${sessions.length} sessions');
 
     setState(() {
       _sessions = sessions;

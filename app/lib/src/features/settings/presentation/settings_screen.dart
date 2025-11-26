@@ -7,6 +7,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/utils/haptics_helper.dart';
 import '../../../core/storage/chat_archive_storage.dart';
+import '../../chat/presentation/chat_controller.dart';
 import 'settings_controller.dart';
 import 'widgets/about_card.dart';
 import 'widgets/clear_history_confirmation_dialog.dart';
@@ -216,13 +217,21 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       onClear: () async {
                         final messenger = ScaffoldMessenger.of(context);
                         try {
+                          // Get current session ID to preserve active chat
+                          final currentSessionId = ref
+                              .read(chatControllerProvider)
+                              .currentSessionId;
                           await ref
                               .read(chatArchiveStorageProvider)
-                              .clearAllSessions();
+                              .clearAllSessionsExcept(currentSessionId);
+                          // Trigger history screen refresh
+                          ref
+                              .read(archiveRefreshProvider.notifier)
+                              .refresh();
                           messenger.showSnackBar(
                             SnackBar(
                               content: Text(
-                                'All chat history cleared',
+                                'Chat history cleared',
                                 style: GoogleFonts.inter(
                                   color: AppColors.primary,
                                 ),

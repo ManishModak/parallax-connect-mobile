@@ -53,9 +53,9 @@ class ChatController extends Notifier<ChatState> {
         // Always create a new session when starting new chat
         // Don't try to update - this prevents "session not found" errors
         await _archiveStorage.archiveSession(messages: messageMaps);
-        logger.i('Created new archived session');
+        Log.storage('Created new archived session');
       } catch (e) {
-        logger.e('Failed to archive session: $e');
+        Log.e('Failed to archive session', e);
         // Continue with clearing even if archiving fails
       }
     }
@@ -185,6 +185,22 @@ class ChatController extends Notifier<ChatState> {
       // Only save to history if not in private mode
       if (!state.isPrivateMode) {
         await _historyStorage.saveMessage(aiMessage.toMap());
+
+        // Auto-archive the session so it appears in history immediately
+        final messageMaps = state.messages.map((m) => m.toMap()).toList();
+        if (state.currentSessionId != null) {
+          // Update existing session
+          await _archiveStorage.updateSession(
+            sessionId: state.currentSessionId!,
+            messages: messageMaps,
+          );
+        } else {
+          // Create new archive session and track its ID
+          final sessionId = await _archiveStorage.archiveSession(
+            messages: messageMaps,
+          );
+          state = state.copyWith(currentSessionId: sessionId);
+        }
       }
     } catch (e) {
       state = state.copyWith(
@@ -202,7 +218,7 @@ class ChatController extends Notifier<ChatState> {
   Future<void> loadArchivedSession(String sessionId) async {
     final session = _archiveStorage.getSessionById(sessionId);
     if (session == null) {
-      logger.e('Session not found: $sessionId');
+      Log.e('Session not found: $sessionId');
       return;
     }
 
@@ -218,7 +234,7 @@ class ChatController extends Notifier<ChatState> {
           await _archiveStorage.archiveSession(messages: messageMaps);
         }
       } catch (e) {
-        logger.e('Failed to archive current session: $e');
+        Log.e('Failed to archive current session', e);
       }
     }
 
@@ -237,7 +253,7 @@ class ChatController extends Notifier<ChatState> {
       error: null,
       currentSessionId: session.id, // Track the loaded session ID
     );
-    logger.i('Loaded archived session: ${session.title} (${session.id})');
+    Log.storage('Loaded session: ${session.title}');
   }
 }
 

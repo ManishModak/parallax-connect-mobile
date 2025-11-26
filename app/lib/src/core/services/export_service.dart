@@ -105,9 +105,9 @@ class ExportService {
         ),
       );
 
-      logger.i('Exported session to PDF: ${file.path}');
+      Log.i('Exported PDF: ${file.path}');
     } catch (e) {
-      logger.e('Failed to export session: $e');
+      Log.e('Failed to export session', e);
       rethrow;
     }
   }

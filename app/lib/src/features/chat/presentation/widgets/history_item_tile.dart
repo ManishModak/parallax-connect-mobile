@@ -10,20 +10,24 @@ class HistoryItemTile extends ConsumerWidget {
   final String title;
   final String time;
   final bool isActive;
+  final bool isImportant;
   final VoidCallback? onTap;
   final VoidCallback? onDelete;
   final VoidCallback? onRename;
   final VoidCallback? onExport;
+  final VoidCallback? onToggleImportant;
 
   const HistoryItemTile({
     super.key,
     required this.title,
     required this.time,
     this.isActive = false,
+    this.isImportant = false,
     this.onTap,
     this.onDelete,
     this.onRename,
     this.onExport,
+    this.onToggleImportant,
   });
 
   void _showSnackBar(BuildContext context, String message) {
@@ -77,6 +81,15 @@ class HistoryItemTile extends ConsumerWidget {
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             child: Row(
               children: [
+                if (isImportant)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: Icon(
+                      LucideIcons.star,
+                      size: 16,
+                      color: Colors.amber,
+                    ),
+                  ),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -122,6 +135,26 @@ class HistoryItemTile extends ConsumerWidget {
                     ),
                   ),
                   itemBuilder: (context) => [
+                    PopupMenuItem(
+                      value: 'important',
+                      child: Row(
+                        children: [
+                          Icon(
+                            isImportant ? LucideIcons.starOff : LucideIcons.star,
+                            size: 16,
+                            color: isImportant ? AppColors.secondary : Colors.amber,
+                          ),
+                          const SizedBox(width: 12),
+                          Text(
+                            isImportant ? 'Unmark Important' : 'Mark Important',
+                            style: GoogleFonts.inter(
+                              color: AppColors.secondary,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                     PopupMenuItem(
                       value: 'rename',
                       child: Row(
@@ -184,7 +217,11 @@ class HistoryItemTile extends ConsumerWidget {
                     ),
                   ],
                   onSelected: (value) {
-                    if (value == 'delete') {
+                    if (value == 'important') {
+                      if (onToggleImportant != null) {
+                        onToggleImportant!();
+                      }
+                    } else if (value == 'delete') {
                       if (onDelete != null) {
                         onDelete!();
                       } else {

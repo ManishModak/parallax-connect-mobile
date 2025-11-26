@@ -1,4 +1,6 @@
 import getpass
+import glob
+import os
 import re
 import socket
 import uvicorn
@@ -6,6 +8,7 @@ import httpx
 import qrcode
 import logging
 from datetime import datetime
+from logging.handlers import RotatingFileHandler
 from fastapi import (
     Depends,
     FastAPI,
@@ -19,12 +22,63 @@ from pydantic import BaseModel
 from pyngrok import ngrok
 from typing import List, Optional
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S",
-)
+# Configure logging with file output
+LOG_DIR = "applogs"
+LOG_FORMAT = "%(asctime)s [%(levelname)s] %(message)s"
+LOG_DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
+
+
+def setup_logging():
+    """Setup logging with console and file output."""
+    # Create applogs directory if it doesn't exist
+    os.makedirs(LOG_DIR, exist_ok=True)
+
+    # Cleanup old log files (keep last 5)
+    cleanup_old_logs(keep_count=5)
+
+    # Create log filename with timestamp
+    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    log_file = os.path.join(LOG_DIR, f"server_{timestamp}.log")
+
+    # Configure root logger
+    logging.basicConfig(
+        level=logging.INFO,
+        format=LOG_FORMAT,
+        datefmt=LOG_DATE_FORMAT,
+        handlers=[
+            logging.StreamHandler(),  # Console output
+            RotatingFileHandler(
+                log_file,
+                maxBytes=5 * 1024 * 1024,  # 5 MB
+                backupCount=3,
+                encoding="utf-8",
+            ),
+        ],
+    )
+
+    logging.info(f"📝 Logging to: {os.path.abspath(log_file)}")
+
+
+def cleanup_old_logs(keep_count: int = 5):
+    """Remove old log files, keeping only the most recent ones."""
+    try:
+        log_files = glob.glob(os.path.join(LOG_DIR, "server_*.log*"))
+        if len(log_files) <= keep_count:
+            return
+
+        # Sort by modification time (oldest first)
+        log_files.sort(key=os.path.getmtime)
+
+        # Delete oldest files
+        for log_file in log_files[:-keep_count]:
+            os.remove(log_file)
+            print(f"🗑️ Deleted old log: {log_file}")
+    except Exception as e:
+        print(f"Failed to cleanup old logs: {e}")
+
+
+# Initialize logging
+setup_logging()
 logger = logging.getLogger(__name__)
 
 # --- CONFIGURATION ---
@@ -43,7 +97,7 @@ app = FastAPI()
 
 
 def setup_password():
-    """Prompt user for optional password protection."""
+    """Prompt user for optional password protection with confirmation."""
     global PASSWORD
 
     try:
@@ -53,12 +107,21 @@ def setup_password():
 
     if choice == "y":
         password = getpass.getpass("Enter password: ").strip()
-        if password:
-            PASSWORD = password
-            print("✅ Password protection enabled\n")
-        else:
+        if not password:
             PASSWORD = None
             print("⚠️  Empty password. Server remains open.\n")
+            return
+            
+        # Confirm password
+        confirm_password = getpass.getpass("Retype password: ").strip()
+        
+        if password != confirm_password:
+            print("❌ Passwords do not match. Server remains open.\n")
+            PASSWORD = None
+            return
+            
+        PASSWORD = password
+        print("✅ Password protection enabled\n")
     else:
         PASSWORD = None
         print("⚠️  No password set. Server is open.\n")
@@ -196,12 +259,12 @@ class ChatRequest(BaseModel):
     """
 
     # === BASIC PARAMETERS (SUPPORTED) ===
-    max_tokens: int = 2048
+    max_tokens: int = 8192
     """
     Maximum number of tokens (words/pieces) to generate.
     STATUS: SUPPORTED by Parallax
-    - Default: 2048
-    - Range: 1 to model's max (usually 2048-4096)
+    - Default: 8192
+    - Range: 1 to model's max context length
     """
 
     # === CREATIVITY CONTROLS (SUPPORTED) ===
