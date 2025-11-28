@@ -59,15 +59,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 // App Logo
-                SvgPicture.asset(
-                      'assets/images/logo.svg',
-                      width: 100,
-                      height: 100,
-                      colorFilter: const ColorFilter.mode(
-                        AppColors.primary,
-                        BlendMode.srcIn,
-                      ),
-                    )
+                Image.asset('assets/images/logov1.png', width: 100, height: 100)
                     .animate()
                     .fadeIn(duration: 800.ms, curve: Curves.easeIn)
                     .scale(
@@ -108,9 +100,10 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
             bottom: 40,
             left: 0,
             right: 0,
-            child: const SplashBranding()
-                .animate()
-                .fadeIn(delay: 1000.ms, duration: 800.ms),
+            child: const SplashBranding().animate().fadeIn(
+              delay: 1000.ms,
+              duration: 800.ms,
+            ),
           ),
         ],
       ),

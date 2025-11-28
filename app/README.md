@@ -1,4 +1,6 @@
-# Parallax Connect
+# Parallax Connect (Beta)
+
+![Beta](https://img.shields.io/badge/status-beta-orange)
 
 A Flutter mobile app that connects to your self-hosted Parallax AI server. Access your private GPU-powered AI from anywhere.
 

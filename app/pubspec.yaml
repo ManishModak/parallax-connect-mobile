@@ -1,7 +1,7 @@
 name: parallax_connect
 description: "Mobile AI interface for self-hosted Parallax GPU servers. Access your private AI from anywhere."
 publish_to: 'none'
-version: 1.0.0+1
+version: 1.0.0-beta.1+1
 
 environment:
   sdk: ^3.9.2
@@ -58,21 +58,22 @@ flutter:
     - assets/images/
     - assets/icons/
 
+# App Icon Configuration
 flutter_launcher_icons:
   android: true
   ios: true
-  image_path: "assets/images/logo.png"
+  image_path: "assets/images/logov1.png"
   adaptive_icon_background: "#000000"
-  adaptive_icon_foreground: "assets/images/logo.png"
+  adaptive_icon_foreground: "assets/images/logov1.png"
   remove_alpha_ios: true
 
+# Native Splash Screen Configuration
 flutter_native_splash:
   color: "#000000"
-  image: "assets/images/logo.png"
+  image: "assets/images/logov1.png"
   android: true
   ios: true
   fullscreen: true
   android_12:
     color: "#000000"
-    image: "assets/images/logo.png"
-
+    image: "assets/images/logov1.png"

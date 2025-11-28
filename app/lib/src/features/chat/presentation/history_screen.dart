@@ -449,14 +449,10 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
-                  SvgPicture.asset(
-                    'assets/images/logo.svg',
+                  Image.asset(
+                    'assets/images/logov1.png',
                     width: 28,
                     height: 28,
-                    colorFilter: const ColorFilter.mode(
-                      AppColors.primary,
-                      BlendMode.srcIn,
-                    ),
                   ),
                   const SizedBox(width: 12),
                   Text(
