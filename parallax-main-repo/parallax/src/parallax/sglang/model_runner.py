@@ -7,6 +7,7 @@ arguments needed by decentralized inference.
 import logging
 import os
 import random
+from typing import List, Optional
 
 import sglang
 import sglang.srt.distributed.parallel_state
@@ -203,10 +204,20 @@ class ParallaxModelRunner(SGLModelRunner):
 def form_sgl_server_args(
     model_path: str,
     dtype: str = "bfloat16",
+    kv_cache_memory_fraction: float = 0.85,
     tp_size: int = 1,
     attention_backend: str = "flashinfer",
     kv_block_size: int = 64,
     moe_runner_backend="auto",
+    enable_lora: Optional[bool] = False,
+    max_lora_rank: Optional[int] = None,
+    lora_target_modules: Optional[List[str]] = None,
+    lora_paths: Optional[List[str]] = None,
+    max_loras_per_batch: Optional[int] = None,
+    max_loaded_loras: Optional[int] = None,
+    lora_eviction_policy: Optional[str] = "lru",
+    lora_backend: Optional[str] = "triton",
+    max_lora_chunk_size: Optional[int] = 128,
 ):
     """Creates a SGL ServerArgs object"""
     sgl_server_args = ServerArgs(
@@ -214,10 +225,19 @@ def form_sgl_server_args(
         dtype=dtype,
         attention_backend=attention_backend,
         page_size=kv_block_size,
-        mem_fraction_static=0.85,
+        mem_fraction_static=kv_cache_memory_fraction,
         moe_runner_backend=moe_runner_backend,
         tp_size=tp_size,
         trust_remote_code=True,
+        enable_lora=enable_lora,
+        max_lora_rank=max_lora_rank,
+        lora_target_modules=lora_target_modules,
+        lora_paths=lora_paths,
+        max_loras_per_batch=max_loras_per_batch,
+        max_loaded_loras=max_loaded_loras,
+        lora_eviction_policy=lora_eviction_policy,
+        lora_backend=lora_backend,
+        max_lora_chunk_size=max_lora_chunk_size,
     )
     return sgl_server_args
 
@@ -231,6 +251,15 @@ def initialize_sgl_model_runner(
     kv_block_size: int,
     moe_runner_backend: str,
     max_num_tokens_per_batch: int = 1024,
+    enable_lora: Optional[bool] = False,
+    max_lora_rank: Optional[int] = None,
+    lora_target_modules: Optional[List[str]] = None,
+    lora_paths: Optional[List[str]] = None,
+    max_loras_per_batch: Optional[int] = None,
+    max_loaded_loras: Optional[int] = None,
+    lora_eviction_policy: Optional[str] = "lru",
+    lora_backend: Optional[str] = "triton",
+    max_lora_chunk_size: Optional[int] = 128,
     **kwargs,
 ):
     """
@@ -281,10 +310,20 @@ def initialize_sgl_model_runner(
     server_args = form_sgl_server_args(
         str(model_path),
         dtype,
+        kv_cache_memory_fraction,
         tp_size,
         attention_backend,
         kv_block_size,
         moe_runner_backend,
+        enable_lora,
+        max_lora_rank,
+        lora_target_modules,
+        lora_paths,
+        max_loras_per_batch,
+        max_loaded_loras,
+        lora_eviction_policy,
+        lora_backend,
+        max_lora_chunk_size,
     )
     initialize_moe_config(server_args)
     quant_method = None

@@ -1,58 +1,89 @@
-# 📂 Project: Parallax Connect
+# Parallax Connect
 
-**Competition:** GradientHQ "Build Your Own AI Lab"
-**Deadline:** Nov 30, 2025
-**Role:** Flutter Developer (Team of 1 + Friend's Hardware)
+A mobile-first AI interface that connects to your self-hosted Parallax GPU server. Turn any Parallax-enabled machine into a private AI cloud accessible from anywhere.
 
-## 🏆 The Core Concept
+## Overview
 
-**"Parallax Connect: The Sovereign AI Interface"**
+Parallax Connect decouples the AI interface (mobile app) from the compute (GPU server), allowing you to:
+- Access your home GPU from anywhere via secure tunnel
+- Share one GPU across multiple family members/devices
+- Switch seamlessly between cloud and local connections
+- Keep all data private on your own hardware
 
-* **Tagline:** *"Powered by Gradient. Hosted by You. Accessible Anywhere."*
-* **The Pitch:** A Universal "Bring Your Own Device" Client that turns a single Parallax-enabled GPU into a private, multi-tenant AI Cloud for family or field teams. It decouples the *Interface* (Mobile) from the *Compute* (GPU).
+## Project Structure
 
----
+```
+parallax-connect/
+├── app/                    # Flutter mobile application
+├── server/                 # Python FastAPI server (modular)
+│   ├── apis/               # API route handlers
+│   │   ├── chat.py         # /chat, /chat/stream endpoints
+│   │   ├── health.py       # /, /healthz, /status endpoints
+│   │   ├── models.py       # /models, /info endpoints
+│   │   └── ui_proxy.py     # Parallax Web UI proxy
+│   ├── auth/               # Authentication
+│   │   └── password.py     # Password protection
+│   ├── models/             # Pydantic request/response models
+│   ├── services/           # External service clients
+│   │   └── parallax.py     # Parallax API client
+│   ├── utils/              # Utilities (network, QR codes)
+│   ├── app.py              # FastAPI application factory
+│   ├── config.py           # Configuration constants
+│   ├── logging_setup.py    # Logging configuration
+│   └── startup.py          # Server startup & ngrok setup
+├── helper-docs/            # Setup guides and references
+├── assets/                 # Project assets (logos)
+├── run_server.py           # Server entry point
+├── requirements.txt        # Python dependencies
+├── SERVER_SETUP.md         # Server installation guide
+└── SERVER_USAGE_GUIDE.md   # API documentation
+```
 
-## 🏗️ Technical Architecture
+## Quick Start
 
-### 1. Hardware Stack
+### 1. Start the Server
 
-* **Server Node (The Brain):** Friend's Laptop with **RTX 4060 (8GB VRAM)**.
-  * **Mode B (Local):** Uses **Local LAN/Hotspot** for 100% offline, air-gapped access.
+```bash
+# Install dependencies
+pip install -r requirements.txt
 
----
+# Run the server
+python run_server.py
+```
 
-## ⚔️ The Winning Narrative (Judging Criteria)
+### 2. Connect the App
 
-### 1. "Impactful Application"
+Scan the QR code displayed in the terminal with the Parallax Connect mobile app.
 
-* **Problem:** High-quality AI is either stuck on a desktop or locked behind Cloud subscriptions/privacy violations.
-* **Solution:** Parallax Connect democratizes the GPU. It allows a user to carry their "Home Lab" in their pocket.
-* **The Flex:** "Pocket-H100" — One GPU serves the whole family/team simultaneously via Parallax's scheduler.
+## Connection Modes
 
-### 2. "Creative Setup"
+| Mode | Use Case | Requirements |
+|------|----------|--------------|
+| Cloud (Ngrok) | Access from anywhere | Ngrok account (free) |
+| Local | Same Wi-Fi, lowest latency | None |
 
-* **Remote/Local Switch:** The app seamlessly toggles between Ngrok (Internet) and Local IP (Offline). The video demo will show the internet being cut, and the app switching to Local Mode instantly.
-* **Vision Pipeline:** Instead of running vision on the phone, we send the image to the RTX 4060. This proves Parallax can handle multi-modal inputs.
+Both modes are active simultaneously when the server runs.
 
-### 3. Why Parallax? (vs Ollama)
+## Key Features
 
-* **Argument:** We chose Parallax for **Concurrency**. Unlike Ollama (which typically queues requests), Parallax uses **Request-Time Scheduling** and **Continuous Batching**. This allows multiple family members to query the RTX 4060 at the same time without crashing the server.
+- Real-time streaming chat with thinking visualization
+- Multi-turn conversation support
+- Password protection (optional)
+- Remote Parallax Web UI access
+- Automatic QR code generation for easy connection
 
----
+## Documentation
 
-## 📱 App Features (Flutter)
+- [Server Setup Guide](SERVER_SETUP.md) - Installation and configuration
+- [API Usage Guide](SERVER_USAGE_GUIDE.md) - API reference and Flutter integration
+- [Helper Docs](helper-docs/) - Platform-specific setup guides
 
-1. **Chat Interface:** Standard text streaming.
-2. **Vision Mode:** Camera capture -> Send Base64 to Server -> Parallax Vision Model -> Return Analysis.
-3. **Connection Manager:** A settings page with a toggle:
-    * 🔘 **Remote Mode** (Input: Ngrok URL)
-    * 🔘 **Local Mode** (Input: 192.168.X.X)
-| :--- | :--- | :--- |
-| **Connection** | Internet (Tunnel) | Wi-Fi (LAN) |
-| **Range** | Anywhere in the world | Same Wi-Fi Network |
-| **Speed** | Slower (Latency) | Blazing Fast |
-| **Setup** | Requires Ngrok Token | Plug & Play |
-| **Free Limit** | 1GB Bandwidth / Month | Unlimited |
+## Tech Stack
 
-**Note:** The app works seamlessly with both. Just scan the QR code, and it figures it out.
+- Server: Python, FastAPI, httpx, pyngrok
+- App: Flutter, Dart
+- AI Backend: Parallax (local GPU inference)
+
+## License
+
+MIT

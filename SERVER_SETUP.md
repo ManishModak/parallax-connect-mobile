@@ -1,97 +1,211 @@
 # Server Setup Guide
 
-Follow these steps to set up your Parallax Connect server on your computer.
-
----
+Complete guide to setting up the Parallax Connect server.
 
 ## Prerequisites
 
-- **Python 3.8+** installed on your computer
-- **Git** (to clone the repository)
-
----
+- Python 3.8 or higher
+- Parallax installed and running on your GPU machine
+- Git (optional, for cloning)
 
 ## Installation
 
-### 1. Clone the Repository
+### 1. Get the Code
 
 ```bash
 git clone https://github.com/ManishModak/parallax-connect.git
 cd parallax-connect
 ```
 
-### 2. Install Dependencies
+Or download and extract the ZIP.
+
+### 2. Create Virtual Environment (Recommended)
+
+```bash
+# Windows
+python -m venv .venv
+.venv\Scripts\activate
+
+# macOS/Linux
+python3 -m venv .venv
+source .venv/bin/activate
+```
+
+### 3. Install Dependencies
 
 ```bash
 pip install -r requirements.txt
 ```
 
----
+## Configuration
 
-## Choose Your Connection Mode
+### Server Settings
 
-### ☁️ Cloud Mode (Connect from Anywhere)
+Edit `server/config.py` to customize:
 
-**Best for:** Accessing your server over the internet (4G/5G/Different Wi-Fi)
+```python
+# Server mode: "PROXY" (production) or "MOCK" (testing)
+SERVER_MODE = "PROXY"
 
-#### Setup Steps
+# Parallax endpoints (default ports)
+PARALLAX_SERVICE_URL = "http://localhost:3001/v1/chat/completions"
+PARALLAX_UI_URL = "http://localhost:3001"
+```
 
-1. **Get Ngrok Token:**
-   - Sign up at [ngrok.com](https://dashboard.ngrok.com) (Free)
-   - Copy your **Authtoken** from the dashboard
+### Parallax Setup
 
-2. **Configure Ngrok:**
+Ensure Parallax is running before starting the server:
 
-   ```bash
-   ngrok config add-authtoken <PASTE_YOUR_TOKEN_HERE>
-   ```
+```bash
+# Start Parallax scheduler
+parallax run
+```
 
-3. **Start Server:**
+The server connects to Parallax on port 3001 by default.
 
-   ```bash
-   python server.py
-   ```
+## Running the Server
 
-4. **Connect:**
-   - A **Cloud QR Code** will appear in the terminal
-   - Scan it with the Parallax Connect app
+```bash
+python run_server.py
+```
 
-**Free Limits:** 1GB bandwidth/month, sufficient for personal use.
+On startup, the server will:
+1. Test connection to Parallax
+2. Prompt for optional password protection
+3. Start ngrok tunnel (if configured)
+4. Display QR codes for connection
 
----
+## Connection Modes
 
-### 🏠 Local Mode (Same Wi-Fi Only)
+### Cloud Mode (Ngrok)
 
-**Best for:** Low latency, no internet required, unlimited bandwidth
+Access your server from anywhere over the internet.
 
-#### Setup Steps
+#### Setup
 
-1. **Start Server:**
+1. Create free account at [ngrok.com](https://dashboard.ngrok.com)
+2. Copy your authtoken from the dashboard
+3. Configure ngrok:
 
-   ```bash
-   python server.py
-   ```
+```bash
+ngrok config add-authtoken YOUR_TOKEN_HERE
+```
 
-2. **Connect:**
-   - Ensure your phone and computer are on the **same Wi-Fi network**
-   - A **Local QR Code** will appear in the terminal
-   - Scan it with the Parallax Connect app
+4. Start the server - cloud URL will appear automatically
 
-**Troubleshooting Tip:** If connection fails, try using your phone's Hotspot for both devices.
+#### Limits
 
----
+- Free tier: 1GB bandwidth/month
+- Sufficient for personal/family use
 
-## Running Both Modes Simultaneously
+### Local Mode
 
-Good news! When you run `python server.py`, **both modes are active**:
+Direct connection over your local network. Always available.
 
-- If Ngrok is configured → You get a Cloud URL
-- Always → You get a Local URL
+#### Requirements
 
-You can connect using either QR code depending on your needs.
+- Phone and server on the same Wi-Fi network
+- Or use phone hotspot for both devices
 
----
+#### Advantages
+
+- Zero latency overhead
+- No bandwidth limits
+- Works offline
+
+## Password Protection
+
+When the server starts, you'll be prompted:
+
+```
+🔒 Set a password for this server? (y/n):
+```
+
+If enabled:
+- All API requests require `x-password` header
+- Mobile app will prompt for password on first connect
+
+## Server Endpoints
+
+| Endpoint | Method | Auth | Description |
+|----------|--------|------|-------------|
+| `/` | GET | Yes | Server status |
+| `/healthz` | GET | No | Health check |
+| `/status` | GET | Yes | Detailed status with Parallax connectivity |
+| `/models` | GET | Yes | Available models |
+| `/info` | GET | Yes | Server capabilities |
+| `/chat` | POST | Yes | Send chat message |
+| `/chat/stream` | POST | Yes | Streaming chat (SSE) |
+| `/vision` | POST | Yes | Vision analysis (placeholder) |
+| `/ui/` | GET | Yes | Parallax Web UI proxy |
+
+## Logs
+
+Server logs are stored in `applogs/` directory:
+- Automatic rotation (5MB max per file)
+- Keeps last 5 log files
+- Includes timestamps and request IDs
+
+## Troubleshooting
+
+### Cannot connect to Parallax
+
+```
+⚠️ Cannot reach Parallax: Connection refused
+```
+
+Solution: Ensure Parallax is running with `parallax run`
+
+### Ngrok not starting
+
+```
+⚠️ Ngrok Auth Token not found
+```
+
+Solution: Run `ngrok config add-authtoken YOUR_TOKEN`
+
+### Connection refused on mobile
+
+1. Check firewall allows port 8000
+2. Verify both devices on same network (local mode)
+3. Try using phone hotspot
+
+### Port already in use
+
+```bash
+# Find process using port 8000
+netstat -ano | findstr :8000
+
+# Kill the process (Windows)
+taskkill /PID <PID> /F
+```
+
+## Project Structure
+
+```
+server/
+├── apis/
+│   ├── chat.py          # Chat endpoints
+│   ├── health.py        # Health/status endpoints
+│   ├── models.py        # Model info endpoints
+│   └── ui_proxy.py      # Web UI proxy
+├── auth/
+│   └── password.py      # Password authentication
+├── models/
+│   └── chat.py          # Request/response models
+├── services/
+│   └── parallax.py      # Parallax API client
+├── utils/
+│   └── network.py       # Network utilities
+├── app.py               # FastAPI app factory
+├── config.py            # Configuration
+├── logging_setup.py     # Logging setup
+└── startup.py           # Startup logic
+```
 
 ## Next Steps
 
-Once the server is running, open the **Parallax Connect** app on your phone and scan the QR code to connect!
+1. Start the server: `python run_server.py`
+2. Open Parallax Connect app on your phone
+3. Scan the QR code to connect
+4. Start chatting with your local AI!
