@@ -60,20 +60,27 @@ flutter build ios --release
 ```
 lib/
 ├── main.dart                 # App entry point
-└── src/
-    ├── app.dart              # App widget & providers
-    ├── core/
-    │   ├── constants/        # Colors, app constants
-    │   ├── networking/       # Dio client, exceptions
-    │   ├── router/           # GoRouter configuration
-    │   ├── services/         # Business logic services
-    │   ├── storage/          # Hive local storage
-    │   └── utils/            # Helpers, formatters
-    └── features/
-        ├── chat/             # Chat screen & logic
-        ├── config/           # Server connection setup
-        ├── settings/         # App settings
-        └── splash/           # Splash screen
+├── app/                      # App-wide configuration
+│   ├── app.dart              # Root widget (MaterialApp.router)
+│   ├── constants/            # Colors, app constants
+│   └── routes/               # GoRouter configuration
+├── core/                     # Shared infrastructure
+│   ├── network/              # Dio client, HTTP setup
+│   ├── exceptions/           # Custom error classes
+│   ├── services/             # Business logic services
+│   ├── storage/             # Hive local storage
+│   └── utils/                # Helpers, formatters
+└── features/                 # Feature modules
+    ├── chat/                 # Chat feature
+    │   ├── data/             # Repositories, models
+    │   ├── presentation/     # UI layer
+    │   │   ├── views/        # Screen widgets
+    │   │   ├── view_models/  # State management (Riverpod)
+    │   │   └── widgets/     # Feature-specific widgets
+    │   └── utils/            # Feature utilities
+    ├── config/               # Server connection setup
+    ├── settings/             # App settings
+    └── splash/               # Splash screen
 ```
 
 ## Configuration
@@ -127,10 +134,15 @@ Manual connection is also available by entering the server URL directly.
 
 ## Architecture
 
-The app follows a feature-first architecture with Riverpod for state management:
+The app follows a feature-first architecture with MVVM pattern and Riverpod for state management:
 
-- **Features** are self-contained modules with their own data/presentation layers
-- **Core** contains shared utilities, services, and infrastructure
+- **app/** - App-wide configuration (themes, routing, constants)
+- **core/** - Shared infrastructure (networking, storage, utilities, services)
+- **features/** - Self-contained feature modules organized by business capability
+  - Each feature has `data/` (repositories, models), `presentation/` (views, view_models, widgets), and optional `utils/`
+  - `presentation/views/` contains screen widgets
+  - `presentation/view_models/` contains Riverpod providers for state management
+  - `presentation/widgets/` contains feature-specific UI components
 - **Services** handle business logic and external communication
 - **Storage** manages local persistence with Hive
 

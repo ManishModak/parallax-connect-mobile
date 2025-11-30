@@ -4,11 +4,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'src/app.dart';
-import 'src/core/storage/chat_archive_storage.dart';
-import 'src/core/storage/chat_history_storage.dart';
-import 'src/core/storage/config_storage.dart';
-import 'src/core/utils/logger.dart';
+import 'app/app.dart';
+import 'core/storage/chat_archive_storage.dart';
+import 'core/storage/chat_history_storage.dart';
+import 'core/storage/config_storage.dart';
+import 'core/utils/logger.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
