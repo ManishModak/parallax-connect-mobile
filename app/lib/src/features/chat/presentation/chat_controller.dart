@@ -119,6 +119,51 @@ class ChatController extends Notifier<ChatState> {
     }
   }
 
+  Future<void> editMessage(ChatMessage message, String newText) async {
+    final index = state.messages.indexOf(message);
+    if (index == -1) return;
+
+    // Remove this message and all subsequent messages
+    final newMessages = state.messages.sublist(0, index);
+    state = state.copyWith(messages: newMessages);
+
+    // Update history storage
+    if (!state.isPrivateMode) {
+      await _historyStorage.clearHistory();
+      for (final msg in newMessages) {
+        await _historyStorage.saveMessage(msg.toMap());
+      }
+    }
+
+    // Send the new message
+    await sendMessage(newText, attachmentPaths: message.attachmentPaths);
+  }
+
+  Future<void> retryMessage(ChatMessage message) async {
+    final index = state.messages.indexOf(message);
+    if (index == -1) return;
+
+    // Remove all messages AFTER this one (the AI response)
+    // We keep the user message for now, but sendMessage will add a NEW one.
+    // So we should actually remove this one too if we want to "resend" it cleanly
+    // OR we just remove the AI response and trigger generation again.
+    // But sendMessage adds the user message to the state.
+    // So we should remove this message and everything after it, then resend.
+
+    final newMessages = state.messages.sublist(0, index);
+    state = state.copyWith(messages: newMessages);
+
+    // Update history storage
+    if (!state.isPrivateMode) {
+      await _historyStorage.clearHistory();
+      for (final msg in newMessages) {
+        await _historyStorage.saveMessage(msg.toMap());
+      }
+    }
+
+    await sendMessage(message.text, attachmentPaths: message.attachmentPaths);
+  }
+
   Future<void> sendMessage(
     String text, {
     List<String> attachmentPaths = const [],

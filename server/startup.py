@@ -13,7 +13,16 @@ logger = get_logger(__name__)
 
 async def on_startup():
     """Server startup event handler."""
-    logger.info(f"🚀 Server Starting... MODE: {SERVER_MODE}")
+    logger.info(
+        f"🚀 Server Starting...",
+        extra={
+            "extra_data": {
+                "event": "startup",
+                "mode": SERVER_MODE,
+                "parallax_url": PARALLAX_SERVICE_URL,
+            }
+        },
+    )
 
     # Test Parallax connection if in PROXY mode
     if SERVER_MODE == "PROXY":
@@ -33,11 +42,25 @@ async def _test_parallax_connection():
         async with httpx.AsyncClient() as client:
             resp = await client.get("http://localhost:3001/model/list", timeout=5.0)
             if resp.status_code == 200:
-                logger.info("✅ Parallax connection successful")
+                logger.info(
+                    "✅ Parallax connection successful",
+                    extra={"extra_data": {"parallax_status": "connected"}},
+                )
             else:
-                logger.warning(f"⚠️ Parallax returned status {resp.status_code}")
+                logger.warning(
+                    f"⚠️ Parallax returned status {resp.status_code}",
+                    extra={
+                        "extra_data": {
+                            "parallax_status": "error",
+                            "status_code": resp.status_code,
+                        }
+                    },
+                )
     except Exception as e:
-        logger.warning(f"⚠️ Cannot reach Parallax: {e}")
+        logger.warning(
+            f"⚠️ Cannot reach Parallax: {e}",
+            extra={"extra_data": {"parallax_status": "unreachable", "error": str(e)}},
+        )
         logger.warning("Make sure Parallax is running: parallax run")
 
 

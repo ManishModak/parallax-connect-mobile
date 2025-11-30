@@ -2,11 +2,62 @@
 
 import glob
 import logging
+import json
 import os
+import sys
 from datetime import datetime
 from logging.handlers import RotatingFileHandler
+from typing import Any
 
-from .config import LOG_DIR, LOG_FORMAT, LOG_DATE_FORMAT
+from .config import (
+    LOG_DIR,
+    LOG_FORMAT,
+    LOG_DATE_FORMAT,
+    LOG_LEVEL,
+    LOG_JSON_FORMAT,
+    SENSITIVE_FIELDS,
+)
+
+
+class JSONFormatter(logging.Formatter):
+    """JSON log formatter with sensitive data redaction."""
+
+    def format(self, record: logging.LogRecord) -> str:
+        """Format log record as JSON."""
+        log_data = {
+            "timestamp": datetime.fromtimestamp(record.created).isoformat(),
+            "level": record.levelname,
+            "message": record.getMessage(),
+            "logger": record.name,
+            "module": record.module,
+            "function": record.funcName,
+            "line": record.lineno,
+        }
+
+        # Add extra fields from record
+        if hasattr(record, "request_id"):
+            log_data["request_id"] = record.request_id
+
+        if hasattr(record, "extra_data"):
+            log_data.update(self._redact_sensitive_data(record.extra_data))
+
+        if record.exc_info:
+            log_data["exception"] = self.formatException(record.exc_info)
+
+        return json.dumps(log_data)
+
+    def _redact_sensitive_data(self, data: Any) -> Any:
+        """Recursively redact sensitive fields from data."""
+        if isinstance(data, dict):
+            return {
+                k: "******"
+                if any(s in k.lower() for s in SENSITIVE_FIELDS)
+                else self._redact_sensitive_data(v)
+                for k, v in data.items()
+            }
+        elif isinstance(data, list):
+            return [self._redact_sensitive_data(item) for item in data]
+        return data
 
 
 def cleanup_old_logs(keep_count: int = 5):
@@ -32,22 +83,40 @@ def setup_logging():
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     log_file = os.path.join(LOG_DIR, f"server_{timestamp}.log")
 
-    logging.basicConfig(
-        level=logging.INFO,
-        format=LOG_FORMAT,
-        datefmt=LOG_DATE_FORMAT,
-        handlers=[
-            logging.StreamHandler(),
-            RotatingFileHandler(
-                log_file,
-                maxBytes=5 * 1024 * 1024,
-                backupCount=3,
-                encoding="utf-8",
-            ),
-        ],
+    # Determine log level
+    level = getattr(logging, LOG_LEVEL.upper(), logging.INFO)
+
+    # Root logger
+    root_logger = logging.getLogger()
+    root_logger.setLevel(level)
+
+    # Clear existing handlers
+    root_logger.handlers = []
+
+    # Console Handler (Human readable)
+    console_handler = logging.StreamHandler(sys.stdout)
+    console_handler.setFormatter(logging.Formatter(LOG_FORMAT, datefmt=LOG_DATE_FORMAT))
+    root_logger.addHandler(console_handler)
+
+    # File Handler (JSON or Text)
+    file_handler = RotatingFileHandler(
+        log_file,
+        maxBytes=10 * 1024 * 1024,  # 10MB
+        backupCount=5,
+        encoding="utf-8",
     )
 
-    logging.info(f"📝 Logging to: {os.path.abspath(log_file)}")
+    if LOG_JSON_FORMAT:
+        file_handler.setFormatter(JSONFormatter())
+    else:
+        file_handler.setFormatter(
+            logging.Formatter(LOG_FORMAT, datefmt=LOG_DATE_FORMAT)
+        )
+
+    root_logger.addHandler(file_handler)
+
+    logging.info(f"📝 Logging initialized. Level: {LOG_LEVEL}, JSON: {LOG_JSON_FORMAT}")
+    logging.info(f"📂 Log file: {os.path.abspath(log_file)}")
 
 
 def get_logger(name: str) -> logging.Logger:

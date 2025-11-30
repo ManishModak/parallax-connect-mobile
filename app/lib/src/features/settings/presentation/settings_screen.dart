@@ -292,6 +292,77 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     ),
                   ),
                 ],
+                const Divider(height: 1, indent: 16, endIndent: 16),
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Text(
+                                  'Deep Search',
+                                  style: GoogleFonts.inter(
+                                    color: AppColors.primary,
+                                    fontWeight: FontWeight.w500,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 6,
+                                    vertical: 2,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.accent.withValues(
+                                      alpha: 0.1,
+                                    ),
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: Text(
+                                    'INTENSIVE',
+                                    style: GoogleFonts.inter(
+                                      color: AppColors.accent,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Analyzes more results and reads full page content. Slower but more comprehensive.',
+                              style: GoogleFonts.inter(
+                                color: AppColors.secondary,
+                                fontSize: 12,
+                                height: 1.4,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Switch(
+                        value: state.isDeepSearchEnabled,
+                        onChanged: (val) {
+                          hapticsHelper.triggerHaptics();
+                          controller.setDeepSearchEnabled(val);
+                        },
+                        activeThumbColor: AppColors.primary,
+                        activeTrackColor: AppColors.primary.withValues(
+                          alpha: 0.3,
+                        ),
+                        inactiveThumbColor: AppColors.secondary,
+                        inactiveTrackColor: AppColors.background,
+                      ),
+                    ],
+                  ),
+                ),
               ],
             ),
           ),

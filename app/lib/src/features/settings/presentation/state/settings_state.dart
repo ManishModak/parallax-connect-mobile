@@ -10,6 +10,7 @@ class SettingsState {
   final bool isWebSearchEnabled;
   final String webSearchProvider;
   final String? braveSearchApiKey;
+  final bool isDeepSearchEnabled;
 
   SettingsState({
     required this.hapticsLevel,
@@ -23,6 +24,7 @@ class SettingsState {
     this.isWebSearchEnabled = true,
     this.webSearchProvider = 'duckduckgo',
     this.braveSearchApiKey,
+    this.isDeepSearchEnabled = false,
   });
 
   SettingsState copyWith({
@@ -37,6 +39,7 @@ class SettingsState {
     bool? isWebSearchEnabled,
     String? webSearchProvider,
     String? braveSearchApiKey,
+    bool? isDeepSearchEnabled,
   }) {
     return SettingsState(
       hapticsLevel: hapticsLevel ?? this.hapticsLevel,
@@ -51,6 +54,7 @@ class SettingsState {
       isWebSearchEnabled: isWebSearchEnabled ?? this.isWebSearchEnabled,
       webSearchProvider: webSearchProvider ?? this.webSearchProvider,
       braveSearchApiKey: braveSearchApiKey ?? this.braveSearchApiKey,
+      isDeepSearchEnabled: isDeepSearchEnabled ?? this.isDeepSearchEnabled,
     );
   }
 }

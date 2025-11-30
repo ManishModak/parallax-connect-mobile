@@ -9,7 +9,8 @@ class HapticsHelper {
 
   // Throttle streaming haptics to avoid overwhelming the haptic engine
   DateTime? _lastStreamingHaptic;
-  static const _streamingHapticInterval = Duration(milliseconds: 50);
+  // Increased interval for smoother feel (was 50ms)
+  static const _streamingHapticInterval = Duration(milliseconds: 80);
 
   HapticsHelper(this._settingsStorage);
 
@@ -53,6 +54,7 @@ class HapticsHelper {
     _lastStreamingHaptic = now;
 
     // Use selection click for a subtle typing feel
+    // selectionClick is the lightest available feedback on most platforms
     await HapticFeedback.selectionClick();
   }
 

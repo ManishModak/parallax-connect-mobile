@@ -13,6 +13,7 @@ import '../../../../core/utils/haptics_helper.dart';
 import '../../utils/file_type_helper.dart';
 import '../../../settings/presentation/settings_controller.dart';
 import 'attachment_menu.dart';
+import 'search_options_menu.dart';
 
 class ChatInputArea extends ConsumerStatefulWidget {
   final Function(String text, List<String> attachmentPaths) onSubmitted;
@@ -39,12 +40,15 @@ class _ChatInputAreaState extends ConsumerState<ChatInputArea> {
   final List<String> _selectedAttachments = [];
   bool _isAttachmentMenuOpen = false;
   final LayerLink _layerLink = LayerLink();
+  final LayerLink _searchOptionsLayerLink = LayerLink();
   OverlayEntry? _overlayEntry;
+  OverlayEntry? _searchOptionsOverlayEntry;
 
   @override
   void dispose() {
     _controller.dispose();
     _removeOverlay();
+    _removeSearchOptionsOverlay();
     super.dispose();
   }
 
@@ -52,6 +56,7 @@ class _ChatInputAreaState extends ConsumerState<ChatInputArea> {
     if (_isAttachmentMenuOpen) {
       _removeOverlay();
     } else {
+      _removeSearchOptionsOverlay(); // Close other menu if open
       _showOverlay();
     }
     setState(() {
@@ -59,14 +64,36 @@ class _ChatInputAreaState extends ConsumerState<ChatInputArea> {
     });
   }
 
+  void _toggleSearchOptionsMenu() {
+    if (_searchOptionsOverlayEntry != null) {
+      _removeSearchOptionsOverlay();
+    } else {
+      _removeOverlay(); // Close attachment menu if open
+      _showSearchOptionsOverlay();
+    }
+  }
+
   void _showOverlay() {
     _overlayEntry = _createOverlayEntry();
     Overlay.of(context).insert(_overlayEntry!);
   }
 
+  void _showSearchOptionsOverlay() {
+    _searchOptionsOverlayEntry = _createSearchOptionsOverlayEntry();
+    Overlay.of(context).insert(_searchOptionsOverlayEntry!);
+  }
+
   void _removeOverlay() {
     _overlayEntry?.remove();
     _overlayEntry = null;
+    if (_isAttachmentMenuOpen) {
+      setState(() => _isAttachmentMenuOpen = false);
+    }
+  }
+
+  void _removeSearchOptionsOverlay() {
+    _searchOptionsOverlayEntry?.remove();
+    _searchOptionsOverlayEntry = null;
   }
 
   OverlayEntry _createOverlayEntry() {
@@ -83,7 +110,6 @@ class _ChatInputAreaState extends ConsumerState<ChatInputArea> {
               onCameraTap: () async {
                 ref.read(hapticsHelperProvider).triggerHaptics();
                 _removeOverlay();
-                setState(() => _isAttachmentMenuOpen = false);
                 final path = await widget.onCameraTap();
                 if (path != null) {
                   setState(() {
@@ -94,7 +120,6 @@ class _ChatInputAreaState extends ConsumerState<ChatInputArea> {
               onGalleryTap: () async {
                 ref.read(hapticsHelperProvider).triggerHaptics();
                 _removeOverlay();
-                setState(() => _isAttachmentMenuOpen = false);
                 final paths = await widget.onGalleryTap();
                 if (paths.isNotEmpty) {
                   setState(() {
@@ -105,13 +130,51 @@ class _ChatInputAreaState extends ConsumerState<ChatInputArea> {
               onFileTap: () async {
                 ref.read(hapticsHelperProvider).triggerHaptics();
                 _removeOverlay();
-                setState(() => _isAttachmentMenuOpen = false);
                 final paths = await widget.onFileTap();
                 if (paths.isNotEmpty) {
                   setState(() {
                     _selectedAttachments.addAll(paths);
                   });
                 }
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  OverlayEntry _createSearchOptionsOverlayEntry() {
+    return OverlayEntry(
+      builder: (context) => Positioned(
+        width: 240,
+        child: CompositedTransformFollower(
+          link: _searchOptionsLayerLink,
+          showWhenUnlinked: false,
+          offset: const Offset(0, -140), // Position above the icon
+          child: TapRegion(
+            groupId: 'search_options_menu',
+            onTapOutside: (_) => _removeSearchOptionsOverlay(),
+            child: SearchOptionsMenu(
+              onWebSearchToggle: () {
+                ref.read(hapticsHelperProvider).triggerHaptics();
+                final controller = ref.read(
+                  settingsControllerProvider.notifier,
+                );
+                final isEnabled = ref
+                    .read(settingsControllerProvider)
+                    .isWebSearchEnabled;
+                controller.setWebSearchEnabled(!isEnabled);
+              },
+              onDeepSearchToggle: () {
+                ref.read(hapticsHelperProvider).triggerHaptics();
+                final controller = ref.read(
+                  settingsControllerProvider.notifier,
+                );
+                final isDeep = ref
+                    .read(settingsControllerProvider)
+                    .isDeepSearchEnabled;
+                controller.setDeepSearchEnabled(!isDeep);
               },
             ),
           ),
@@ -244,9 +307,7 @@ class _ChatInputAreaState extends ConsumerState<ChatInputArea> {
     return GestureDetector(
       onTap: () {
         ref.read(hapticsHelperProvider).triggerHaptics();
-        ref
-            .read(settingsControllerProvider.notifier)
-            .setWebSearchEnabled(!isEnabled);
+        _toggleSearchOptionsMenu();
       },
       child: Container(
         width: 36,
@@ -426,14 +487,14 @@ class _ChatInputAreaState extends ConsumerState<ChatInputArea> {
                   fontSize: 16,
                 ),
                 maxLines: 6,
-                minLines: 1,
+                minLines: 2,
                 decoration: InputDecoration(
                   hintText: 'Ask anything',
                   hintStyle: GoogleFonts.inter(color: AppColors.secondary),
                   border: InputBorder.none,
                   contentPadding: const EdgeInsets.symmetric(
                     horizontal: 4,
-                    vertical: 0,
+                    vertical: 8,
                   ),
                   isDense: true,
                 ),
@@ -449,8 +510,11 @@ class _ChatInputAreaState extends ConsumerState<ChatInputArea> {
                     child: _buildAttachmentButton(),
                   ),
                   const SizedBox(width: 8),
-                  // Web Search Toggle
-                  _buildWebSearchToggle(),
+                  // Web Search Toggle with Options Menu
+                  CompositedTransformTarget(
+                    link: _searchOptionsLayerLink,
+                    child: _buildWebSearchToggle(),
+                  ),
                   const SizedBox(width: 8),
                   // Model Selector
                   _buildModelSelector(),

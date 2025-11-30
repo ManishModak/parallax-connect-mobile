@@ -13,6 +13,9 @@ PARALLAX_UI_URL = "http://localhost:3001"
 LOG_DIR = "applogs"
 LOG_FORMAT = "%(asctime)s [%(levelname)s] %(message)s"
 LOG_DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
+LOG_LEVEL = "INFO"
+LOG_JSON_FORMAT = False
+SENSITIVE_FIELDS = ["password", "token", "api_key", "authorization", "secret"]
 
 # Global password (set at runtime)
 PASSWORD: Optional[str] = None

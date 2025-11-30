@@ -139,6 +139,16 @@ class SettingsStorage {
     return _prefs.getString(_keyBraveSearchApiKey);
   }
 
+  static const _keyDeepSearchEnabled = 'settings_deep_search_enabled';
+
+  Future<void> setDeepSearchEnabled(bool enabled) async {
+    await _prefs.setBool(_keyDeepSearchEnabled, enabled);
+  }
+
+  bool getDeepSearchEnabled() {
+    return _prefs.getBool(_keyDeepSearchEnabled) ?? false; // Default disabled
+  }
+
   // Clear all settings (reset to defaults)
   Future<void> clearSettings() async {
     await _prefs.remove(_keyHapticsLevel);

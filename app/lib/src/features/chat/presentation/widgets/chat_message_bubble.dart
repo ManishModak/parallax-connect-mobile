@@ -13,8 +13,16 @@ import 'code_block_builder.dart';
 class ChatMessageBubble extends StatefulWidget {
   final ChatMessage? message;
   final bool isShimmer;
+  final VoidCallback? onEdit;
+  final VoidCallback? onRetry;
 
-  const ChatMessageBubble({super.key, this.message, this.isShimmer = false});
+  const ChatMessageBubble({
+    super.key,
+    this.message,
+    this.isShimmer = false,
+    this.onEdit,
+    this.onRetry,
+  });
 
   @override
   State<ChatMessageBubble> createState() => _ChatMessageBubbleState();
@@ -181,6 +189,26 @@ class _ChatMessageBubbleState extends State<ChatMessageBubble> {
               }).toList(),
             ),
           ],
+          // User Message Actions (Edit, Retry)
+          if (isUser) ...[
+            const SizedBox(height: 4),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildActionIcon(
+                  icon: LucideIcons.pencil,
+                  tooltip: 'Edit',
+                  onTap: widget.onEdit ?? () {},
+                ),
+                const SizedBox(width: 8),
+                _buildActionIcon(
+                  icon: LucideIcons.refreshCw,
+                  tooltip: 'Retry',
+                  onTap: widget.onRetry ?? () {},
+                ),
+              ],
+            ),
+          ],
           // Copy All button for bot messages
           if (!isUser && widget.message!.text.isNotEmpty) ...[
             const SizedBox(height: 12),
@@ -207,7 +235,7 @@ class _ChatMessageBubbleState extends State<ChatMessageBubble> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(
-                      _copiedAll ? LucideIcons.check : LucideIcons.copy,
+                      LucideIcons.check,
                       size: 14,
                       color: _copiedAll
                           ? AppColors.accent
@@ -230,6 +258,25 @@ class _ChatMessageBubbleState extends State<ChatMessageBubble> {
             ),
           ],
         ],
+      ),
+    );
+  }
+
+  Widget _buildActionIcon({
+    required IconData icon,
+    required String tooltip,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Padding(
+        padding: const EdgeInsets.all(6),
+        child: Icon(
+          icon,
+          size: 14,
+          color: AppColors.secondary.withValues(alpha: 0.7),
+        ),
       ),
     );
   }

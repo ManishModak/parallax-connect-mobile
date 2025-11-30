@@ -1,7 +1,7 @@
 """Health and status endpoints."""
 
 from datetime import datetime
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 
 from ..auth import check_password
 from ..config import SERVER_MODE
@@ -14,9 +14,16 @@ parallax = ParallaxClient()
 
 
 @router.get("/")
-async def home(_: bool = Depends(check_password)):
+async def home(request: Request, _: bool = Depends(check_password)):
     """Root endpoint."""
-    logger.info("📍 Root endpoint accessed")
+    request_id = getattr(request.state, "request_id", "unknown")
+    logger.info(
+        "📍 Root endpoint accessed",
+        extra={
+            "request_id": request_id,
+            "extra_data": {"mode": SERVER_MODE, "device": "Server Node"},
+        },
+    )
     return {"status": "online", "mode": SERVER_MODE, "device": "Server Node"}
 
 
@@ -39,9 +46,15 @@ async def status_endpoint(_: bool = Depends(check_password)):
         connected = await parallax.check_connection()
         if connected:
             status["parallax"] = "connected"
-            logger.info("✅ Parallax status check: connected")
+            logger.info(
+                "✅ Parallax status check: connected",
+                extra={"extra_data": {"parallax_status": "connected"}},
+            )
         else:
             status["parallax"] = "disconnected"
-            logger.warning("⚠️ Parallax status check: disconnected")
+            logger.warning(
+                "⚠️ Parallax status check: disconnected",
+                extra={"extra_data": {"parallax_status": "disconnected"}},
+            )
 
     return status

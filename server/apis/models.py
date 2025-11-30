@@ -19,14 +19,28 @@ async def models_endpoint(_: bool = Depends(check_password)):
     if SERVER_MODE == "MOCK":
         return {
             "models": [
-                {"id": "mock-model", "name": "Mock Model", "context_length": 4096, "vram_gb": 8}
+                {
+                    "id": "mock-model",
+                    "name": "Mock Model",
+                    "context_length": 4096,
+                    "vram_gb": 8,
+                }
             ],
             "active": "mock-model",
             "default": "mock-model",
         }
 
     result = await parallax.get_models()
-    logger.info(f"📋 Models: {len(result['models'])} available, active: {result['active'] or 'none'}")
+    logger.info(
+        f"📋 Models: {len(result['models'])} available",
+        extra={
+            "extra_data": {
+                "count": len(result["models"]),
+                "active": result["active"] or "none",
+                "models": [m["id"] for m in result["models"]],
+            }
+        },
+    )
     return result
 
 
@@ -59,6 +73,14 @@ async def info_endpoint(_: bool = Depends(check_password)):
     result = await parallax.get_capabilities()
     info["capabilities"] = result["capabilities"]
     info["active_models"] = result["active_models"]
-    logger.info(f"📊 Server capabilities: {info['capabilities']}")
+    logger.info(
+        f"📊 Server capabilities",
+        extra={
+            "extra_data": {
+                "capabilities": info["capabilities"],
+                "active_models": result["active_models"],
+            }
+        },
+    )
 
     return info

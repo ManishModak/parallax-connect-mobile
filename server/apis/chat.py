@@ -4,7 +4,7 @@ import asyncio
 import json
 import re
 from datetime import datetime
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, Request
 from fastapi.responses import StreamingResponse
 import httpx
 
@@ -18,10 +18,26 @@ logger = get_logger(__name__)
 
 
 @router.post("/chat")
-async def chat_endpoint(request: ChatRequest, _: bool = Depends(check_password)):
+async def chat_endpoint(
+    request: Request, chat_request: ChatRequest, _: bool = Depends(check_password)
+):
     """Synchronous chat endpoint."""
-    request_id = datetime.now().strftime("%Y%m%d%H%M%S%f")
-    logger.info(f"📝 [{request_id}] Received chat request: {request.prompt[:50]}...")
+    request_id = getattr(
+        request.state, "request_id", datetime.now().strftime("%Y%m%d%H%M%S%f")
+    )
+
+    logger.info(
+        f"📝 [{request_id}] Chat request: {chat_request.model}",
+        extra={
+            "request_id": request_id,
+            "extra_data": {
+                "model": chat_request.model,
+                "max_tokens": chat_request.max_tokens,
+                "stream": False,
+                "prompt_length": len(chat_request.prompt),
+            },
+        },
+    )
 
     if SERVER_MODE == "MOCK":
         logger.info(f"📤 [{request_id}] Returning MOCK response")
@@ -32,19 +48,31 @@ async def chat_endpoint(request: ChatRequest, _: bool = Depends(check_password))
     # PROXY mode
     start_time = datetime.now()
     try:
-        logger.info(f"🔄 [{request_id}] Forwarding to Parallax at {PARALLAX_SERVICE_URL}")
+        logger.info(
+            f"🔄 [{request_id}] Forwarding to Parallax at {PARALLAX_SERVICE_URL}"
+        )
 
         async with httpx.AsyncClient() as client:
-            messages = _build_messages(request)
-            payload = _build_payload(request, messages, stream=False)
+            messages = _build_messages(chat_request)
+            payload = _build_payload(chat_request, messages, stream=False)
 
-            logger.debug(f"📦 [{request_id}] Payload: {payload}")
+            logger.debug(
+                f"📦 [{request_id}] Payload prepared",
+                extra={
+                    "request_id": request_id,
+                    "extra_data": {"payload_keys": list(payload.keys())},
+                },
+            )
 
             resp = await client.post(PARALLAX_SERVICE_URL, json=payload, timeout=60.0)
 
             if resp.status_code != 200:
-                logger.error(f"❌ [{request_id}] Parallax returned {resp.status_code}: {resp.text}")
-                raise HTTPException(status_code=resp.status_code, detail=f"Parallax Error: {resp.text}")
+                logger.error(
+                    f"❌ [{request_id}] Parallax returned {resp.status_code}: {resp.text}"
+                )
+                raise HTTPException(
+                    status_code=resp.status_code, detail=f"Parallax Error: {resp.text}"
+                )
 
             data = resp.json()
             choice = data["choices"][0]
@@ -55,17 +83,27 @@ async def chat_endpoint(request: ChatRequest, _: bool = Depends(check_password))
             )
 
             # Clean response - remove <think>...</think> tags
-            content = re.sub(r"<think>.*?</think>", "", raw_content, flags=re.DOTALL).strip()
+            content = re.sub(
+                r"<think>.*?</think>", "", raw_content, flags=re.DOTALL
+            ).strip()
             if not content:
                 content = raw_content
 
             usage = data.get("usage", {})
             elapsed = (datetime.now() - start_time).total_seconds()
 
-            logger.info(f"✅ [{request_id}] Received response from Parallax ({elapsed:.2f}s)")
             logger.info(
-                f"📊 [{request_id}] Tokens - Prompt: {usage.get('prompt_tokens', 0)}, "
-                f"Completion: {usage.get('completion_tokens', 0)}, Total: {usage.get('total_tokens', 0)}"
+                f"✅ [{request_id}] Response received ({elapsed:.2f}s)",
+                extra={
+                    "request_id": request_id,
+                    "extra_data": {
+                        "duration_seconds": elapsed,
+                        "prompt_tokens": usage.get("prompt_tokens", 0),
+                        "completion_tokens": usage.get("completion_tokens", 0),
+                        "total_tokens": usage.get("total_tokens", 0),
+                        "model": data.get("model", "default"),
+                    },
+                },
             )
 
             return {
@@ -89,23 +127,43 @@ async def chat_endpoint(request: ChatRequest, _: bool = Depends(check_password))
         raise HTTPException(status_code=504, detail="Parallax request timed out.")
     except httpx.ConnectError as e:
         logger.error(f"🔌 [{request_id}] Cannot connect to Parallax: {e}")
-        raise HTTPException(status_code=503, detail="Cannot connect to Parallax. Make sure it's running.")
+        raise HTTPException(
+            status_code=503,
+            detail="Cannot connect to Parallax. Make sure it's running.",
+        )
     except Exception as e:
         logger.error(f"❌ [{request_id}] Proxy error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Remote Service Error: {e}")
 
 
 @router.post("/chat/stream")
-async def chat_stream_endpoint(request: ChatRequest, _: bool = Depends(check_password)):
+async def chat_stream_endpoint(
+    request: Request, chat_request: ChatRequest, _: bool = Depends(check_password)
+):
     """Streaming chat endpoint that returns Server-Sent Events (SSE)."""
-    request_id = datetime.now().strftime("%Y%m%d%H%M%S%f")
-    logger.info(f"🌊 [{request_id}] Streaming chat request: {request.prompt[:50]}...")
+    request_id = getattr(
+        request.state, "request_id", datetime.now().strftime("%Y%m%d%H%M%S%f")
+    )
+
+    logger.info(
+        f"🌊 [{request_id}] Streaming request: {chat_request.model}",
+        extra={
+            "request_id": request_id,
+            "extra_data": {
+                "model": chat_request.model,
+                "stream": True,
+                "prompt_length": len(chat_request.prompt),
+            },
+        },
+    )
 
     if SERVER_MODE == "MOCK":
-        return StreamingResponse(_mock_stream(request), media_type="text/event-stream")
+        return StreamingResponse(
+            _mock_stream(chat_request), media_type="text/event-stream"
+        )
 
     return StreamingResponse(
-        _stream_from_parallax(request, request_id),
+        _stream_from_parallax(chat_request, request_id),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
@@ -126,13 +184,16 @@ async def vision_endpoint(
     logger.info(f"📸 [{request_id}] Vision request: {prompt[:50]}...")
 
     if SERVER_MODE == "MOCK":
-        return {"response": f"[MOCK] Vision Analysis: I see a simulated image. Prompt: {prompt}"}
+        return {
+            "response": f"[MOCK] Vision Analysis: I see a simulated image. Prompt: {prompt}"
+        }
 
     logger.warning(f"⚠️ [{request_id}] Vision proxy not yet implemented")
     return {"response": "[PROXY] Vision not yet implemented in Parallax API wrapper."}
 
 
 # Helper functions
+
 
 def _build_messages(request: ChatRequest) -> list:
     """Build messages array from request."""
@@ -196,7 +257,9 @@ async def _stream_from_parallax(request: ChatRequest, request_id: str):
         payload = _build_payload(request, messages, stream=True)
 
         async with httpx.AsyncClient() as client:
-            async with client.stream("POST", PARALLAX_SERVICE_URL, json=payload, timeout=None) as response:
+            async with client.stream(
+                "POST", PARALLAX_SERVICE_URL, json=payload, timeout=None
+            ) as response:
                 if response.status_code != 200:
                     error_text = await response.aread()
                     yield f"data: {json.dumps({'type': 'error', 'message': f'Parallax error: {error_text.decode()}'})}\n\n"
@@ -248,7 +311,11 @@ async def _stream_from_parallax(request: ChatRequest, request_id: str):
                                     think_content = buffer.split("</think>")[0]
                                     if think_content.strip():
                                         yield f"data: {json.dumps({'type': 'thinking', 'content': think_content})}\n\n"
-                                    buffer = buffer.split("</think>", 1)[1] if "</think>" in buffer else ""
+                                    buffer = (
+                                        buffer.split("</think>", 1)[1]
+                                        if "</think>" in buffer
+                                        else ""
+                                    )
                                     continue
 
                                 if in_thinking:
@@ -268,7 +335,18 @@ async def _stream_from_parallax(request: ChatRequest, request_id: str):
                     yield f"data: {json.dumps({'type': msg_type, 'content': buffer})}\n\n"
 
                 elapsed = (datetime.now() - start_time).total_seconds()
-                logger.info(f"✅ [{request_id}] Stream completed ({elapsed:.2f}s)")
+                logger.info(
+                    f"✅ [{request_id}] Stream completed ({elapsed:.2f}s)",
+                    extra={
+                        "request_id": request_id,
+                        "extra_data": {
+                            "duration_seconds": elapsed,
+                            "prompt_tokens": prompt_tokens,
+                            "completion_tokens": completion_tokens,
+                            "total_tokens": prompt_tokens + completion_tokens,
+                        },
+                    },
+                )
 
                 yield f"data: {json.dumps({'type': 'done', 'metadata': {'prompt_tokens': prompt_tokens, 'completion_tokens': completion_tokens, 'duration_seconds': round(elapsed, 2)}})}\n\n"
 
