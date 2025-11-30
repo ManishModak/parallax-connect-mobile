@@ -38,6 +38,7 @@ class ChatInputArea extends ConsumerStatefulWidget {
 class _ChatInputAreaState extends ConsumerState<ChatInputArea> {
   final TextEditingController _controller = TextEditingController();
   final List<String> _selectedAttachments = [];
+  bool _isSearchActive = false;
   bool _isAttachmentMenuOpen = false;
   final LayerLink _layerLink = LayerLink();
   final LayerLink _searchOptionsLayerLink = LayerLink();
@@ -147,7 +148,7 @@ class _ChatInputAreaState extends ConsumerState<ChatInputArea> {
   OverlayEntry _createSearchOptionsOverlayEntry() {
     return OverlayEntry(
       builder: (context) => Positioned(
-        width: 260,
+        width: 200,
         child: CompositedTransformFollower(
           link: _searchOptionsLayerLink,
           showWhenUnlinked: false,
@@ -156,25 +157,37 @@ class _ChatInputAreaState extends ConsumerState<ChatInputArea> {
             groupId: 'search_options_menu',
             onTapOutside: (_) => _removeSearchOptionsOverlay(),
             child: SearchOptionsMenu(
-              onWebSearchToggle: () {
-                ref.read(hapticsHelperProvider).triggerHaptics();
-                final controller = ref.read(
-                  settingsControllerProvider.notifier,
-                );
-                final isEnabled = ref
-                    .read(settingsControllerProvider)
-                    .isWebSearchEnabled;
-                controller.setWebSearchEnabled(!isEnabled);
-              },
               onDeepSearchToggle: () {
                 ref.read(hapticsHelperProvider).triggerHaptics();
                 final controller = ref.read(
                   settingsControllerProvider.notifier,
                 );
-                final isDeep = ref
+                final currentDepth = ref
                     .read(settingsControllerProvider)
-                    .isDeepSearchEnabled;
-                controller.setDeepSearchEnabled(!isDeep);
+                    .webSearchDepth;
+
+                // Toggle Deep: if already deep, go to normal. Else go to deep.
+                if (currentDepth == 'deep') {
+                  controller.setWebSearchDepth('normal');
+                } else {
+                  controller.setWebSearchDepth('deep');
+                }
+              },
+              onDeeperSearchToggle: () {
+                ref.read(hapticsHelperProvider).triggerHaptics();
+                final controller = ref.read(
+                  settingsControllerProvider.notifier,
+                );
+                final currentDepth = ref
+                    .read(settingsControllerProvider)
+                    .webSearchDepth;
+
+                // Toggle Deeper: if already deeper, go to normal.
+                if (currentDepth == 'deeper') {
+                  controller.setWebSearchDepth('normal');
+                } else {
+                  controller.setWebSearchDepth('deeper');
+                }
               },
             ),
           ),
@@ -302,28 +315,87 @@ class _ChatInputAreaState extends ConsumerState<ChatInputArea> {
 
   Widget _buildWebSearchToggle() {
     final settingsState = ref.watch(settingsControllerProvider);
-    final isEnabled = settingsState.isWebSearchEnabled;
+    final isFeatureEnabled = settingsState.isWebSearchEnabled;
+    final depth = settingsState.webSearchDepth;
+
+    String label = 'Web Search';
+    IconData icon = LucideIcons.globe;
+
+    if (depth == 'deep') {
+      label = 'Deep Search';
+      icon = LucideIcons.globe;
+    } else if (depth == 'deeper') {
+      label = 'Deeper Search';
+      icon = LucideIcons.layers;
+    }
 
     return GestureDetector(
       onTap: () {
+        if (!isFeatureEnabled) {
+          ref.read(hapticsHelperProvider).triggerHaptics();
+          FeatureSnackbar.showDisabled(
+            context,
+            featureName: 'Web Search',
+            status:
+                FeatureStatus.available(), // Assuming available if flag is true in code but disabled in settings
+            onSettingsTap: () => context.push(AppRoutes.settings),
+          );
+          return;
+        }
+
+        ref.read(hapticsHelperProvider).triggerHaptics();
+        // Toggle active state
+        setState(() {
+          _isSearchActive = !_isSearchActive;
+        });
+      },
+      onLongPress: () {
+        if (!isFeatureEnabled) return;
         ref.read(hapticsHelperProvider).triggerHaptics();
         _toggleSearchOptionsMenu();
       },
-      child: Container(
-        width: 36,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
         height: 36,
+        padding: EdgeInsets.symmetric(horizontal: _isSearchActive ? 12 : 0),
+        width: _isSearchActive ? null : 36,
         decoration: BoxDecoration(
-          color: isEnabled
-              ? AppColors.primary.withValues(alpha: 0.1)
-              : AppColors.surfaceLight.withValues(alpha: 0.2),
-          shape: BoxShape.circle,
+          color: isFeatureEnabled
+              ? (_isSearchActive
+                    ? AppColors.primary.withValues(alpha: 0.1)
+                    : AppColors.surfaceLight.withValues(alpha: 0.2))
+              : AppColors.surfaceLight.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(18),
         ),
-        child: Icon(
-          LucideIcons.globe,
-          size: 18,
-          color: isEnabled
-              ? AppColors.primary
-              : AppColors.secondary.withValues(alpha: 0.5),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              icon,
+              size: 18,
+              color: isFeatureEnabled
+                  ? (_isSearchActive
+                        ? AppColors.primary
+                        : AppColors.secondary.withValues(alpha: 0.5))
+                  : AppColors.secondary.withValues(alpha: 0.2),
+            ),
+            if (_isSearchActive) ...[
+              const SizedBox(width: 6),
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 100),
+                child: Text(
+                  label,
+                  style: GoogleFonts.inter(
+                    color: AppColors.primary,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ],
         ),
       ),
     );

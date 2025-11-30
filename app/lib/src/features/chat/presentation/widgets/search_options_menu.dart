@@ -7,188 +7,101 @@ import '../../../../core/constants/app_colors.dart';
 import '../../../settings/presentation/settings_controller.dart';
 
 class SearchOptionsMenu extends ConsumerWidget {
-  final VoidCallback onWebSearchToggle;
   final VoidCallback onDeepSearchToggle;
+  final VoidCallback onDeeperSearchToggle;
 
   const SearchOptionsMenu({
     super.key,
-    required this.onWebSearchToggle,
     required this.onDeepSearchToggle,
+    required this.onDeeperSearchToggle,
   });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final settingsState = ref.watch(settingsControllerProvider);
-    final isWebSearchEnabled = settingsState.isWebSearchEnabled;
-    final isDeepSearchEnabled = settingsState.isDeepSearchEnabled;
+    final depth = settingsState.webSearchDepth;
+    final isDeep = depth == 'deep';
+    final isDeeper = depth == 'deeper';
 
-    return Container(
-      width: 260,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: AppColors.surfaceLight.withValues(alpha: 0.5),
+    return Material(
+      color: Colors.transparent,
+      child: Container(
+        width: 200,
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        decoration: BoxDecoration(
+          color: AppColors.chatInputBackground,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppColors.surfaceLight, width: 1),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.background.withValues(alpha: 0.5),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.2),
-            blurRadius: 24,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.only(left: 4, bottom: 12),
-            child: Text(
-              'Search Capabilities',
-              style: GoogleFonts.inter(
-                color: AppColors.secondary,
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 0.5,
-              ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _buildMenuItem(
+              icon: LucideIcons.globe,
+              label: 'Deep Search',
+              isActive: isDeep,
+              onTap: onDeepSearchToggle,
             ),
-          ),
-          _buildOptionTile(
-            context,
-            icon: LucideIcons.globe,
-            title: 'Web Search',
-            subtitle: 'Real-time information from the web',
-            isActive: isWebSearchEnabled,
-            onTap: onWebSearchToggle,
-          ),
-          const SizedBox(height: 8),
-          AnimatedOpacity(
-            duration: const Duration(milliseconds: 200),
-            opacity: isWebSearchEnabled ? 1.0 : 0.5,
-            child: IgnorePointer(
-              ignoring: !isWebSearchEnabled,
-              child: Container(
-                decoration: BoxDecoration(
-                  color: isDeepSearchEnabled
-                      ? AppColors.accent.withValues(alpha: 0.05)
-                      : Colors.transparent,
-                  borderRadius: BorderRadius.circular(12),
-                  border: isDeepSearchEnabled
-                      ? Border.all(
-                          color: AppColors.accent.withValues(alpha: 0.2),
-                        )
-                      : Border.all(color: Colors.transparent),
-                ),
-                child: _buildOptionTile(
-                  context,
-                  icon: LucideIcons.layers,
-                  title: 'Deep Search',
-                  subtitle: 'Comprehensive analysis & full page reading',
-                  isActive: isDeepSearchEnabled,
-                  activeColor: AppColors.accent,
-                  onTap: onDeepSearchToggle,
-                  isSubOption: true,
-                ),
-              ),
+            const SizedBox(height: 4),
+            _buildMenuItem(
+              icon: LucideIcons.layers,
+              label: 'Deeper Search',
+              isActive: isDeeper,
+              onTap: onDeeperSearchToggle,
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildOptionTile(
-    BuildContext context, {
+  Widget _buildMenuItem({
     required IconData icon,
-    required String title,
-    required String subtitle,
+    required String label,
     required bool isActive,
     required VoidCallback onTap,
-    Color? activeColor,
-    bool isSubOption = false,
   }) {
-    final color = activeColor ?? AppColors.primary;
-
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: isActive
-                      ? color.withValues(alpha: 0.1)
-                      : AppColors.surfaceLight.withValues(alpha: 0.3),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Icon(
-                  icon,
-                  size: 20,
-                  color: isActive ? color : AppColors.secondary,
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: isActive
+                    ? AppColors.primary.withValues(alpha: 0.1)
+                    : AppColors.surfaceLight,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(
+                icon,
+                color: isActive ? AppColors.primary : AppColors.secondary,
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                label,
+                style: GoogleFonts.inter(
+                  color: isActive ? AppColors.primary : AppColors.secondary,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
                 ),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Text(
-                          title,
-                          style: GoogleFonts.inter(
-                            color: isActive ? color : AppColors.primary,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        if (isActive) ...[
-                          const SizedBox(width: 6),
-                          Icon(
-                            LucideIcons.checkCircle2,
-                            size: 14,
-                            color: color,
-                          ),
-                        ],
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      subtitle,
-                      style: GoogleFonts.inter(
-                        color: AppColors.secondary,
-                        fontSize: 12,
-                        height: 1.4,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              if (!isActive)
-                Padding(
-                  padding: const EdgeInsets.only(top: 2),
-                  child: Container(
-                    width: 16,
-                    height: 16,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: AppColors.surfaceLight,
-                        width: 2,
-                      ),
-                    ),
-                  ),
-                ),
-            ],
-          ),
+            ),
+            if (isActive)
+              Icon(LucideIcons.check, size: 16, color: AppColors.primary),
+          ],
         ),
       ),
     );

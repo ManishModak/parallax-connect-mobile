@@ -147,7 +147,7 @@ class WebSearchService {
 
   Future<String> search(String query) async {
     final providerType = _settings.getWebSearchProvider();
-    final isDeepSearch = _settings.getDeepSearchEnabled();
+    final depth = _settings.getWebSearchDepth();
     WebSearchProvider provider;
 
     if (providerType == 'brave') {
@@ -162,13 +162,33 @@ class WebSearchService {
       provider = DuckDuckGoSearchProvider();
     }
 
-    // Deep Search Configuration
-    final resultLimit = isDeepSearch ? 15 : 10;
-    final contentFetchLimit = isDeepSearch ? 5 : 3;
-    final contentLengthLimit = isDeepSearch ? 3000 : 1000;
-    final fetchTimeout = isDeepSearch
-        ? const Duration(seconds: 6)
-        : const Duration(seconds: 3);
+    // Search Depth Configuration
+    int resultLimit;
+    int contentFetchLimit;
+    int contentLengthLimit;
+    Duration fetchTimeout;
+
+    switch (depth) {
+      case 'deeper':
+        resultLimit = 20;
+        contentFetchLimit = 10;
+        contentLengthLimit = 6000;
+        fetchTimeout = const Duration(seconds: 10);
+        break;
+      case 'deep':
+        resultLimit = 15;
+        contentFetchLimit = 5;
+        contentLengthLimit = 3000;
+        fetchTimeout = const Duration(seconds: 6);
+        break;
+      case 'normal':
+      default:
+        resultLimit = 10;
+        contentFetchLimit = 2;
+        contentLengthLimit = 1000;
+        fetchTimeout = const Duration(seconds: 3);
+        break;
+    }
 
     final results = await provider.search(query, limit: resultLimit);
 

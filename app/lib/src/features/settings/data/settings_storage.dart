@@ -139,14 +139,14 @@ class SettingsStorage {
     return _prefs.getString(_keyBraveSearchApiKey);
   }
 
-  static const _keyDeepSearchEnabled = 'settings_deep_search_enabled';
+  static const _keyWebSearchDepth = 'settings_web_search_depth';
 
-  Future<void> setDeepSearchEnabled(bool enabled) async {
-    await _prefs.setBool(_keyDeepSearchEnabled, enabled);
+  Future<void> setWebSearchDepth(String depth) async {
+    await _prefs.setString(_keyWebSearchDepth, depth);
   }
 
-  bool getDeepSearchEnabled() {
-    return _prefs.getBool(_keyDeepSearchEnabled) ?? false; // Default disabled
+  String getWebSearchDepth() {
+    return _prefs.getString(_keyWebSearchDepth) ?? 'normal'; // Default normal
   }
 
   // Clear all settings (reset to defaults)

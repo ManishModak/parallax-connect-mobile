@@ -25,7 +25,7 @@ class SettingsController extends Notifier<SettingsState> {
       isWebSearchEnabled: _settingsStorage.getWebSearchEnabled(),
       webSearchProvider: _settingsStorage.getWebSearchProvider(),
       braveSearchApiKey: _settingsStorage.getBraveSearchApiKey(),
-      isDeepSearchEnabled: _settingsStorage.getDeepSearchEnabled(),
+      webSearchDepth: _settingsStorage.getWebSearchDepth(),
     );
   }
 
@@ -119,7 +119,7 @@ class SettingsController extends Notifier<SettingsState> {
       isWebSearchEnabled: _settingsStorage.getWebSearchEnabled(),
       webSearchProvider: _settingsStorage.getWebSearchProvider(),
       braveSearchApiKey: _settingsStorage.getBraveSearchApiKey(),
-      isDeepSearchEnabled: _settingsStorage.getDeepSearchEnabled(),
+      webSearchDepth: _settingsStorage.getWebSearchDepth(),
     );
   }
 
@@ -138,9 +138,9 @@ class SettingsController extends Notifier<SettingsState> {
     state = state.copyWith(braveSearchApiKey: apiKey);
   }
 
-  Future<void> setDeepSearchEnabled(bool enabled) async {
-    await _settingsStorage.setDeepSearchEnabled(enabled);
-    state = state.copyWith(isDeepSearchEnabled: enabled);
+  Future<void> setWebSearchDepth(String depth) async {
+    await _settingsStorage.setWebSearchDepth(depth);
+    state = state.copyWith(webSearchDepth: depth);
   }
 }
 
