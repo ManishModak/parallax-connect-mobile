@@ -25,7 +25,7 @@ class StreamingMessageBubble extends StatelessWidget {
           if (content.isNotEmpty)
             MarkdownBody(
               data: content,
-              selectable: true,
+              selectable: false,
               builders: {
                 'code': CodeElementBuilder(
                   onCopy: (_) {},

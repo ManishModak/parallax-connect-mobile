@@ -147,7 +147,7 @@ class _ChatInputAreaState extends ConsumerState<ChatInputArea> {
   OverlayEntry _createSearchOptionsOverlayEntry() {
     return OverlayEntry(
       builder: (context) => Positioned(
-        width: 240,
+        width: 260,
         child: CompositedTransformFollower(
           link: _searchOptionsLayerLink,
           showWhenUnlinked: false,

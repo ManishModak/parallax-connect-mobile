@@ -9,8 +9,10 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/storage/config_storage.dart';
 import '../../../core/constants/app_constants.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+
 import 'widgets/splash_branding.dart';
+import '../../chat/data/chat_repository.dart';
+import '../../../core/services/model_selection_service.dart';
 
 class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
@@ -27,13 +29,15 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
   }
 
   void _navigateToNextScreen() async {
-    await Future.delayed(const Duration(seconds: 3));
+    // Start the minimum splash timer
+    final minSplashDuration = Future.delayed(const Duration(seconds: 3));
 
     if (!mounted) return;
 
     // 🧪 In test mode, skip config screen
     if (TestConfig.enabled) {
-      context.go(AppRoutes.chat);
+      await minSplashDuration;
+      if (mounted) context.go(AppRoutes.chat);
       return;
     }
 
@@ -41,13 +45,44 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
     final hasConfig = configStorage.hasConfig();
 
     if (hasConfig) {
-      context.go(AppRoutes.chat);
+      // Start connection test in background immediately
+      final repository = ref.read(chatRepositoryProvider);
+      final connectionFuture = repository.testConnection();
+
+      // Wait for the splash animation/timer to finish
+      await minSplashDuration;
+
+      // Now check if connection is done or wait for it
+      // We use a small timeout here to avoid hanging if connection is slow
+      // If it takes too long, we assume it might be offline/slow and go to chat anyway
+      // (Chat screen handles offline state gracefully)
+      bool isConnected = false;
+      try {
+        isConnected = await connectionFuture.timeout(
+          const Duration(milliseconds: 500),
+          onTimeout: () => false,
+        );
+      } catch (e) {
+        // Ignore connection errors here
+      }
+
+      if (!mounted) return;
+
+      if (isConnected) {
+        // Fetch available models in background (fire and forget)
+        ref.read(modelSelectionProvider.notifier).fetchModels();
+        context.go(AppRoutes.chat);
+      } else {
+        // If connection failed or timed out, still go to chat if we have config
+        // The chat screen will show connection error if needed
+        context.go(AppRoutes.chat);
+      }
     } else {
-      context.go(AppRoutes.config);
+      await minSplashDuration;
+      if (mounted) context.go(AppRoutes.config);
     }
   }
 
-  @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,

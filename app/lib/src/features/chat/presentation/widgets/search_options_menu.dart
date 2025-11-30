@@ -23,17 +23,19 @@ class SearchOptionsMenu extends ConsumerWidget {
     final isDeepSearchEnabled = settingsState.isDeepSearchEnabled;
 
     return Container(
-      width: 240,
-      padding: const EdgeInsets.all(8),
+      width: 260,
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: AppColors.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.surfaceLight),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: AppColors.surfaceLight.withValues(alpha: 0.5),
+        ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
+            color: Colors.black.withValues(alpha: 0.2),
+            blurRadius: 24,
+            offset: const Offset(0, 8),
           ),
         ],
       ),
@@ -42,13 +44,14 @@ class SearchOptionsMenu extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            padding: const EdgeInsets.only(left: 4, bottom: 12),
             child: Text(
-              'Search Options',
+              'Search Capabilities',
               style: GoogleFonts.inter(
-                color: AppColors.primaryMildVariant,
+                color: AppColors.secondary,
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
+                letterSpacing: 0.5,
               ),
             ),
           ),
@@ -56,24 +59,41 @@ class SearchOptionsMenu extends ConsumerWidget {
             context,
             icon: LucideIcons.globe,
             title: 'Web Search',
-            subtitle: 'Access real-time information',
+            subtitle: 'Real-time information from the web',
             isActive: isWebSearchEnabled,
             onTap: onWebSearchToggle,
           ),
-          if (isWebSearchEnabled) ...[
-            const Divider(height: 12, color: AppColors.surfaceLight),
-            _buildOptionTile(
-              context,
-              icon: isDeepSearchEnabled
-                  ? LucideIcons.layers
-                  : LucideIcons.search,
-              title: 'Deep Search',
-              subtitle: 'More results, full page reading',
-              isActive: isDeepSearchEnabled,
-              activeColor: AppColors.accent,
-              onTap: onDeepSearchToggle,
+          const SizedBox(height: 8),
+          AnimatedOpacity(
+            duration: const Duration(milliseconds: 200),
+            opacity: isWebSearchEnabled ? 1.0 : 0.5,
+            child: IgnorePointer(
+              ignoring: !isWebSearchEnabled,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: isDeepSearchEnabled
+                      ? AppColors.accent.withValues(alpha: 0.05)
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(12),
+                  border: isDeepSearchEnabled
+                      ? Border.all(
+                          color: AppColors.accent.withValues(alpha: 0.2),
+                        )
+                      : Border.all(color: Colors.transparent),
+                ),
+                child: _buildOptionTile(
+                  context,
+                  icon: LucideIcons.layers,
+                  title: 'Deep Search',
+                  subtitle: 'Comprehensive analysis & full page reading',
+                  isActive: isDeepSearchEnabled,
+                  activeColor: AppColors.accent,
+                  onTap: onDeepSearchToggle,
+                  isSubOption: true,
+                ),
+              ),
             ),
-          ],
+          ),
         ],
       ),
     );
@@ -87,6 +107,7 @@ class SearchOptionsMenu extends ConsumerWidget {
     required bool isActive,
     required VoidCallback onTap,
     Color? activeColor,
+    bool isSubOption = false,
   }) {
     final color = activeColor ?? AppColors.primary;
 
@@ -96,20 +117,21 @@ class SearchOptionsMenu extends ConsumerWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(12),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          padding: const EdgeInsets.all(12),
           child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
                   color: isActive
                       ? color.withValues(alpha: 0.1)
-                      : AppColors.surfaceLight.withValues(alpha: 0.5),
-                  borderRadius: BorderRadius.circular(8),
+                      : AppColors.surfaceLight.withValues(alpha: 0.3),
+                  borderRadius: BorderRadius.circular(10),
                 ),
                 child: Icon(
                   icon,
-                  size: 18,
+                  size: 20,
                   color: isActive ? color : AppColors.secondary,
                 ),
               ),
@@ -118,25 +140,53 @@ class SearchOptionsMenu extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      title,
-                      style: GoogleFonts.inter(
-                        color: isActive ? color : AppColors.primary,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                      ),
+                    Row(
+                      children: [
+                        Text(
+                          title,
+                          style: GoogleFonts.inter(
+                            color: isActive ? color : AppColors.primary,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        if (isActive) ...[
+                          const SizedBox(width: 6),
+                          Icon(
+                            LucideIcons.checkCircle2,
+                            size: 14,
+                            color: color,
+                          ),
+                        ],
+                      ],
                     ),
+                    const SizedBox(height: 4),
                     Text(
                       subtitle,
                       style: GoogleFonts.inter(
                         color: AppColors.secondary,
-                        fontSize: 11,
+                        fontSize: 12,
+                        height: 1.4,
                       ),
                     ),
                   ],
                 ),
               ),
-              if (isActive) Icon(LucideIcons.check, size: 16, color: color),
+              if (!isActive)
+                Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: Container(
+                    width: 16,
+                    height: 16,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: AppColors.surfaceLight,
+                        width: 2,
+                      ),
+                    ),
+                  ),
+                ),
             ],
           ),
         ),

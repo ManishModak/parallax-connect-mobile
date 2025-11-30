@@ -27,18 +27,20 @@ class _CollapsibleThinkingIndicatorState
   bool _isExpanded = false;
   late AnimationController _controller;
   late Animation<double> _iconTurns;
+  late Animation<double> _heightFactor;
 
   @override
   void initState() {
     super.initState();
     _controller = AnimationController(
-      duration: const Duration(milliseconds: 200),
+      duration: const Duration(milliseconds: 300),
       vsync: this,
     );
-    _iconTurns = Tween<double>(
-      begin: 0.0,
-      end: 0.5,
-    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
+    _iconTurns = Tween<double>(begin: 0.0, end: 0.5).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOutCubic),
+    );
+
+    _heightFactor = _controller.view;
   }
 
   @override
@@ -61,13 +63,19 @@ class _CollapsibleThinkingIndicatorState
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeInOut,
       margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
       decoration: BoxDecoration(
-        color: AppColors.surfaceLight.withValues(alpha: 0.3),
-        borderRadius: BorderRadius.circular(12),
+        color: _isExpanded
+            ? AppColors.surfaceLight.withValues(alpha: 0.5)
+            : AppColors.surfaceLight.withValues(alpha: 0.2),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: AppColors.surfaceLight.withValues(alpha: 0.5),
+          color: _isExpanded
+              ? AppColors.surfaceLight
+              : AppColors.surfaceLight.withValues(alpha: 0.3),
         ),
       ),
       child: Column(
@@ -75,7 +83,7 @@ class _CollapsibleThinkingIndicatorState
         children: [
           InkWell(
             onTap: _toggleExpanded,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(16),
             child: Padding(
               padding: const EdgeInsets.all(12),
               child: Row(
@@ -119,31 +127,36 @@ class _CollapsibleThinkingIndicatorState
               ),
             ),
           ),
-          AnimatedCrossFade(
-            firstChild: const SizedBox(height: 0, width: double.infinity),
-            secondChild: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Divider(height: 1, color: AppColors.surfaceLight),
-                  const SizedBox(height: 12),
-                  Text(
-                    widget.thinkingContent,
-                    style: GoogleFonts.firaCode(
-                      color: AppColors.secondary,
-                      fontSize: 12,
-                      height: 1.5,
+          ClipRect(
+            child: AnimatedBuilder(
+              animation: _controller,
+              builder: (context, child) {
+                return Align(
+                  heightFactor: _heightFactor.value,
+                  alignment: Alignment.topCenter,
+                  child: child,
+                );
+              },
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Divider(height: 1, color: AppColors.surfaceLight),
+                    const SizedBox(height: 12),
+                    Text(
+                      widget.thinkingContent,
+                      style: GoogleFonts.firaCode(
+                        color: AppColors.secondary,
+                        fontSize: 12,
+                        height: 1.5,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
-            crossFadeState: _isExpanded
-                ? CrossFadeState.showSecond
-                : CrossFadeState.showFirst,
-            duration: const Duration(milliseconds: 200),
           ),
         ],
       ),

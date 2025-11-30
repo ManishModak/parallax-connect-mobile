@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+
 import '../../../../core/constants/app_colors.dart';
 
 class AppIconShimmer extends StatefulWidget {
@@ -65,14 +65,12 @@ class _AppIconShimmerState extends State<AppIconShimmer>
                       ),
                     ],
                   ),
-                  child: SvgPicture.asset(
-                    'assets/icons/app_icon.svg', // Ensure this asset exists or use a fallback
-                    colorFilter: const ColorFilter.mode(
-                      AppColors.primary,
-                      BlendMode.srcIn,
-                    ),
-                    placeholderBuilder: (context) => const Icon(
-                      Icons.auto_awesome, // Fallback icon
+                  child: Image.asset(
+                    'assets/images/logov1.png',
+                    color: AppColors.primary,
+                    colorBlendMode: BlendMode.srcIn,
+                    errorBuilder: (context, error, stackTrace) => const Icon(
+                      Icons.auto_awesome,
                       size: 32,
                       color: AppColors.primary,
                     ),
