@@ -12,6 +12,7 @@ import '../../../core/utils/haptics_helper.dart';
 import '../../settings/data/settings_storage.dart';
 import '../../../core/utils/logger.dart';
 import '../../../core/constants/app_constants.dart';
+import '../../../core/services/web_search_service.dart';
 import '../data/chat_repository.dart';
 import '../data/models/chat_message.dart';
 import '../utils/file_type_helper.dart';
@@ -28,6 +29,7 @@ class ChatController extends Notifier<ChatState> {
   late final VisionService _visionService;
   late final DocumentService _documentService;
   late final HapticsHelper _hapticsHelper;
+  late final WebSearchService _webSearchService;
 
   @override
   ChatState build() {
@@ -40,6 +42,7 @@ class ChatController extends Notifier<ChatState> {
     _visionService = ref.read(visionServiceProvider);
     _documentService = ref.read(documentServiceProvider);
     _hapticsHelper = ref.read(hapticsHelperProvider);
+    _webSearchService = ref.read(webSearchServiceProvider);
 
     // Load history and return initial state with messages
     final history = _historyStorage.getHistory();
@@ -167,6 +170,23 @@ class ChatController extends Notifier<ChatState> {
           docAttachments.first,
         );
         contextText = 'Document content:\n$docContent\n\nUser question: $text';
+      }
+
+      // Web Search Logic
+      if (_settingsStorage.getWebSearchEnabled() && text.isNotEmpty) {
+        state = state.copyWith(isSearching: true);
+        try {
+          final searchResults = await _webSearchService.search(text);
+          if (searchResults.isNotEmpty) {
+            contextText =
+                'Web Search Results:\n$searchResults\n\nUser Question: $text';
+          }
+        } catch (e) {
+          Log.e('Web search failed', e);
+          // Continue without search results
+        } finally {
+          state = state.copyWith(isSearching: false);
+        }
       }
 
       // Check for image attachments

@@ -23,7 +23,10 @@ class ChatState {
     this.streamingContent = '',
     this.thinkingContent = '',
     this.isThinking = false,
+    this.isSearching = false,
   });
+
+  final bool isSearching;
 
   ChatState copyWith({
     List<ChatMessage>? messages,
@@ -35,6 +38,7 @@ class ChatState {
     String? streamingContent,
     String? thinkingContent,
     bool? isThinking,
+    bool? isSearching,
   }) {
     return ChatState(
       messages: messages ?? this.messages,
@@ -46,6 +50,7 @@ class ChatState {
       streamingContent: streamingContent ?? this.streamingContent,
       thinkingContent: thinkingContent ?? this.thinkingContent,
       isThinking: isThinking ?? this.isThinking,
+      isSearching: isSearching ?? this.isSearching,
     );
   }
 }

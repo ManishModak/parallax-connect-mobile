@@ -22,6 +22,9 @@ class SettingsController extends Notifier<SettingsState> {
       responseStyle: _settingsStorage.getResponseStyle(),
       isStreamingEnabled: _settingsStorage.getStreamingEnabled(),
       showThinking: _settingsStorage.getShowThinking(),
+      isWebSearchEnabled: _settingsStorage.getWebSearchEnabled(),
+      webSearchProvider: _settingsStorage.getWebSearchProvider(),
+      braveSearchApiKey: _settingsStorage.getBraveSearchApiKey(),
     );
   }
 
@@ -112,7 +115,25 @@ class SettingsController extends Notifier<SettingsState> {
       responseStyle: _settingsStorage.getResponseStyle(),
       isStreamingEnabled: _settingsStorage.getStreamingEnabled(),
       showThinking: _settingsStorage.getShowThinking(),
+      isWebSearchEnabled: _settingsStorage.getWebSearchEnabled(),
+      webSearchProvider: _settingsStorage.getWebSearchProvider(),
+      braveSearchApiKey: _settingsStorage.getBraveSearchApiKey(),
     );
+  }
+
+  Future<void> setWebSearchEnabled(bool enabled) async {
+    await _settingsStorage.setWebSearchEnabled(enabled);
+    state = state.copyWith(isWebSearchEnabled: enabled);
+  }
+
+  Future<void> setWebSearchProvider(String provider) async {
+    await _settingsStorage.setWebSearchProvider(provider);
+    state = state.copyWith(webSearchProvider: provider);
+  }
+
+  Future<void> setBraveSearchApiKey(String apiKey) async {
+    await _settingsStorage.setBraveSearchApiKey(apiKey);
+    state = state.copyWith(braveSearchApiKey: apiKey);
   }
 }
 

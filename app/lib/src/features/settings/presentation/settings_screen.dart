@@ -171,6 +171,135 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     return true;
   }
 
+  Widget _buildWebSearchSection(HapticsHelper hapticsHelper) {
+    final state = ref.watch(settingsControllerProvider);
+    final controller = ref.read(settingsControllerProvider.notifier);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SectionHeader(title: 'Web Search'),
+        const SizedBox(height: 20),
+        _buildExpandableFeatureTile(
+          icon: LucideIcons.globe,
+          title: 'Web Search',
+          badgeText: 'NEW',
+          description: 'Allow the AI to search the web for real-time info',
+          isEnabled: state.isWebSearchEnabled,
+          onToggle: (val) async {
+            hapticsHelper.triggerHaptics();
+            await controller.setWebSearchEnabled(val);
+          },
+          details: [
+            'Fetches real-time information from the web',
+            'Results are injected into the context window',
+            'DuckDuckGo is free and unlimited (Default)',
+            'Brave Search requires a free API key but is more robust',
+          ],
+        ),
+        if (state.isWebSearchEnabled) ...[
+          const SizedBox(height: 12),
+          Container(
+            margin: const EdgeInsets.only(left: 16),
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: AppColors.secondary.withValues(alpha: 0.1),
+              ),
+            ),
+            child: Column(
+              children: [
+                _buildRadioOption(
+                  title: 'DuckDuckGo (Recommended)',
+                  description: 'Free, unlimited, privacy-focused scraping.',
+                  value: 'duckduckgo',
+                  groupValue: state.webSearchProvider,
+                  onChanged: (val) {
+                    hapticsHelper.triggerHaptics();
+                    controller.setWebSearchProvider(val!);
+                  },
+                ),
+                const Divider(height: 1, indent: 16, endIndent: 16),
+                _buildRadioOption(
+                  title: 'Brave Search API',
+                  description: 'Official API. High quality, requires key.',
+                  techNote: 'Free tier: 2,000 queries/month',
+                  value: 'brave',
+                  groupValue: state.webSearchProvider,
+                  onChanged: (val) {
+                    hapticsHelper.triggerHaptics();
+                    controller.setWebSearchProvider(val!);
+                  },
+                ),
+                if (state.webSearchProvider == 'brave') ...[
+                  const Divider(height: 1, indent: 16, endIndent: 16),
+                  Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Brave Search API Key',
+                          style: GoogleFonts.inter(
+                            color: AppColors.primary,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        TextField(
+                          controller:
+                              TextEditingController(
+                                  text: state.braveSearchApiKey,
+                                )
+                                ..selection = TextSelection.fromPosition(
+                                  TextPosition(
+                                    offset:
+                                        state.braveSearchApiKey?.length ?? 0,
+                                  ),
+                                ),
+                          onChanged: (val) {
+                            controller.setBraveSearchApiKey(val);
+                          },
+                          style: GoogleFonts.inter(color: AppColors.primary),
+                          decoration: InputDecoration(
+                            hintText: 'Enter your API key',
+                            hintStyle: GoogleFonts.inter(
+                              color: AppColors.secondary.withValues(alpha: 0.5),
+                            ),
+                            filled: true,
+                            fillColor: AppColors.background,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: BorderSide.none,
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 12,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Get a free key at api.search.brave.com',
+                          style: GoogleFonts.inter(
+                            color: AppColors.secondary,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
   /// Builds the unified Media & Documents section
   Widget _buildMediaAndDocumentsSection(HapticsHelper hapticsHelper) {
     final featureFlags = ref.watch(featureFlagsProvider);
@@ -1041,6 +1170,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
           // Media & Documents Section (merged from Feature Capabilities, Vision Pipeline, Document Strategy)
           _buildMediaAndDocumentsSection(hapticsHelper),
+          const SizedBox(height: 32),
+
+          // Web Search Section
+          _buildWebSearchSection(hapticsHelper),
           const SizedBox(height: 32),
 
           // Response Preference Section

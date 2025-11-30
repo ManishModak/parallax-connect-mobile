@@ -11,6 +11,7 @@ import '../../../../core/services/model_selection_service.dart';
 import '../../../../core/utils/feature_snackbar.dart';
 import '../../../../core/utils/haptics_helper.dart';
 import '../../utils/file_type_helper.dart';
+import '../../../settings/presentation/settings_controller.dart';
 import 'attachment_menu.dart';
 
 class ChatInputArea extends ConsumerStatefulWidget {
@@ -236,6 +237,37 @@ class _ChatInputAreaState extends ConsumerState<ChatInputArea> {
     );
   }
 
+  Widget _buildWebSearchToggle() {
+    final settingsState = ref.watch(settingsControllerProvider);
+    final isEnabled = settingsState.isWebSearchEnabled;
+
+    return GestureDetector(
+      onTap: () {
+        ref.read(hapticsHelperProvider).triggerHaptics();
+        ref
+            .read(settingsControllerProvider.notifier)
+            .setWebSearchEnabled(!isEnabled);
+      },
+      child: Container(
+        width: 36,
+        height: 36,
+        decoration: BoxDecoration(
+          color: isEnabled
+              ? AppColors.primary.withValues(alpha: 0.1)
+              : AppColors.surfaceLight.withValues(alpha: 0.2),
+          shape: BoxShape.circle,
+        ),
+        child: Icon(
+          LucideIcons.globe,
+          size: 18,
+          color: isEnabled
+              ? AppColors.primary
+              : AppColors.secondary.withValues(alpha: 0.5),
+        ),
+      ),
+    );
+  }
+
   void _showModelInfoSnackbar(ModelSelectionState modelState) {
     final activeModel = modelState.activeModel;
 
@@ -416,6 +448,9 @@ class _ChatInputAreaState extends ConsumerState<ChatInputArea> {
                     link: _layerLink,
                     child: _buildAttachmentButton(),
                   ),
+                  const SizedBox(width: 8),
+                  // Web Search Toggle
+                  _buildWebSearchToggle(),
                   const SizedBox(width: 8),
                   // Model Selector
                   _buildModelSelector(),

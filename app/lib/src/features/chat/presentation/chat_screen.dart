@@ -15,6 +15,7 @@ import 'widgets/chat_message_bubble.dart';
 import 'widgets/chat_input_area.dart';
 import 'widgets/streaming_message_bubble.dart';
 import 'widgets/thinking_indicator.dart';
+import 'widgets/web_search_indicator.dart';
 
 class ChatScreen extends ConsumerStatefulWidget {
   const ChatScreen({super.key});
@@ -190,6 +191,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                           }, childCount: chatState.messages.length),
                         ),
                       ),
+                      // Show web search indicator
+                      if (chatState.isSearching)
+                        const SliverToBoxAdapter(child: WebSearchIndicator()),
                       // Show thinking indicator when streaming and thinking
                       if (chatState.isStreaming && chatState.isThinking)
                         SliverToBoxAdapter(

@@ -110,6 +110,35 @@ class SettingsStorage {
     return _prefs.getBool(_keyShowThinking) ?? true;
   }
 
+  // Web Search Settings
+  static const _keyWebSearchEnabled = 'settings_web_search_enabled';
+  static const _keyWebSearchProvider = 'settings_web_search_provider';
+  static const _keyBraveSearchApiKey = 'settings_brave_search_api_key';
+
+  Future<void> setWebSearchEnabled(bool enabled) async {
+    await _prefs.setBool(_keyWebSearchEnabled, enabled);
+  }
+
+  bool getWebSearchEnabled() {
+    return _prefs.getBool(_keyWebSearchEnabled) ?? true; // Default enabled
+  }
+
+  Future<void> setWebSearchProvider(String provider) async {
+    await _prefs.setString(_keyWebSearchProvider, provider);
+  }
+
+  String getWebSearchProvider() {
+    return _prefs.getString(_keyWebSearchProvider) ?? 'duckduckgo';
+  }
+
+  Future<void> setBraveSearchApiKey(String apiKey) async {
+    await _prefs.setString(_keyBraveSearchApiKey, apiKey);
+  }
+
+  String? getBraveSearchApiKey() {
+    return _prefs.getString(_keyBraveSearchApiKey);
+  }
+
   // Clear all settings (reset to defaults)
   Future<void> clearSettings() async {
     await _prefs.remove(_keyHapticsLevel);

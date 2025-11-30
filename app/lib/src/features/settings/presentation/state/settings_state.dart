@@ -7,6 +7,9 @@ class SettingsState {
   final String responseStyle;
   final bool isStreamingEnabled;
   final bool showThinking;
+  final bool isWebSearchEnabled;
+  final String webSearchProvider;
+  final String? braveSearchApiKey;
 
   SettingsState({
     required this.hapticsLevel,
@@ -17,6 +20,9 @@ class SettingsState {
     required this.responseStyle,
     this.isStreamingEnabled = true,
     this.showThinking = true,
+    this.isWebSearchEnabled = true,
+    this.webSearchProvider = 'duckduckgo',
+    this.braveSearchApiKey,
   });
 
   SettingsState copyWith({
@@ -28,6 +34,9 @@ class SettingsState {
     String? responseStyle,
     bool? isStreamingEnabled,
     bool? showThinking,
+    bool? isWebSearchEnabled,
+    String? webSearchProvider,
+    String? braveSearchApiKey,
   }) {
     return SettingsState(
       hapticsLevel: hapticsLevel ?? this.hapticsLevel,
@@ -39,6 +48,9 @@ class SettingsState {
       responseStyle: responseStyle ?? this.responseStyle,
       isStreamingEnabled: isStreamingEnabled ?? this.isStreamingEnabled,
       showThinking: showThinking ?? this.showThinking,
+      isWebSearchEnabled: isWebSearchEnabled ?? this.isWebSearchEnabled,
+      webSearchProvider: webSearchProvider ?? this.webSearchProvider,
+      braveSearchApiKey: braveSearchApiKey ?? this.braveSearchApiKey,
     );
   }
 }
