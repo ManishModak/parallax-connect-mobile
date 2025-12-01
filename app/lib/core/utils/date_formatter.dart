@@ -25,7 +25,7 @@ class DateFormatter {
     final now = DateTime.now();
     final difference = now.difference(dateTime);
 
-    if (difference.inSeconds < 60) {
+    if (difference.inMinutes < 1) {
       return 'Just now';
     } else if (difference.inMinutes < 60) {
       final minutes = difference.inMinutes;
@@ -33,6 +33,8 @@ class DateFormatter {
     } else if (difference.inHours < 24) {
       final hours = difference.inHours;
       return '$hours ${hours == 1 ? 'hour' : 'hours'} ago';
+    } else if (difference.inDays == 1) {
+      return 'Yesterday ${DateFormat('h:mm a').format(dateTime)}';
     } else if (difference.inDays < 7) {
       final days = difference.inDays;
       return '$days ${days == 1 ? 'day' : 'days'} ago';
@@ -43,8 +45,7 @@ class DateFormatter {
       final months = (difference.inDays / 30).floor();
       return '$months ${months == 1 ? 'month' : 'months'} ago';
     } else {
-      final years = (difference.inDays / 365).floor();
-      return '$years ${years == 1 ? 'year' : 'years'} ago';
+      return DateFormat('MMM dd, yyyy').format(dateTime);
     }
   }
 

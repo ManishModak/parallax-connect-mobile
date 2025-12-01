@@ -16,9 +16,8 @@ import '../../../../core/services/model_selection_service.dart';
 import '../../../../core/storage/config_storage.dart';
 import '../../../../core/utils/haptics_helper.dart';
 import '../../../chat/data/chat_repository.dart';
-import '../widgets/connection_mode_toggle.dart';
-import '../widgets/qr_scanner_sheet.dart';
-import '../widgets/setup_instructions_card.dart';
+import '../helpers/qr_scanner_handler.dart';
+import '../widgets/connection/connection_form.dart';
 
 class ConfigScreen extends ConsumerStatefulWidget {
   const ConfigScreen({super.key});
@@ -61,16 +60,8 @@ class _ConfigScreenState extends ConsumerState<ConfigScreen> {
 
   Future<void> _scanQrCode() async {
     try {
-      final scannedValue = await showModalBottomSheet<String>(
-        context: context,
-        isScrollControlled: true,
-        backgroundColor: AppColors.background,
-        builder: (_) => const QrScannerSheet(),
-      );
-
-      if (!mounted || scannedValue == null) return;
-      final trimmed = scannedValue.trim();
-      if (trimmed.isEmpty) return;
+      final trimmed = await QrScannerHandler.scanUrl(context);
+      if (!mounted || trimmed == null) return;
 
       setState(() {
         _urlController.text = trimmed;
@@ -79,18 +70,34 @@ class _ConfigScreenState extends ConsumerState<ConfigScreen> {
         TextPosition(offset: trimmed.length),
       );
       _showSuccessSnackBar('URL scanned from QR.');
-    } on PlatformException catch (error, stackTrace) {
-      developer.log(
-        'Failed to scan QR code',
-        error: error,
-        stackTrace: stackTrace,
-      );
+    } on PlatformException {
       if (!mounted) return;
       _showErrorSnackBar(
         'Unable to scan QR code. Paste URL manually.',
         LucideIcons.alertTriangle,
       );
     }
+  }
+
+  Future<void> _handlePasteFromClipboard(HapticsHelper hapticsHelper) async {
+    final clipboard = await Clipboard.getData(Clipboard.kTextPlain);
+    final text = clipboard?.text?.trim();
+    if (text == null || text.isEmpty) {
+      if (!mounted) return;
+      _showErrorSnackBar(
+        'Clipboard is empty.',
+        LucideIcons.clipboardX,
+      );
+      return;
+    }
+    setState(() {
+      _urlController.text = text;
+    });
+    _urlController.selection = TextSelection.fromPosition(
+      TextPosition(offset: _urlController.text.length),
+    );
+    if (!mounted) return;
+    _showSuccessSnackBar('URL pasted from clipboard.');
   }
 
   Future<void> _saveAndConnect() async {
@@ -236,236 +243,26 @@ class _ConfigScreenState extends ConsumerState<ConfigScreen> {
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(24.0),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Choose Connection Mode',
-                style: GoogleFonts.inter(
-                  color: AppColors.secondary,
-                  fontSize: 14,
-                ),
-              ),
-              const SizedBox(height: 8),
-
-              // Toggle
-              ConnectionModeToggle(
-                isLocal: _isLocal,
-                onModeChanged: (value) => setState(() => _isLocal = value),
-                onHapticFeedback: hapticsHelper.triggerHaptics,
-              ),
-              const SizedBox(height: 12),
-
-              // Input Field
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      'Server URL or Address',
-                      style: GoogleFonts.inter(
-                        color: AppColors.secondary,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                  Tooltip(
-                    message: 'Scan QR host URL',
-                    child: IconButton(
-                      icon: const Icon(LucideIcons.scanLine),
-                      color: AppColors.secondary,
-                      onPressed: () {
-                        hapticsHelper.triggerHaptics();
-                        _scanQrCode();
-                      },
-                    ),
-                  ),
-                  Tooltip(
-                    message: 'Paste from clipboard',
-                    child: IconButton(
-                      icon: const Icon(LucideIcons.clipboardPaste),
-                      color: AppColors.secondary,
-                      onPressed: () async {
-                        hapticsHelper.triggerHaptics();
-                        final clipboard = await Clipboard.getData(
-                          Clipboard.kTextPlain,
-                        );
-                        final text = clipboard?.text?.trim();
-                        if (text == null || text.isEmpty) {
-                          if (!mounted) return;
-                          _showErrorSnackBar(
-                            'Clipboard is empty.',
-                            LucideIcons.clipboardX,
-                          );
-                          return;
-                        }
-                        setState(() {
-                          _urlController.text = text;
-                        });
-                        _urlController.selection = TextSelection.fromPosition(
-                          TextPosition(offset: _urlController.text.length),
-                        );
-                        if (!mounted) return;
-                        _showSuccessSnackBar('URL pasted from clipboard.');
-                      },
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              TextFormField(
-                controller: _urlController,
-                style: GoogleFonts.sourceCodePro(color: AppColors.primary),
-                decoration: InputDecoration(
-                  hintText: _isLocal
-                      ? 'http://192.168.1.X:8000'
-                      : 'https://xxxx-xx.ngrok-free.app',
-                  hintStyle: GoogleFonts.sourceCodePro(color: AppColors.accent),
-                  filled: true,
-                  fillColor: AppColors.surface,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide.none,
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: AppColors.secondary),
-                  ),
-                  prefixIcon: Icon(
-                    _isLocal ? LucideIcons.wifi : LucideIcons.globe,
-                    color: AppColors.secondary,
-                  ),
-                ),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Please enter a URL';
-                  }
-                  if (!value.startsWith('http')) {
-                    return 'URL must start with http:// or https://';
-                  }
-                  return null;
-                },
-              ),
-
-              const SizedBox(height: 24),
-
-              Text(
-                'Password (optional)',
-                style: GoogleFonts.inter(
-                  color: AppColors.secondary,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 8),
-              TextFormField(
-                controller: _passwordController,
-                style: GoogleFonts.inter(color: AppColors.primary),
-                obscureText: !_isPasswordVisible,
-                enableSuggestions: false,
-                autocorrect: false,
-                decoration: InputDecoration(
-                  hintText: 'Leave empty if not set',
-                  hintStyle: GoogleFonts.inter(color: AppColors.accent),
-                  filled: true,
-                  fillColor: AppColors.surface,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide.none,
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: AppColors.secondary),
-                  ),
-                  prefixIcon: const Icon(
-                    LucideIcons.lock,
-                    color: AppColors.secondary,
-                  ),
-                  suffixIcon: IconButton(
-                    tooltip: _isPasswordVisible
-                        ? 'Hide password'
-                        : 'Show password',
-                    icon: Icon(
-                      _isPasswordVisible ? LucideIcons.eyeOff : LucideIcons.eye,
-                    ),
-                    color: AppColors.secondary,
-                    onPressed: () {
-                      hapticsHelper.triggerHaptics();
-                      setState(() {
-                        _isPasswordVisible = !_isPasswordVisible;
-                      });
-                    },
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 24),
-
-              SetupInstructionsCard(
-                isLocal: _isLocal,
-                onOpenGuide: () => _openSetupGuide(hapticsHelper),
-                onCopyLink: () => _copySetupLink(hapticsHelper),
-              ),
-
-              const SizedBox(height: 24),
-
-              // Connect Button
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: _isConnecting
-                      ? null
-                      : () {
-                          hapticsHelper.triggerHaptics();
-                          _saveAndConnect();
-                        },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: AppColors.background,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    disabledBackgroundColor: AppColors.accent,
-                  ),
-                  child: _isConnecting
-                      ? Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                valueColor: AlwaysStoppedAnimation<Color>(
-                                  AppColors.background,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Text(
-                              'Connecting...',
-                              style: GoogleFonts.inter(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
-                              ),
-                            ),
-                          ],
-                        )
-                      : Text(
-                          'Connect',
-                          style: GoogleFonts.inter(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                          ),
-                        ),
-                ),
-              ),
-              const SizedBox(height: 24),
-            ],
-          ),
+        child: ConnectionForm(
+          formKey: _formKey,
+          urlController: _urlController,
+          passwordController: _passwordController,
+          isLocal: _isLocal,
+          isConnecting: _isConnecting,
+          isPasswordVisible: _isPasswordVisible,
+          hapticsHelper: hapticsHelper,
+          onScanQr: _scanQrCode,
+          onPasteFromClipboard: () async =>
+              _handlePasteFromClipboard(hapticsHelper),
+          onTogglePasswordVisibility: () {
+            setState(() {
+              _isPasswordVisible = !_isPasswordVisible;
+            });
+          },
+          onConnect: _saveAndConnect,
+          onOpenGuide: () => _openSetupGuide(hapticsHelper),
+          onCopyLink: () => _copySetupLink(hapticsHelper),
+          onModeChanged: (value) => setState(() => _isLocal = value),
         ),
       ),
     );

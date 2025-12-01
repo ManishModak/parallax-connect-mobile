@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:encrypt/encrypt.dart' as encrypt;
 
 import '../../app/constants/app_constants.dart';
+import '../../global/providers.dart';
 import '../utils/logger.dart';
 import '../utils/validators.dart';
 
@@ -107,10 +108,6 @@ class ConfigStorage {
     }
   }
 }
-
-final sharedPreferencesProvider = Provider<SharedPreferences>((ref) {
-  throw UnimplementedError();
-});
 
 final configStorageProvider = Provider<ConfigStorage>((ref) {
   final prefs = ref.watch(sharedPreferencesProvider);

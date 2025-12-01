@@ -1,19 +1,19 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:go_router/go_router.dart';
+
 import '../../../../app/constants/app_colors.dart';
 import '../../../../app/routes/app_router.dart';
 import '../../../../core/services/feature_flags_service.dart';
-import '../../../../core/services/model_selection_service.dart';
 import '../../../../core/utils/feature_snackbar.dart';
 import '../../../../core/utils/haptics_helper.dart';
-import '../../utils/file_type_helper.dart';
-import '../../../settings/presentation/view_models/settings_controller.dart';
-import 'attachment_menu.dart';
-import 'search_options_menu.dart';
+import 'chat_input/attachment_menu_handler.dart';
+import 'chat_input/attachment_preview.dart';
+import 'chat_input/model_selector.dart';
+import 'chat_input/search_options_handler.dart';
+import 'chat_input/web_search_toggle.dart';
 
 class ChatInputArea extends ConsumerStatefulWidget {
   final Function(String text, List<String> attachmentPaths) onSubmitted;
@@ -38,7 +38,6 @@ class ChatInputArea extends ConsumerStatefulWidget {
 class _ChatInputAreaState extends ConsumerState<ChatInputArea> {
   final TextEditingController _controller = TextEditingController();
   final List<String> _selectedAttachments = [];
-  bool _isSearchActive = false;
   bool _isAttachmentMenuOpen = false;
   final LayerLink _layerLink = LayerLink();
   final LayerLink _searchOptionsLayerLink = LayerLink();
@@ -57,7 +56,7 @@ class _ChatInputAreaState extends ConsumerState<ChatInputArea> {
     if (_isAttachmentMenuOpen) {
       _removeOverlay();
     } else {
-      _removeSearchOptionsOverlay(); // Close other menu if open
+      _removeSearchOptionsOverlay();
       _showOverlay();
     }
     setState(() {
@@ -69,18 +68,43 @@ class _ChatInputAreaState extends ConsumerState<ChatInputArea> {
     if (_searchOptionsOverlayEntry != null) {
       _removeSearchOptionsOverlay();
     } else {
-      _removeOverlay(); // Close attachment menu if open
+      _removeOverlay();
       _showSearchOptionsOverlay();
     }
   }
 
   void _showOverlay() {
-    _overlayEntry = _createOverlayEntry();
+    _overlayEntry = AttachmentMenuHandler.createOverlayEntry(
+      context: context,
+      ref: ref,
+      layerLink: _layerLink,
+      onCameraTap: widget.onCameraTap,
+      onGalleryTap: widget.onGalleryTap,
+      onFileTap: widget.onFileTap,
+      onRemoveOverlay: _removeOverlay,
+      onAttachmentSelected: (path) {
+        if (path != null) {
+          setState(() {
+            _selectedAttachments.add(path);
+          });
+        }
+      },
+      onAttachmentsSelected: (paths) {
+        setState(() {
+          _selectedAttachments.addAll(paths);
+        });
+      },
+    );
     Overlay.of(context).insert(_overlayEntry!);
   }
 
   void _showSearchOptionsOverlay() {
-    _searchOptionsOverlayEntry = _createSearchOptionsOverlayEntry();
+    _searchOptionsOverlayEntry = SearchOptionsHandler.createOverlayEntry(
+      context: context,
+      ref: ref,
+      layerLink: _searchOptionsLayerLink,
+      onRemoveOverlay: _removeSearchOptionsOverlay,
+    );
     Overlay.of(context).insert(_searchOptionsOverlayEntry!);
   }
 
@@ -95,105 +119,6 @@ class _ChatInputAreaState extends ConsumerState<ChatInputArea> {
   void _removeSearchOptionsOverlay() {
     _searchOptionsOverlayEntry?.remove();
     _searchOptionsOverlayEntry = null;
-  }
-
-  OverlayEntry _createOverlayEntry() {
-    return OverlayEntry(
-      builder: (context) => Positioned(
-        width: 200,
-        child: CompositedTransformFollower(
-          link: _layerLink,
-          showWhenUnlinked: false,
-          offset: const Offset(0, -180), // Position above the icon
-          child: TapRegion(
-            groupId: 'attachment_menu',
-            child: AttachmentMenu(
-              onCameraTap: () async {
-                ref.read(hapticsHelperProvider).triggerHaptics();
-                _removeOverlay();
-                final path = await widget.onCameraTap();
-                if (path != null) {
-                  setState(() {
-                    _selectedAttachments.add(path);
-                  });
-                }
-              },
-              onGalleryTap: () async {
-                ref.read(hapticsHelperProvider).triggerHaptics();
-                _removeOverlay();
-                final paths = await widget.onGalleryTap();
-                if (paths.isNotEmpty) {
-                  setState(() {
-                    _selectedAttachments.addAll(paths);
-                  });
-                }
-              },
-              onFileTap: () async {
-                ref.read(hapticsHelperProvider).triggerHaptics();
-                _removeOverlay();
-                final paths = await widget.onFileTap();
-                if (paths.isNotEmpty) {
-                  setState(() {
-                    _selectedAttachments.addAll(paths);
-                  });
-                }
-              },
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  OverlayEntry _createSearchOptionsOverlayEntry() {
-    return OverlayEntry(
-      builder: (context) => Positioned(
-        width: 200,
-        child: CompositedTransformFollower(
-          link: _searchOptionsLayerLink,
-          showWhenUnlinked: false,
-          offset: const Offset(0, -140), // Position above the icon
-          child: TapRegion(
-            groupId: 'search_options_menu',
-            onTapOutside: (_) => _removeSearchOptionsOverlay(),
-            child: SearchOptionsMenu(
-              onDeepSearchToggle: () {
-                ref.read(hapticsHelperProvider).triggerHaptics();
-                final controller = ref.read(
-                  settingsControllerProvider.notifier,
-                );
-                final currentDepth = ref
-                    .read(settingsControllerProvider)
-                    .webSearchDepth;
-
-                // Toggle Deep: if already deep, go to normal. Else go to deep.
-                if (currentDepth == 'deep') {
-                  controller.setWebSearchDepth('normal');
-                } else {
-                  controller.setWebSearchDepth('deep');
-                }
-              },
-              onDeeperSearchToggle: () {
-                ref.read(hapticsHelperProvider).triggerHaptics();
-                final controller = ref.read(
-                  settingsControllerProvider.notifier,
-                );
-                final currentDepth = ref
-                    .read(settingsControllerProvider)
-                    .webSearchDepth;
-
-                // Toggle Deeper: if already deeper, go to normal.
-                if (currentDepth == 'deeper') {
-                  controller.setWebSearchDepth('normal');
-                } else {
-                  controller.setWebSearchDepth('deeper');
-                }
-              },
-            ),
-          ),
-        ),
-      ),
-    );
   }
 
   void _handleSubmit() {
@@ -241,7 +166,6 @@ class _ChatInputAreaState extends ConsumerState<ChatInputArea> {
           if (isEnabled) {
             _toggleAttachmentMenu();
           } else {
-            // Show snackbar explaining why attachments are disabled
             ref.read(hapticsHelperProvider).triggerHaptics();
             FeatureSnackbar.showDisabled(
               context,
@@ -254,201 +178,6 @@ class _ChatInputAreaState extends ConsumerState<ChatInputArea> {
           }
         },
         padding: EdgeInsets.zero,
-      ),
-    );
-  }
-
-  Widget _buildModelSelector() {
-    final modelState = ref.watch(modelSelectionProvider);
-    final activeModel = modelState.activeModel;
-
-    // Show active model name, or "No Model" if scheduler not initialized
-    final displayName = activeModel?.name ?? 'No Model';
-    // Truncate long model names (e.g., "Qwen/Qwen3-0.6B" -> "Qwen3-0.6B")
-    final shortName = displayName.contains('/')
-        ? displayName.split('/').last
-        : displayName;
-
-    return GestureDetector(
-      onTap: () {
-        ref.read(hapticsHelperProvider).triggerHaptics();
-        _showModelInfoSnackbar(modelState);
-      },
-      child: Container(
-        height: 36,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        decoration: BoxDecoration(
-          color: modelState.hasActiveModel
-              ? AppColors.surfaceLight.withValues(alpha: 0.5)
-              : AppColors.warning.withValues(alpha: 0.2),
-          borderRadius: BorderRadius.circular(18),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              LucideIcons.cpu,
-              size: 14,
-              color: modelState.hasActiveModel
-                  ? AppColors.secondary
-                  : AppColors.warning,
-            ),
-            const SizedBox(width: 6),
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 100),
-              child: Text(
-                shortName,
-                style: GoogleFonts.inter(
-                  color: modelState.hasActiveModel
-                      ? AppColors.secondary
-                      : AppColors.warning,
-                  fontSize: 12,
-                ),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildWebSearchToggle() {
-    final settingsState = ref.watch(settingsControllerProvider);
-    final isFeatureEnabled = settingsState.isWebSearchEnabled;
-    final depth = settingsState.webSearchDepth;
-
-    String label = 'Web Search';
-    IconData icon = LucideIcons.globe;
-
-    if (depth == 'deep') {
-      label = 'Deep Search';
-      icon = LucideIcons.globe;
-    } else if (depth == 'deeper') {
-      label = 'Deeper Search';
-      icon = LucideIcons.layers;
-    }
-
-    return GestureDetector(
-      onTap: () {
-        if (!isFeatureEnabled) {
-          ref.read(hapticsHelperProvider).triggerHaptics();
-          FeatureSnackbar.showDisabled(
-            context,
-            featureName: 'Web Search',
-            status:
-                FeatureStatus.available(), // Assuming available if flag is true in code but disabled in settings
-            onSettingsTap: () => context.push(AppRoutes.settings),
-          );
-          return;
-        }
-
-        ref.read(hapticsHelperProvider).triggerHaptics();
-        // Toggle active state
-        setState(() {
-          _isSearchActive = !_isSearchActive;
-        });
-      },
-      onLongPress: () {
-        if (!isFeatureEnabled) return;
-        ref.read(hapticsHelperProvider).triggerHaptics();
-        _toggleSearchOptionsMenu();
-      },
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        height: 36,
-        padding: EdgeInsets.symmetric(horizontal: _isSearchActive ? 12 : 0),
-        width: _isSearchActive ? null : 36,
-        decoration: BoxDecoration(
-          color: isFeatureEnabled
-              ? (_isSearchActive
-                    ? AppColors.primary.withValues(alpha: 0.1)
-                    : AppColors.surfaceLight.withValues(alpha: 0.2))
-              : AppColors.surfaceLight.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(18),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              icon,
-              size: 18,
-              color: isFeatureEnabled
-                  ? (_isSearchActive
-                        ? AppColors.primary
-                        : AppColors.secondary.withValues(alpha: 0.5))
-                  : AppColors.secondary.withValues(alpha: 0.2),
-            ),
-            if (_isSearchActive) ...[
-              const SizedBox(width: 6),
-              ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 100),
-                child: Text(
-                  label,
-                  style: GoogleFonts.inter(
-                    color: AppColors.primary,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _showModelInfoSnackbar(ModelSelectionState modelState) {
-    final activeModel = modelState.activeModel;
-
-    ScaffoldMessenger.of(context).hideCurrentSnackBar();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            Icon(
-              modelState.hasActiveModel
-                  ? LucideIcons.cpu
-                  : LucideIcons.alertCircle,
-              color: AppColors.primary,
-              size: 20,
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    modelState.hasActiveModel
-                        ? activeModel!.name
-                        : 'No model running',
-                    style: GoogleFonts.inter(
-                      color: AppColors.primary,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  Text(
-                    'Change model in Parallax Web UI',
-                    style: GoogleFonts.inter(
-                      color: AppColors.primaryMildVariant,
-                      fontSize: 12,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        backgroundColor: modelState.hasActiveModel
-            ? AppColors.surfaceLight
-            : AppColors.warning.withValues(alpha: 0.9),
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        duration: const Duration(seconds: 3),
       ),
     );
   }
@@ -479,77 +208,10 @@ class _ChatInputAreaState extends ConsumerState<ChatInputArea> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Attachment Previews
-              if (_selectedAttachments.isNotEmpty)
-                Container(
-                  height: 80,
-                  margin: const EdgeInsets.only(bottom: 12),
-                  child: ListView.separated(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: _selectedAttachments.length,
-                    separatorBuilder: (context, index) =>
-                        const SizedBox(width: 8),
-                    itemBuilder: (context, index) {
-                      final path = _selectedAttachments[index];
-                      final isImage = FileTypeHelper.isImageFile(path);
-
-                      return Stack(
-                        children: [
-                          Container(
-                            width: 80,
-                            height: 80,
-                            decoration: BoxDecoration(
-                              color: AppColors.surfaceLight,
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: AppColors.surfaceLight),
-                            ),
-                            clipBehavior: Clip.antiAlias,
-                            child: isImage
-                                ? Image.file(
-                                    File(path),
-                                    fit: BoxFit.cover,
-                                    errorBuilder: (context, error, stackTrace) {
-                                      return const Center(
-                                        child: Icon(
-                                          LucideIcons.image,
-                                          color: AppColors.secondary,
-                                        ),
-                                      );
-                                    },
-                                  )
-                                : const Center(
-                                    child: Icon(
-                                      LucideIcons.file,
-                                      color: AppColors.secondary,
-                                      size: 32,
-                                    ),
-                                  ),
-                          ),
-                          Positioned(
-                            top: 4,
-                            right: 4,
-                            child: GestureDetector(
-                              onTap: () => _removeAttachment(index),
-                              child: Container(
-                                padding: const EdgeInsets.all(4),
-                                decoration: BoxDecoration(
-                                  color: AppColors.background.withValues(
-                                    alpha: 0.6,
-                                  ),
-                                  shape: BoxShape.circle,
-                                ),
-                                child: const Icon(
-                                  LucideIcons.x,
-                                  size: 12,
-                                  color: AppColors.primary,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      );
-                    },
-                  ),
-                ),
+              AttachmentPreview(
+                attachments: _selectedAttachments,
+                onRemove: _removeAttachment,
+              ),
 
               // Text Input
               TextField(
@@ -585,11 +247,13 @@ class _ChatInputAreaState extends ConsumerState<ChatInputArea> {
                   // Web Search Toggle with Options Menu
                   CompositedTransformTarget(
                     link: _searchOptionsLayerLink,
-                    child: _buildWebSearchToggle(),
+                    child: WebSearchToggle(
+                      onLongPress: _toggleSearchOptionsMenu,
+                    ),
                   ),
                   const SizedBox(width: 8),
                   // Model Selector
-                  _buildModelSelector(),
+                  const ModelSelector(),
                   const Spacer(),
                   // Send/Voice Button
                   Container(

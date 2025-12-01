@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'constants/app_colors.dart';
 import 'routes/app_router.dart';
+import 'themes/app_theme.dart';
 
 class App extends ConsumerWidget {
   const App({super.key});
@@ -14,14 +14,7 @@ class App extends ConsumerWidget {
     return MaterialApp.router(
       title: 'Parallax Connect',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: AppColors.brand,
-          brightness: Brightness.dark,
-        ),
-        scaffoldBackgroundColor: AppColors.background,
-        useMaterial3: true,
-      ),
+      theme: AppTheme.darkTheme,
       routerConfig: router,
     );
   }

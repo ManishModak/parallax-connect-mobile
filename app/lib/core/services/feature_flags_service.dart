@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../storage/config_storage.dart';
+import '../../global/providers.dart';
 import 'server_capabilities_service.dart';
 
 /// Reasons why a feature might be disabled

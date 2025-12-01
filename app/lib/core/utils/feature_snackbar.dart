@@ -105,4 +105,55 @@ class FeatureSnackbar {
       ),
     );
   }
+
+  /// Show a success snackbar
+  static void showSuccess(
+    BuildContext context, {
+    required String message,
+    IconData icon = LucideIcons.checkCircle,
+  }) {
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.clearSnackBars();
+
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(
+          message,
+          style: GoogleFonts.inter(color: AppColors.primary),
+        ),
+        backgroundColor: AppColors.surface,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+          side: BorderSide(
+            color: AppColors.secondary.withValues(alpha: 0.2),
+          ),
+        ),
+        duration: const Duration(seconds: 3),
+      ),
+    );
+  }
+
+  /// Show an error snackbar
+  static void showError(
+    BuildContext context, {
+    required String message,
+    IconData icon = LucideIcons.alertCircle,
+  }) {
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.clearSnackBars();
+
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(
+          message,
+          style: GoogleFonts.inter(color: AppColors.error),
+        ),
+        backgroundColor: AppColors.surface,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        duration: const Duration(seconds: 3),
+      ),
+    );
+  }
 }

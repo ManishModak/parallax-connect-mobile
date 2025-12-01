@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../../../core/storage/config_storage.dart';
+import '../../../global/providers.dart';
 
 class SettingsStorage {
   static const _keyHapticsLevel = 'settings_haptics_level';

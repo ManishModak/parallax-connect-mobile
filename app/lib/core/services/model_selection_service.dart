@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/constants/app_constants.dart';
+import '../../global/providers.dart';
 import '../network/dio_provider.dart';
 import '../storage/config_storage.dart';
 import '../utils/logger.dart';
