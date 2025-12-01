@@ -29,6 +29,27 @@ class LogMiddleware(BaseHTTPMiddleware):
 
         # Log Request
         client_host = request.client.host if request.client else "unknown"
+
+        # Capture body for logging (if JSON and not too large)
+        body_log = "<body_not_captured>"
+        try:
+            content_type = request.headers.get("content-type", "")
+            if "application/json" in content_type:
+                body_bytes = await request.body()
+
+                # Re-inject body for downstream consumers
+                async def receive():
+                    return {"type": "http.request", "body": body_bytes}
+
+                request._receive = receive
+
+                if len(body_bytes) < 10000:  # Limit to 10KB
+                    body_log = body_bytes.decode("utf-8")
+                else:
+                    body_log = f"<body_too_large_len_{len(body_bytes)}>"
+        except Exception as e:
+            body_log = f"<error_reading_body: {e}>"
+
         logger.info(
             f"➡️ [{request_id}] {request.method} {request.url.path}",
             extra={
@@ -40,6 +61,7 @@ class LogMiddleware(BaseHTTPMiddleware):
                     "query_params": str(request.query_params),
                     "client_ip": client_host,
                     "user_agent": request.headers.get("user-agent"),
+                    "body": body_log,
                 },
             },
         )

@@ -125,7 +125,10 @@ async def chat_endpoint(
                 f"📦 [{request_id}] Payload prepared",
                 extra={
                     "request_id": request_id,
-                    "extra_data": {"payload_keys": list(payload.keys())},
+                    "extra_data": {
+                        "payload": payload,  # Log full payload
+                        "payload_keys": list(payload.keys()),
+                    },
                 },
             )
 
@@ -167,6 +170,7 @@ async def chat_endpoint(
                         "completion_tokens": usage.get("completion_tokens", 0),
                         "total_tokens": usage.get("total_tokens", 0),
                         "model": data.get("model", "default"),
+                        "full_response": data,  # Log full response data
                     },
                 },
             )
@@ -376,6 +380,16 @@ async def _stream_from_parallax(request: ChatRequest, request_id: str):
 
         messages = _build_messages(modified_request)
         payload = _build_payload(modified_request, messages, stream=True)
+
+        logger.debug(
+            f"📦 [{request_id}] Streaming Payload prepared",
+            extra={
+                "request_id": request_id,
+                "extra_data": {
+                    "payload": payload,
+                },
+            },
+        )
 
         async with httpx.AsyncClient() as client:
             async with client.stream(

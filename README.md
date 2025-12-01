@@ -1,89 +1,70 @@
 # Parallax Connect
 
-A mobile-first AI interface that connects to your self-hosted Parallax GPU server. Turn any Parallax-enabled machine into a private AI cloud accessible from anywhere.
+**Your Personal AI Cloud.**
 
-## Overview
+Parallax Connect allows you to use your powerful home computer's AI capabilities from your mobile phone, anywhere in the world. It's like having your own private ChatGPT, running entirely on your own hardware.
 
-Parallax Connect decouples the AI interface (mobile app) from the compute (GPU server), allowing you to:
-- Access your home GPU from anywhere via secure tunnel
-- Share one GPU across multiple family members/devices
-- Switch seamlessly between cloud and local connections
-- Keep all data private on your own hardware
+## 🚀 Quick Start
 
-## Project Structure
+### 1. Prerequisites
 
-```
-parallax-connect/
-├── app/                    # Flutter mobile application
-├── server/                 # Python FastAPI server (modular)
-│   ├── apis/               # API route handlers
-│   │   ├── chat.py         # /chat, /chat/stream endpoints
-│   │   ├── health.py       # /, /healthz, /status endpoints
-│   │   ├── models.py       # /models, /info endpoints
-│   │   └── ui_proxy.py     # Parallax Web UI proxy
-│   ├── auth/               # Authentication
-│   │   └── password.py     # Password protection
-│   ├── models/             # Pydantic request/response models
-│   ├── services/           # External service clients
-│   │   └── parallax.py     # Parallax API client
-│   ├── utils/              # Utilities (network, QR codes)
-│   ├── app.py              # FastAPI application factory
-│   ├── config.py           # Configuration constants
-│   ├── logging_setup.py    # Logging configuration
-│   └── startup.py          # Server startup & ngrok setup
-├── helper-docs/            # Setup guides and references
-├── assets/                 # Project assets (logos)
-├── run_server.py           # Server entry point
-├── requirements.txt        # Python dependencies
-├── SERVER_SETUP.md         # Server installation guide
-└── SERVER_USAGE_GUIDE.md   # API documentation
-```
+- A computer with an NVIDIA GPU (Windows/Linux).
+- [Python 3.10+](https://www.python.org/downloads/) installed.
+- [Parallax](https://github.com/ManishModak/parallax) installed and running.
 
-## Quick Start
+### 2. Installation
 
-### 1. Start the Server
+Open your terminal (Command Prompt or PowerShell) and run:
 
 ```bash
-# Install dependencies
-pip install -r requirements.txt
+# 1. Download the code (or unzip the folder)
+git clone https://github.com/ManishModak/parallax-connect.git
+cd parallax-connect
 
-# Run the server
+# 2. Install requirements
+pip install -r requirements.txt
+```
+
+### 3. Run the Server
+
+```bash
 python run_server.py
 ```
 
-### 2. Connect the App
+Follow the on-screen prompts to start the server. You can choose **Normal Mode** for standard use or **Mock Mode** to test without a GPU.
 
-Scan the QR code displayed in the terminal with the Parallax Connect mobile app.
+### 4. Connect Your Phone
 
-## Connection Modes
+1. Open the **Parallax Connect** app on your phone.
+2. Scan the **QR Code** displayed in your terminal.
+3. Start chatting!
 
-| Mode | Use Case | Requirements |
-|------|----------|--------------|
-| Cloud (Ngrok) | Access from anywhere | Ngrok account (free) |
-| Local | Same Wi-Fi, lowest latency | None |
+---
 
-Both modes are active simultaneously when the server runs.
+## 🌟 Features
 
-## Key Features
+- **Private & Secure**: Your data never leaves your control.
+- **Anywhere Access**: Connect via local Wi-Fi or over the internet (using Ngrok).
+- **Smart AI**: Supports "Thinking" models with visual reasoning steps.
+- **Web Search**: The AI can search the web to answer current questions.
+- **Multi-Device**: Share your GPU with family members.
 
-- Real-time streaming chat with thinking visualization
-- Multi-turn conversation support
-- Password protection (optional)
-- Remote Parallax Web UI access
-- Automatic QR code generation for easy connection
+## 📚 Documentation
 
-## Documentation
+- **[Setup Guide](SERVER_SETUP.md)**: Detailed instructions for installing and configuring the server.
+- **[Usage Guide](SERVER_USAGE_GUIDE.md)**: Technical details for developers and advanced users.
 
-- [Server Setup Guide](SERVER_SETUP.md) - Installation and configuration
-- [API Usage Guide](SERVER_USAGE_GUIDE.md) - API reference and Flutter integration
-- [Helper Docs](helper-docs/) - Platform-specific setup guides
+## ❓ Troubleshooting
 
-## Tech Stack
+**"Cannot connect to Parallax"**
+> Make sure the main Parallax service is running (`parallax run`) before starting this server.
 
-- Server: Python, FastAPI, httpx, pyngrok
-- App: Flutter, Dart
-- AI Backend: Parallax (local GPU inference)
+**"Ngrok error"**
+> If you want to connect from outside your home, you need a free Ngrok account. Run `ngrok config add-authtoken YOUR_TOKEN`.
 
-## License
+**"Port already in use"**
+> Another program might be using port 8000. Close it or restart your computer.
 
-MIT
+---
+
+*Built with ❤️ for the Local AI Community.*
