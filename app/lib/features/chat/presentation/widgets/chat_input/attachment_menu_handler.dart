@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../../core/utils/haptics_helper.dart';
-import '../attachment_menu.dart';
+import '../menus/attachment_menu.dart';
 
 /// Helper class for creating attachment menu overlay entries
 class AttachmentMenuHandler {
@@ -59,4 +59,3 @@ class AttachmentMenuHandler {
     );
   }
 }
-

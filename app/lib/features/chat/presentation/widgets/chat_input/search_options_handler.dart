@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../../core/utils/haptics_helper.dart';
 import '../../../../settings/presentation/view_models/settings_controller.dart';
-import '../search_options_menu.dart';
+import '../menus/search_options_menu.dart';
 
 /// Helper class for creating search options overlay entries
 class SearchOptionsHandler {
@@ -62,4 +62,3 @@ class SearchOptionsHandler {
     );
   }
 }
-

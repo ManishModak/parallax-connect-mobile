@@ -11,8 +11,8 @@ import 'package:lucide_icons/lucide_icons.dart';
 
 import '../../../../app/constants/app_colors.dart';
 import '../../../../app/routes/app_router.dart';
-import '../../../../core/services/connectivity_service.dart';
-import '../../../../core/services/model_selection_service.dart';
+import '../../../../core/services/system/connectivity_service.dart';
+import '../../../../core/services/ai/model_selection_service.dart';
 import '../../../../core/services/storage/config_storage.dart';
 import '../../../../core/utils/haptics_helper.dart';
 import '../../../chat/data/repositories/chat_repository.dart';

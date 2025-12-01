@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../../../../app/constants/app_colors.dart';
-import '../../models/chat_message.dart';
-import '../view_models/chat_controller.dart';
+import '../../../../../app/constants/app_colors.dart';
+import '../../../models/chat_message.dart';
+import '../../view_models/chat_controller.dart';
 
 class EditMessageDialog extends StatefulWidget {
   final ChatMessage message;
@@ -97,5 +97,3 @@ class _EditMessageDialogState extends State<EditMessageDialog> {
     );
   }
 }
-
-

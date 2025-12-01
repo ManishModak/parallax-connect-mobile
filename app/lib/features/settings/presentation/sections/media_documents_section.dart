@@ -4,8 +4,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
 import '../../../../app/constants/app_colors.dart';
-import '../../../../core/services/feature_flags_service.dart';
-import '../../../../core/services/server_capabilities_service.dart';
+import '../../../../core/services/server/feature_flags_service.dart';
+import '../../../../core/services/server/server_capabilities_service.dart';
 import '../../../../core/utils/haptics_helper.dart';
 import '../helpers/requirements_checker.dart';
 import '../view_models/settings_controller.dart';
@@ -18,10 +18,7 @@ import 'vision_processing_card.dart';
 class MediaDocumentsSection extends ConsumerWidget {
   final HapticsHelper hapticsHelper;
 
-  const MediaDocumentsSection({
-    super.key,
-    required this.hapticsHelper,
-  });
+  const MediaDocumentsSection({super.key, required this.hapticsHelper});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -108,12 +105,13 @@ class MediaDocumentsSection extends ConsumerWidget {
           onToggle: (val) async {
             hapticsHelper.triggerHaptics();
             if (val) {
-              final canEnable = await RequirementsChecker.checkAndWarnRequirements(
-                context,
-                ref,
-                'attachments',
-                hapticsHelper,
-              );
+              final canEnable =
+                  await RequirementsChecker.checkAndWarnRequirements(
+                    context,
+                    ref,
+                    'attachments',
+                    hapticsHelper,
+                  );
               if (!canEnable) return;
             }
             await featureFlagsNotifier.setAttachmentsEnabled(val);
@@ -146,12 +144,13 @@ class MediaDocumentsSection extends ConsumerWidget {
           onToggle: (val) async {
             hapticsHelper.triggerHaptics();
             if (val) {
-              final canEnable = await RequirementsChecker.checkAndWarnRequirements(
-                context,
-                ref,
-                'document_processing',
-                hapticsHelper,
-              );
+              final canEnable =
+                  await RequirementsChecker.checkAndWarnRequirements(
+                    context,
+                    ref,
+                    'document_processing',
+                    hapticsHelper,
+                  );
               if (!canEnable) return;
             }
             await featureFlagsNotifier.setDocumentProcessingEnabled(val);
@@ -179,4 +178,3 @@ class MediaDocumentsSection extends ConsumerWidget {
     );
   }
 }
-

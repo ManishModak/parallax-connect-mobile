@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
-import '../../../../app/constants/app_colors.dart';
+import '../../../../../app/constants/app_colors.dart';
 
 class WebSearchIndicator extends StatefulWidget {
   final String status;

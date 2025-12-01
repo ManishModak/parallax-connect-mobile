@@ -12,7 +12,7 @@ import '../../../../app/constants/app_constants.dart';
 
 import '../widgets/splash_branding.dart';
 import '../../../chat/data/repositories/chat_repository.dart';
-import '../../../../core/services/model_selection_service.dart';
+import '../../../../core/services/ai/model_selection_service.dart';
 
 class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});

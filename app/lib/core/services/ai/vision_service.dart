@@ -6,9 +6,9 @@ import 'package:google_mlkit_image_labeling/google_mlkit_image_labeling.dart';
 import 'package:google_mlkit_object_detection/google_mlkit_object_detection.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 
-import '../../features/chat/data/repositories/chat_repository.dart';
-import '../../features/settings/data/settings_storage.dart';
-import '../utils/logger.dart';
+import '../../../features/chat/data/repositories/chat_repository.dart';
+import '../../../features/settings/data/settings_storage.dart';
+import '../../utils/logger.dart';
 
 /// Service for processing images using either on-device ML Kit or server-side vision
 class VisionService {
@@ -126,8 +126,7 @@ class VisionService {
       Log.d('Labels: ${filtered.length}');
       return filtered
           .map(
-            (l) =>
-                '• ${l.label} (${(l.confidence * 100).toStringAsFixed(0)}%)',
+            (l) => '• ${l.label} (${(l.confidence * 100).toStringAsFixed(0)}%)',
           )
           .join('\n');
     } catch (e) {

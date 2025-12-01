@@ -11,13 +11,13 @@ import '../../../../app/routes/app_router.dart';
 import '../../../../core/utils/haptics_helper.dart';
 import '../../../settings/presentation/view_models/settings_controller.dart';
 import '../view_models/chat_controller.dart';
-import '../widgets/chat_message_bubble.dart';
+import '../widgets/messages/chat_message_bubble.dart';
 import '../widgets/chat_input_area.dart';
-import '../widgets/streaming_message_bubble.dart';
-import '../widgets/collapsible_thinking_indicator.dart';
-import '../widgets/web_search_indicator.dart';
-import '../widgets/app_icon_shimmer.dart';
-import '../widgets/edit_message_dialog.dart';
+import '../widgets/messages/streaming_message_bubble.dart';
+import '../widgets/indicators/collapsible_thinking_indicator.dart';
+import '../widgets/indicators/web_search_indicator.dart';
+import '../widgets/indicators/app_icon_shimmer.dart';
+import '../widgets/dialogs/edit_message_dialog.dart';
 
 class ChatScreen extends ConsumerStatefulWidget {
   const ChatScreen({super.key});
@@ -327,5 +327,4 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       ),
     );
   }
-
 }

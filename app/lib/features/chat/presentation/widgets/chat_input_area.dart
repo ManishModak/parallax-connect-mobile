@@ -6,7 +6,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../app/constants/app_colors.dart';
 import '../../../../app/routes/app_router.dart';
-import '../../../../core/services/feature_flags_service.dart';
+import '../../../../core/services/server/feature_flags_service.dart';
 import '../../../../core/utils/feature_snackbar.dart';
 import '../../../../core/utils/haptics_helper.dart';
 import 'chat_input/attachment_menu_handler.dart';

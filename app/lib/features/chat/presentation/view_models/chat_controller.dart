@@ -1,10 +1,10 @@
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../utils/file_type_helper.dart';
-import '../../../../core/services/connectivity_service.dart';
-import '../../../../core/services/document_service.dart';
-import '../../../../core/services/smart_search_service.dart';
-import '../../../../core/services/vision_service.dart';
+import '../../../../core/services/system/connectivity_service.dart';
+import '../../../../core/services/utilities/document_service.dart';
+import '../../../../core/services/ai/smart_search_service.dart';
+import '../../../../core/services/ai/vision_service.dart';
 import '../../../../core/utils/haptics_helper.dart';
 import '../../../../core/utils/logger.dart';
 import '../../data/repositories/chat_repository.dart';

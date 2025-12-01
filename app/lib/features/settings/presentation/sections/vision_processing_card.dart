@@ -3,8 +3,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
 import '../../../../app/constants/app_colors.dart';
-import '../../../../core/services/feature_flags_service.dart';
-import '../../../../core/services/server_capabilities_service.dart';
+import '../../../../core/services/server/feature_flags_service.dart';
+import '../../../../core/services/server/server_capabilities_service.dart';
 import '../../../../core/utils/haptics_helper.dart';
 import '../state/settings_state.dart';
 import '../view_models/settings_controller.dart';
@@ -145,4 +145,3 @@ class VisionProcessingCard extends StatelessWidget {
     );
   }
 }
-

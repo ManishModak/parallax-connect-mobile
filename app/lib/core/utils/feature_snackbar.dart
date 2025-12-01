@@ -3,7 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
 import '../../app/constants/app_colors.dart';
-import '../services/feature_flags_service.dart';
+import '../services/server/feature_flags_service.dart';
 
 /// Helper to show snackbars for disabled features
 class FeatureSnackbar {
@@ -125,9 +125,7 @@ class FeatureSnackbar {
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(10),
-          side: BorderSide(
-            color: AppColors.secondary.withValues(alpha: 0.2),
-          ),
+          side: BorderSide(color: AppColors.secondary.withValues(alpha: 0.2)),
         ),
         duration: const Duration(seconds: 3),
       ),

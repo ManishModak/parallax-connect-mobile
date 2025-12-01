@@ -1,11 +1,11 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../app/constants/app_constants.dart';
-import '../../global/providers.dart';
-import '../network/dio_provider.dart';
-import 'storage/config_storage.dart';
-import '../utils/logger.dart';
+import '../../../app/constants/app_constants.dart';
+import '../../../global/providers.dart';
+import '../../network/dio_provider.dart';
+import '../storage/config_storage.dart';
+import '../../utils/logger.dart';
 
 /// Model info from server
 /// Parallax models have: name, vram_gb
@@ -58,9 +58,9 @@ class ModelSelectionState {
   ModelInfo? get activeModel {
     if (activeModelId == null) return null;
     return availableModels.cast<ModelInfo?>().firstWhere(
-          (m) => m?.id == activeModelId,
-          orElse: () => null,
-        );
+      (m) => m?.id == activeModelId,
+      orElse: () => null,
+    );
   }
 
   /// Whether the scheduler has been initialized with a model
@@ -147,16 +147,11 @@ class ModelSelectionNotifier extends Notifier<ModelSelectionState> {
           isLoading: false,
         );
 
-        logger.i(
-          'Fetched ${models.length} models, active: $activeModel',
-        );
+        logger.i('Fetched ${models.length} models, active: $activeModel');
       }
     } catch (e) {
       logger.e('Failed to fetch models', error: e);
-      state = state.copyWith(
-        isLoading: false,
-        error: 'Failed to fetch models',
-      );
+      state = state.copyWith(isLoading: false, error: 'Failed to fetch models');
     }
   }
 
@@ -171,5 +166,5 @@ class ModelSelectionNotifier extends Notifier<ModelSelectionState> {
 
 final modelSelectionProvider =
     NotifierProvider<ModelSelectionNotifier, ModelSelectionState>(() {
-  return ModelSelectionNotifier();
-});
+      return ModelSelectionNotifier();
+    });

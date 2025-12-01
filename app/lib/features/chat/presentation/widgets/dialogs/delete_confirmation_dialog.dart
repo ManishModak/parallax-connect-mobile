@@ -4,8 +4,8 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
-import '../../../../app/constants/app_colors.dart';
-import '../../../../core/utils/haptics_helper.dart';
+import '../../../../../app/constants/app_colors.dart';
+import '../../../../../core/utils/haptics_helper.dart';
 
 class DeleteConfirmationDialog extends ConsumerWidget {
   final String sessionTitle;

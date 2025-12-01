@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../../app/constants/app_colors.dart';
+import '../../../../../app/constants/app_colors.dart';
 
 class AppIconShimmer extends StatefulWidget {
   const AppIconShimmer({super.key});

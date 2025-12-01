@@ -2,7 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
-import '../../../../app/constants/app_colors.dart';
+import '../../../../../app/constants/app_colors.dart';
 
 /// A widget that displays the model's thinking process with a rolling display
 /// Shows 4-6 lines at a time, cycling through the thinking content

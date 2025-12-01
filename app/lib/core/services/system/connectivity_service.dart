@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../utils/logger.dart';
+import '../../utils/logger.dart';
 
 /// Provider for connectivity service
 final connectivityServiceProvider = Provider<ConnectivityService>((ref) {
@@ -47,7 +47,7 @@ class ConnectivityService {
       if (results.isEmpty || results.first == ConnectivityResult.none) {
         return false;
       }
-      
+
       // Actually verify internet reachability by attempting DNS lookup
       return await _checkInternetReachability();
     } catch (e) {

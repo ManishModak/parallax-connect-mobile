@@ -5,7 +5,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:markdown/markdown.dart' as md;
 import 'package:flutter_highlight/flutter_highlight.dart';
 import 'package:flutter_highlight/themes/atom-one-dark.dart';
-import '../../../../app/constants/app_colors.dart';
+import '../../../../../app/constants/app_colors.dart';
 
 class CodeElementBuilder extends MarkdownElementBuilder {
   final Function(String) onCopy;
@@ -171,7 +171,7 @@ class CodeElementBuilder extends MarkdownElementBuilder {
           ],
         ),
       );
-  }
+    }
 
     // Handle inline code (short code without newlines)
     if (element.tag == 'code') {
@@ -181,4 +181,3 @@ class CodeElementBuilder extends MarkdownElementBuilder {
     return null;
   }
 }
-

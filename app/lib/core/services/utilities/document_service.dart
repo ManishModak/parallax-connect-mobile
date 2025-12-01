@@ -3,7 +3,8 @@ import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:syncfusion_flutter_pdf/pdf.dart';
 
-import '../../features/settings/data/settings_storage.dart';
+import '../../../features/settings/data/settings_storage.dart';
+
 class DocumentService {
   final SettingsStorage _settingsStorage;
 
@@ -58,4 +59,3 @@ final documentServiceProvider = Provider<DocumentService>((ref) {
   final settingsStorage = ref.watch(settingsStorageProvider);
   return DocumentService(settingsStorage);
 });
-

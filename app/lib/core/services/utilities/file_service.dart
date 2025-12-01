@@ -4,7 +4,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:permission_handler/permission_handler.dart';
 
-import '../utils/logger.dart';
+import '../../utils/logger.dart';
 
 /// Custom exception for file service errors
 class FileServiceException implements Exception {
@@ -37,7 +37,7 @@ class FileService {
     try {
       // Check permission status first before requesting
       var status = await Permission.photos.status;
-      
+
       if (status.isPermanentlyDenied) {
         Log.w('Photo permission permanently denied');
         throw FileServiceException(
@@ -48,7 +48,7 @@ class FileService {
 
       if (!status.isGranted) {
         status = await Permission.photos.request();
-        
+
         if (status.isDenied) {
           Log.w('Photo permission denied');
           throw FileServiceException(

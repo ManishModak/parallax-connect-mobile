@@ -3,8 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
-import '../../../../app/constants/app_colors.dart';
-import '../../../settings/presentation/view_models/settings_controller.dart';
+import '../../../../../app/constants/app_colors.dart';
+import '../../../../settings/presentation/view_models/settings_controller.dart';
 
 class SearchOptionsMenu extends ConsumerWidget {
   final VoidCallback onDeepSearchToggle;

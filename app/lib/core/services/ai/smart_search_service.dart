@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 import 'package:html/parser.dart' as html_parser;
 import '../../../features/settings/data/settings_storage.dart';
-import '../utils/logger.dart';
+import '../../utils/logger.dart';
 
 /// Result from Smart Search
 class SmartSearchResult {

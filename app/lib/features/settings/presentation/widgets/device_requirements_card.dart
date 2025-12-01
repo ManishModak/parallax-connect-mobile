@@ -4,7 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
 import '../../../../app/constants/app_colors.dart';
-import '../../../../core/services/device_requirements_service.dart';
+import '../../../../core/services/system/device_requirements_service.dart';
 
 /// Card showing device info and feature compatibility
 class DeviceRequirementsCard extends ConsumerWidget {

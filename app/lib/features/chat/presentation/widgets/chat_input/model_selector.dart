@@ -4,7 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
 import '../../../../../app/constants/app_colors.dart';
-import '../../../../../core/services/model_selection_service.dart';
+import '../../../../../core/services/ai/model_selection_service.dart';
 import '../../../../../core/utils/haptics_helper.dart';
 
 /// Model selector widget showing active model
@@ -120,4 +120,3 @@ class ModelSelector extends ConsumerWidget {
     );
   }
 }
-

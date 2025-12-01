@@ -3,7 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
 import '../../../../app/constants/app_colors.dart';
-import '../../../../core/services/feature_flags_service.dart';
+import '../../../../core/services/server/feature_flags_service.dart';
 
 /// A toggle tile for features that can be enabled/disabled
 /// Shows availability status and info about why feature might be unavailable

@@ -4,7 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
 import '../../../../../app/constants/app_colors.dart';
-import '../../../../../core/services/device_requirements_service.dart';
+import '../../../../../core/services/system/device_requirements_service.dart';
 import '../../../../../core/utils/haptics_helper.dart';
 
 /// Helper class for checking device requirements and showing warnings
@@ -135,4 +135,3 @@ class RequirementsChecker {
     return true;
   }
 }
-

@@ -6,7 +6,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 
 import '../../../../../app/constants/app_colors.dart';
 import '../../../../../app/routes/app_router.dart';
-import '../../../../../core/services/feature_flags_service.dart';
+import '../../../../../core/services/server/feature_flags_service.dart';
 import '../../../../../core/utils/feature_snackbar.dart';
 import '../../../../../core/utils/haptics_helper.dart';
 import '../../../../settings/presentation/view_models/settings_controller.dart';
@@ -15,10 +15,7 @@ import '../../../../settings/presentation/view_models/settings_controller.dart';
 class WebSearchToggle extends ConsumerStatefulWidget {
   final VoidCallback onLongPress;
 
-  const WebSearchToggle({
-    super.key,
-    required this.onLongPress,
-  });
+  const WebSearchToggle({super.key, required this.onLongPress});
 
   @override
   ConsumerState<WebSearchToggle> createState() => _WebSearchToggleState();
@@ -114,4 +111,3 @@ class _WebSearchToggleState extends ConsumerState<WebSearchToggle> {
     );
   }
 }
-

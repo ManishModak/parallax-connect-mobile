@@ -7,7 +7,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 import '../../../../app/constants/app_colors.dart';
 import '../../../../core/utils/haptics_helper.dart';
 import '../../../../core/services/storage/chat_archive_storage.dart';
-import '../../../../core/services/feature_flags_service.dart';
+import '../../../../core/services/server/feature_flags_service.dart';
 import '../../../chat/presentation/view_models/chat_controller.dart';
 import '../sections/media_documents_section.dart';
 import '../sections/web_search_section.dart';
@@ -45,7 +45,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     _systemPromptController.dispose();
     super.dispose();
   }
-
 
   @override
   Widget build(BuildContext context) {
