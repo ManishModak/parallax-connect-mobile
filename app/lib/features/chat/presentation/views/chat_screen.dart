@@ -211,11 +211,17 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                           }, childCount: chatState.messages.length),
                         ),
                       ),
-                      // Show web search indicator
-                      if (chatState.isSearching)
-                        const SliverToBoxAdapter(child: WebSearchIndicator()),
-                      // Show thinking indicator when streaming and thinking
-                      if (chatState.isStreaming && chatState.isThinking)
+                      // Show web search indicator (Only when actually searching)
+                      if (chatState.isSearchingWeb)
+                        SliverToBoxAdapter(
+                          child: WebSearchIndicator(
+                            status: chatState.searchStatusMessage,
+                          ),
+                        ),
+
+                      // Show thinking indicator (For Analysis OR Generation)
+                      if (chatState.isAnalyzingIntent ||
+                          (chatState.isStreaming && chatState.isThinking))
                         SliverToBoxAdapter(
                           child: Builder(
                             builder: (context) {
@@ -224,12 +230,22 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                   (s) => s.showThinking,
                                 ),
                               );
-                              if (!showThinking) {
+                              if (!showThinking &&
+                                  !chatState.isAnalyzingIntent) {
                                 return const AppIconShimmer();
                               }
+
+                              // During analysis, use the status message (e.g., "Analyzing intent...")
+                              // During generation, use the streaming thinking content
+                              final content = chatState.isAnalyzingIntent
+                                  ? (chatState.searchStatusMessage.isNotEmpty
+                                        ? chatState.searchStatusMessage
+                                        : 'Thinking...')
+                                  : chatState.thinkingContent;
+
                               return CollapsibleThinkingIndicator(
-                                thinkingContent: chatState.thinkingContent,
-                                isThinking: chatState.isThinking,
+                                thinkingContent: content,
+                                isThinking: true,
                               );
                             },
                           ),

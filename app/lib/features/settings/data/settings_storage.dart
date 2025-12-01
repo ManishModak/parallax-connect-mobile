@@ -149,6 +149,27 @@ class SettingsStorage {
     return _prefs.getString(_keyWebSearchDepth) ?? 'normal'; // Default normal
   }
 
+  static const _keySmartSearchEnabled = 'settings_smart_search_enabled';
+  static const _keyWebSearchExecutionMode =
+      'settings_web_search_execution_mode';
+
+  Future<void> setSmartSearchEnabled(bool enabled) async {
+    await _prefs.setBool(_keySmartSearchEnabled, enabled);
+  }
+
+  bool getSmartSearchEnabled() {
+    return _prefs.getBool(_keySmartSearchEnabled) ?? true;
+  }
+
+  Future<void> setWebSearchExecutionMode(String mode) async {
+    await _prefs.setString(_keyWebSearchExecutionMode, mode);
+  }
+
+  String getWebSearchExecutionMode() {
+    return _prefs.getString(_keyWebSearchExecutionMode) ??
+        'mobile'; // mobile, middleware, parallax
+  }
+
   // Clear all settings (reset to defaults)
   Future<void> clearSettings() async {
     await _prefs.remove(_keyHapticsLevel);

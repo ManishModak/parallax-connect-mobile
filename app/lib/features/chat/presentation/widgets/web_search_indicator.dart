@@ -1,11 +1,11 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../../../../app/constants/app_colors.dart';
 
 class WebSearchIndicator extends StatefulWidget {
-  const WebSearchIndicator({super.key});
+  final String status;
+  const WebSearchIndicator({super.key, this.status = 'Searching...'});
 
   @override
   State<WebSearchIndicator> createState() => _WebSearchIndicatorState();
@@ -14,14 +14,6 @@ class WebSearchIndicator extends StatefulWidget {
 class _WebSearchIndicatorState extends State<WebSearchIndicator>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
-  int _textIndex = 0;
-  Timer? _textTimer;
-
-  final List<String> _searchStates = [
-    'Searching the web...',
-    'Analyzing results...',
-    'Synthesizing information...',
-  ];
 
   @override
   void initState() {
@@ -30,20 +22,11 @@ class _WebSearchIndicatorState extends State<WebSearchIndicator>
       vsync: this,
       duration: const Duration(seconds: 2),
     )..repeat();
-
-    _textTimer = Timer.periodic(const Duration(seconds: 2), (timer) {
-      if (mounted) {
-        setState(() {
-          _textIndex = (_textIndex + 1) % _searchStates.length;
-        });
-      }
-    });
   }
 
   @override
   void dispose() {
     _controller.dispose();
-    _textTimer?.cancel();
     super.dispose();
   }
 
@@ -56,6 +39,13 @@ class _WebSearchIndicatorState extends State<WebSearchIndicator>
         color: AppColors.surface.withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppColors.primary.withValues(alpha: 0.1)),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.primary.withValues(alpha: 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -63,7 +53,7 @@ class _WebSearchIndicatorState extends State<WebSearchIndicator>
           RotationTransition(
             turns: _controller,
             child: Container(
-              padding: const EdgeInsets.all(4),
+              padding: const EdgeInsets.all(6),
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 gradient: SweepGradient(
@@ -71,7 +61,7 @@ class _WebSearchIndicatorState extends State<WebSearchIndicator>
                     AppColors.primary.withValues(alpha: 0.0),
                     AppColors.primary,
                   ],
-                  stops: const [0.5, 1.0],
+                  stops: const [0.2, 1.0],
                 ),
               ),
               child: const Icon(
@@ -82,27 +72,19 @@ class _WebSearchIndicatorState extends State<WebSearchIndicator>
             ),
           ),
           const SizedBox(width: 12),
-          AnimatedSwitcher(
-            duration: const Duration(milliseconds: 300),
-            transitionBuilder: (Widget child, Animation<double> animation) {
-              return FadeTransition(
-                opacity: animation,
-                child: SlideTransition(
-                  position: Tween<Offset>(
-                    begin: const Offset(0.0, 0.5),
-                    end: Offset.zero,
-                  ).animate(animation),
-                  child: child,
+          Expanded(
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 300),
+              child: Text(
+                widget.status,
+                key: ValueKey<String>(widget.status),
+                style: GoogleFonts.inter(
+                  color: AppColors.primary,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
                 ),
-              );
-            },
-            child: Text(
-              _searchStates[_textIndex],
-              key: ValueKey<int>(_textIndex),
-              style: GoogleFonts.inter(
-                color: AppColors.primary,
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
             ),
           ),

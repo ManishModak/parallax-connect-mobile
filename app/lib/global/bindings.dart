@@ -6,7 +6,7 @@ import '../core/storage/chat_history_storage.dart';
 import '../core/utils/logger.dart';
 
 /// Initialize app dependencies and services
-/// 
+///
 /// This should be called before runApp() in main.dart
 Future<void> initializeApp() async {
   // Load environment variables
@@ -52,4 +52,3 @@ Future<void> _archiveAndClearActiveChat() async {
     // Don't rethrow - app should still start even if archiving fails
   }
 }
-

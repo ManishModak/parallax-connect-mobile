@@ -12,9 +12,17 @@ from ..auth import check_password
 from ..config import SERVER_MODE, PARALLAX_SERVICE_URL
 from ..models import ChatRequest
 from ..logging_setup import get_logger
+from ..services.search_router import SearchRouter
+from ..services.web_search import WebSearchService
+from ..services.parallax import ParallaxClient
 
 router = APIRouter()
 logger = get_logger(__name__)
+
+# Initialize services
+parallax_client = ParallaxClient(PARALLAX_SERVICE_URL)
+search_router = SearchRouter(parallax_client)
+web_search_service = WebSearchService()
 
 
 @router.post("/chat")
@@ -35,6 +43,7 @@ async def chat_endpoint(
                 "max_tokens": chat_request.max_tokens,
                 "stream": False,
                 "prompt_length": len(chat_request.prompt),
+                "web_search": chat_request.web_search_enabled,
             },
         },
     )
@@ -45,6 +54,52 @@ async def chat_endpoint(
             "response": f"[MOCK] Server received: '{request.prompt}'. \n\nThis is a simulated response."
         }
 
+    # Smart Search Logic
+    search_context = ""
+    if chat_request.web_search_enabled:
+        try:
+            logger.info(f"🧠 [{request_id}] Analyzing search intent...")
+            intent = await search_router.classify_intent(
+                chat_request.prompt, chat_request.messages
+            )
+
+            if intent.get("needs_search"):
+                query = intent.get("search_query", chat_request.prompt)
+                logger.info(f"🔍 [{request_id}] Searching web for: {query}")
+
+                search_results = await web_search_service.search(
+                    query, depth=chat_request.web_search_depth
+                )
+
+                if search_results.get("results"):
+                    # Format results for context
+                    search_context = "\n\n[WEB SEARCH RESULTS]\n"
+                    for i, res in enumerate(search_results["results"]):
+                        search_context += (
+                            f"Source {i + 1}: {res['title']} ({res['url']})\n"
+                        )
+                        if res.get("is_full_content"):
+                            search_context += (
+                                f"Content: {res.get('content', '')[:1000]}...\n"
+                            )
+                        else:
+                            search_context += f"Snippet: {res['snippet']}\n"
+                        search_context += "---\n"
+                    search_context += "[END WEB SEARCH RESULTS]\n\n"
+
+                    logger.info(
+                        f"✅ [{request_id}] Injected {len(search_results['results'])} search results"
+                    )
+                else:
+                    logger.info(f"⚠️ [{request_id}] No search results found")
+            else:
+                logger.info(
+                    f"⏭️ [{request_id}] Search skipped (Reason: {intent.get('reason')})"
+                )
+
+        except Exception as e:
+            logger.error(f"❌ [{request_id}] Smart search failed: {e}")
+
     # PROXY mode
     start_time = datetime.now()
     try:
@@ -53,8 +108,18 @@ async def chat_endpoint(
         )
 
         async with httpx.AsyncClient() as client:
-            messages = _build_messages(chat_request)
-            payload = _build_payload(chat_request, messages, stream=False)
+            # Inject search context into system prompt or user message
+            modified_request = chat_request.copy()
+            if search_context:
+                if modified_request.system_prompt:
+                    modified_request.system_prompt += search_context
+                else:
+                    modified_request.system_prompt = (
+                        "You are a helpful AI assistant.\n" + search_context
+                    )
+
+            messages = _build_messages(modified_request)
+            payload = _build_payload(modified_request, messages, stream=False)
 
             logger.debug(
                 f"📦 [{request_id}] Payload prepared",
@@ -153,6 +218,7 @@ async def chat_stream_endpoint(
                 "model": chat_request.model,
                 "stream": True,
                 "prompt_length": len(chat_request.prompt),
+                "web_search": chat_request.web_search_enabled,
             },
         },
     )
@@ -252,9 +318,64 @@ async def _mock_stream(request: ChatRequest):
 async def _stream_from_parallax(request: ChatRequest, request_id: str):
     """Stream response from Parallax service."""
     start_time = datetime.now()
+
+    # Smart Search Logic (Streaming)
+    search_context = ""
+    if request.web_search_enabled:
+        try:
+            yield f"data: {json.dumps({'type': 'thinking', 'content': 'Analyzing search intent...'})}\n\n"
+
+            intent = await search_router.classify_intent(
+                request.prompt, request.messages
+            )
+
+            if intent.get("needs_search"):
+                query = intent.get("search_query", request.prompt)
+                yield f"data: {json.dumps({'type': 'thinking', 'content': f'Searching web for: {query}'})}\n\n"
+
+                search_results = await web_search_service.search(
+                    query, depth=request.web_search_depth
+                )
+
+                if search_results.get("results"):
+                    yield f"data: {json.dumps({'type': 'thinking', 'content': f'Found {len(search_results["results"])} results. Reading content...'})}\n\n"
+
+                    # Format results for context
+                    search_context = "\n\n[WEB SEARCH RESULTS]\n"
+                    for i, res in enumerate(search_results["results"]):
+                        search_context += (
+                            f"Source {i + 1}: {res['title']} ({res['url']})\n"
+                        )
+                        if res.get("is_full_content"):
+                            search_context += (
+                                f"Content: {res.get('content', '')[:1000]}...\n"
+                            )
+                        else:
+                            search_context += f"Snippet: {res['snippet']}\n"
+                        search_context += "---\n"
+                    search_context += "[END WEB SEARCH RESULTS]\n\n"
+                else:
+                    yield f"data: {json.dumps({'type': 'thinking', 'content': 'No relevant results found.'})}\n\n"
+            else:
+                yield f"data: {json.dumps({'type': 'thinking', 'content': 'No search needed.'})}\n\n"
+
+        except Exception as e:
+            logger.error(f"❌ [{request_id}] Smart search failed: {e}")
+            yield f"data: {json.dumps({'type': 'thinking', 'content': f'Search failed: {e}'})}\n\n"
+
     try:
-        messages = _build_messages(request)
-        payload = _build_payload(request, messages, stream=True)
+        # Inject search context
+        modified_request = request.copy()
+        if search_context:
+            if modified_request.system_prompt:
+                modified_request.system_prompt += search_context
+            else:
+                modified_request.system_prompt = (
+                    "You are a helpful AI assistant.\n" + search_context
+                )
+
+        messages = _build_messages(modified_request)
+        payload = _build_payload(modified_request, messages, stream=True)
 
         async with httpx.AsyncClient() as client:
             async with client.stream(

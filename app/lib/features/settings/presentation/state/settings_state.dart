@@ -12,19 +12,25 @@ class SettingsState {
   final String? braveSearchApiKey;
   final String webSearchDepth;
 
-  SettingsState({
-    required this.hapticsLevel,
-    required this.visionPipelineMode,
-    required this.isSmartContextEnabled,
-    required this.maxContextTokens,
-    required this.systemPrompt,
-    required this.responseStyle,
+  // Smart Search
+  final bool isSmartSearchEnabled;
+  final String webSearchExecutionMode; // mobile, middleware, parallax
+
+  const SettingsState({
+    this.hapticsLevel = 'max',
+    this.visionPipelineMode = 'edge',
+    this.isSmartContextEnabled = true,
+    this.maxContextTokens = 4096,
+    this.systemPrompt = '',
+    this.responseStyle = 'Neutral',
     this.isStreamingEnabled = true,
     this.showThinking = true,
     this.isWebSearchEnabled = true,
     this.webSearchProvider = 'duckduckgo',
     this.braveSearchApiKey,
     this.webSearchDepth = 'normal',
+    this.isSmartSearchEnabled = true,
+    this.webSearchExecutionMode = 'mobile',
   });
 
   SettingsState copyWith({
@@ -40,6 +46,8 @@ class SettingsState {
     String? webSearchProvider,
     String? braveSearchApiKey,
     String? webSearchDepth,
+    bool? isSmartSearchEnabled,
+    String? webSearchExecutionMode,
   }) {
     return SettingsState(
       hapticsLevel: hapticsLevel ?? this.hapticsLevel,
@@ -55,6 +63,9 @@ class SettingsState {
       webSearchProvider: webSearchProvider ?? this.webSearchProvider,
       braveSearchApiKey: braveSearchApiKey ?? this.braveSearchApiKey,
       webSearchDepth: webSearchDepth ?? this.webSearchDepth,
+      isSmartSearchEnabled: isSmartSearchEnabled ?? this.isSmartSearchEnabled,
+      webSearchExecutionMode:
+          webSearchExecutionMode ?? this.webSearchExecutionMode,
     );
   }
 }

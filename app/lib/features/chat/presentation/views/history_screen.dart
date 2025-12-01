@@ -63,16 +63,13 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
       _isSearching = true;
     });
 
-    _debounceTimer = Timer(
-      const Duration(milliseconds: 300),
-      () {
-        setState(() {
-          _searchQuery = value.toLowerCase();
-          _isSearching = false;
-        });
-        _loadSessions();
-      },
-    );
+    _debounceTimer = Timer(const Duration(milliseconds: 300), () {
+      setState(() {
+        _searchQuery = value.toLowerCase();
+        _isSearching = false;
+      });
+      _loadSessions();
+    });
   }
 
   void _clearSearch() {
@@ -167,7 +164,10 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
             }
           } catch (e) {
             if (mounted) {
-              FeatureSnackbar.showError(context, message: 'Failed to delete chat');
+              FeatureSnackbar.showError(
+                context,
+                message: 'Failed to delete chat',
+              );
             }
           }
         },
@@ -188,7 +188,10 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
             _loadSessions();
           } catch (e) {
             if (mounted) {
-              FeatureSnackbar.showError(context, message: 'Failed to rename chat');
+              FeatureSnackbar.showError(
+                context,
+                message: 'Failed to rename chat',
+              );
             }
           }
         },

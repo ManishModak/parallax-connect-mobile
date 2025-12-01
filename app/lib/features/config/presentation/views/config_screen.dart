@@ -84,10 +84,7 @@ class _ConfigScreenState extends ConsumerState<ConfigScreen> {
     final text = clipboard?.text?.trim();
     if (text == null || text.isEmpty) {
       if (!mounted) return;
-      _showErrorSnackBar(
-        'Clipboard is empty.',
-        LucideIcons.clipboardX,
-      );
+      _showErrorSnackBar('Clipboard is empty.', LucideIcons.clipboardX);
       return;
     }
     setState(() {

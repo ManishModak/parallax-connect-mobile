@@ -30,34 +30,27 @@ class HistorySearchResults extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (sessions.isEmpty) {
-      return const SliverFillRemaining(
-        child: HistorySearchEmptyState(),
-      );
+      return const SliverFillRemaining(child: HistorySearchEmptyState());
     }
 
     return SliverPadding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       sliver: SliverList(
-        delegate: SliverChildBuilderDelegate(
-          (context, index) {
-            final session = sessions[index];
-            return HistoryItemTile(
-              title: session.title,
-              time: DateFormatter.formatRelativeTime(session.timestamp),
-              isActive: session.id == currentSessionId,
-              isImportant: session.isImportant,
-              onTap: () => onSessionTap(session),
-              onDelete: () => onDelete(session),
-              onRename: () => onRename(session),
-              onExport: () => onExport(session),
-              onToggleImportant: () => onToggleImportant(session),
-            );
-          },
-          childCount: sessions.length,
-        ),
+        delegate: SliverChildBuilderDelegate((context, index) {
+          final session = sessions[index];
+          return HistoryItemTile(
+            title: session.title,
+            time: DateFormatter.formatRelativeTime(session.timestamp),
+            isActive: session.id == currentSessionId,
+            isImportant: session.isImportant,
+            onTap: () => onSessionTap(session),
+            onDelete: () => onDelete(session),
+            onRename: () => onRename(session),
+            onExport: () => onExport(session),
+            onToggleImportant: () => onToggleImportant(session),
+          );
+        }, childCount: sessions.length),
       ),
     );
   }
 }
-
-

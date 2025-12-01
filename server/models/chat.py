@@ -35,3 +35,7 @@ class ChatRequest(BaseModel):
 
     # Output controls (not yet supported)
     stop: List[str] = []
+
+    # Web Search
+    web_search_enabled: bool = False
+    web_search_depth: str = "normal"  # normal, deep, deeper

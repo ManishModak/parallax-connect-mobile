@@ -14,10 +14,7 @@ import '../widgets/section_header.dart';
 class WebSearchSection extends ConsumerWidget {
   final HapticsHelper hapticsHelper;
 
-  const WebSearchSection({
-    super.key,
-    required this.hapticsHelper,
-  });
+  const WebSearchSection({super.key, required this.hapticsHelper});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -59,6 +56,86 @@ class WebSearchSection extends ConsumerWidget {
             ),
             child: Column(
               children: [
+                // Smart Search Toggle
+                SwitchListTile(
+                  value: state.isSmartSearchEnabled,
+                  onChanged: (val) {
+                    hapticsHelper.triggerHaptics();
+                    controller.setSmartSearchEnabled(val);
+                  },
+                  title: Text(
+                    'Smart Search',
+                    style: GoogleFonts.inter(
+                      color: AppColors.primary,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  subtitle: Text(
+                    'Intelligently decide when to search',
+                    style: GoogleFonts.inter(
+                      color: AppColors.secondary,
+                      fontSize: 12,
+                    ),
+                  ),
+                  activeColor: AppColors.accent,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                ),
+                if (state.isSmartSearchEnabled) ...[
+                  const Divider(height: 1, indent: 16, endIndent: 16),
+                  Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Execution Mode',
+                          style: GoogleFonts.inter(
+                            color: AppColors.primary,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        RadioOption(
+                          title: 'On Device (Mobile)',
+                          description: 'Fastest. Logic runs locally.',
+                          value: 'mobile',
+                          groupValue: state.webSearchExecutionMode,
+                          onChanged: (val) {
+                            hapticsHelper.triggerHaptics();
+                            controller.setWebSearchExecutionMode(val!);
+                          },
+                        ),
+                        const SizedBox(height: 8),
+                        RadioOption(
+                          title: 'Middleware (Server)',
+                          description: 'More powerful. Runs on server.',
+                          value: 'middleware',
+                          groupValue: state.webSearchExecutionMode,
+                          onChanged: (val) {
+                            hapticsHelper.triggerHaptics();
+                            controller.setWebSearchExecutionMode(val!);
+                          },
+                        ),
+                        const SizedBox(height: 8),
+                        RadioOption(
+                          title: 'Parallax (Model)',
+                          description: 'Model decides. Most flexible.',
+                          value: 'parallax',
+                          groupValue: state.webSearchExecutionMode,
+                          onChanged: (val) {
+                            hapticsHelper.triggerHaptics();
+                            controller.setWebSearchExecutionMode(val!);
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+                const Divider(height: 1, indent: 16, endIndent: 16),
+
+                // Existing Provider Options
                 RadioOption(
                   title: 'DuckDuckGo (Recommended)',
                   description: 'Free, unlimited, privacy-focused scraping.',
@@ -98,14 +175,16 @@ class WebSearchSection extends ConsumerWidget {
                         ),
                         const SizedBox(height: 8),
                         TextField(
-                          controller: TextEditingController(
-                            text: state.braveSearchApiKey,
-                          )
-                            ..selection = TextSelection.fromPosition(
-                              TextPosition(
-                                offset: state.braveSearchApiKey?.length ?? 0,
-                              ),
-                            ),
+                          controller:
+                              TextEditingController(
+                                  text: state.braveSearchApiKey,
+                                )
+                                ..selection = TextSelection.fromPosition(
+                                  TextPosition(
+                                    offset:
+                                        state.braveSearchApiKey?.length ?? 0,
+                                  ),
+                                ),
                           onChanged: (val) {
                             controller.setBraveSearchApiKey(val);
                           },
@@ -198,4 +277,3 @@ class WebSearchSection extends ConsumerWidget {
     );
   }
 }
-

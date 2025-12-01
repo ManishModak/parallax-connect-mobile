@@ -13,7 +13,13 @@ class ChatState {
   final String thinkingContent;
   final bool isThinking;
 
-  ChatState({
+  // Smart Search Status
+  final bool isAnalyzingIntent;
+  final bool isSearchingWeb;
+  final String currentSearchQuery;
+  final String searchStatusMessage;
+
+  const ChatState({
     this.messages = const [],
     this.isLoading = false,
     this.error,
@@ -23,10 +29,11 @@ class ChatState {
     this.streamingContent = '',
     this.thinkingContent = '',
     this.isThinking = false,
-    this.isSearching = false,
+    this.isAnalyzingIntent = false,
+    this.isSearchingWeb = false,
+    this.currentSearchQuery = '',
+    this.searchStatusMessage = '',
   });
-
-  final bool isSearching;
 
   ChatState copyWith({
     List<ChatMessage>? messages,
@@ -38,19 +45,25 @@ class ChatState {
     String? streamingContent,
     String? thinkingContent,
     bool? isThinking,
-    bool? isSearching,
+    bool? isAnalyzingIntent,
+    bool? isSearchingWeb,
+    String? currentSearchQuery,
+    String? searchStatusMessage,
   }) {
     return ChatState(
       messages: messages ?? this.messages,
       isLoading: isLoading ?? this.isLoading,
-      error: error,
+      error: error, // Allow null to clear error
       isPrivateMode: isPrivateMode ?? this.isPrivateMode,
       currentSessionId: currentSessionId ?? this.currentSessionId,
       isStreaming: isStreaming ?? this.isStreaming,
       streamingContent: streamingContent ?? this.streamingContent,
       thinkingContent: thinkingContent ?? this.thinkingContent,
       isThinking: isThinking ?? this.isThinking,
-      isSearching: isSearching ?? this.isSearching,
+      isAnalyzingIntent: isAnalyzingIntent ?? this.isAnalyzingIntent,
+      isSearchingWeb: isSearchingWeb ?? this.isSearchingWeb,
+      currentSearchQuery: currentSearchQuery ?? this.currentSearchQuery,
+      searchStatusMessage: searchStatusMessage ?? this.searchStatusMessage,
     );
   }
 }

@@ -32,62 +32,55 @@ class HistoryCategorizedList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (categorizedSessions.isEmpty) {
-      return const SliverFillRemaining(
-        child: HistoryEmptyState(),
-      );
+      return const SliverFillRemaining(child: HistoryEmptyState());
     }
 
     return SliverList(
-      delegate: SliverChildBuilderDelegate(
-        (context, index) {
-          final category = categorizedSessions.keys.elementAt(index);
-          final sessions = categorizedSessions[category]!;
+      delegate: SliverChildBuilderDelegate((context, index) {
+        final category = categorizedSessions.keys.elementAt(index);
+        final sessions = categorizedSessions[category]!;
 
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                padding: const EdgeInsets.only(left: 20, top: 8, bottom: 12),
-                child: Text(
-                  category,
-                  style: GoogleFonts.inter(
-                    color: AppColors.secondary,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 0.5,
-                  ),
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(left: 20, top: 8, bottom: 12),
+              child: Text(
+                category,
+                style: GoogleFonts.inter(
+                  color: AppColors.secondary,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.5,
                 ),
               ),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Column(
-                  children: sessions
-                      .map(
-                        (session) => HistoryItemTile(
-                          title: session.title,
-                          time: DateFormatter.formatRelativeTime(
-                            session.timestamp,
-                          ),
-                          isActive: session.id == currentSessionId,
-                          isImportant: session.isImportant,
-                          onTap: () => onSessionTap(session),
-                          onDelete: () => onDelete(session),
-                          onRename: () => onRename(session),
-                          onExport: () => onExport(session),
-                          onToggleImportant: () => onToggleImportant(session),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Column(
+                children: sessions
+                    .map(
+                      (session) => HistoryItemTile(
+                        title: session.title,
+                        time: DateFormatter.formatRelativeTime(
+                          session.timestamp,
                         ),
-                      )
-                      .toList(),
-                ),
+                        isActive: session.id == currentSessionId,
+                        isImportant: session.isImportant,
+                        onTap: () => onSessionTap(session),
+                        onDelete: () => onDelete(session),
+                        onRename: () => onRename(session),
+                        onExport: () => onExport(session),
+                        onToggleImportant: () => onToggleImportant(session),
+                      ),
+                    )
+                    .toList(),
               ),
-              const SizedBox(height: 16),
-            ],
-          );
-        },
-        childCount: categorizedSessions.length,
-      ),
+            ),
+            const SizedBox(height: 16),
+          ],
+        );
+      }, childCount: categorizedSessions.length),
     );
   }
 }
-
-

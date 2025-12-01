@@ -1,167 +1,93 @@
 import 'dart:async';
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
+import '../../utils/file_type_helper.dart';
 import '../../../../core/services/connectivity_service.dart';
 import '../../../../core/services/document_service.dart';
+import '../../../../core/services/smart_search_service.dart';
 import '../../../../core/services/vision_service.dart';
-import '../../../../core/storage/chat_archive_storage.dart';
-import '../../../../core/storage/chat_history_storage.dart';
-import '../../../../core/storage/config_storage.dart';
 import '../../../../core/utils/haptics_helper.dart';
-import '../../../settings/data/settings_storage.dart';
 import '../../../../core/utils/logger.dart';
-import '../../../../../app/constants/app_constants.dart';
-import '../../../../core/services/web_search_service.dart';
 import '../../data/chat_repository.dart';
+import '../../../../core/storage/chat_history_storage.dart';
+import '../../../../core/storage/chat_archive_storage.dart';
+import '../../../../core/storage/config_storage.dart';
+import '../../../settings/data/settings_storage.dart';
 import '../../data/models/chat_message.dart';
-import '../../utils/file_type_helper.dart';
-import '../../utils/mock_responses.dart';
 import '../state/chat_state.dart';
 
 class ChatController extends Notifier<ChatState> {
   late final ChatRepository _repository;
+  late final SettingsStorage _settingsStorage;
   late final ChatHistoryStorage _historyStorage;
   late final ChatArchiveStorage _archiveStorage;
-  late final ConnectivityService _connectivityService;
   late final ConfigStorage _configStorage;
-  late final SettingsStorage _settingsStorage;
   late final VisionService _visionService;
+  late final ConnectivityService _connectivityService;
   late final DocumentService _documentService;
   late final HapticsHelper _hapticsHelper;
-  late final WebSearchService _webSearchService;
+  late final SmartSearchService _smartSearchService;
 
   @override
   ChatState build() {
     _repository = ref.read(chatRepositoryProvider);
+    _settingsStorage = ref.read(settingsStorageProvider);
     _historyStorage = ref.read(chatHistoryStorageProvider);
     _archiveStorage = ref.read(chatArchiveStorageProvider);
-    _connectivityService = ref.read(connectivityServiceProvider);
     _configStorage = ref.read(configStorageProvider);
-    _settingsStorage = ref.read(settingsStorageProvider);
     _visionService = ref.read(visionServiceProvider);
+    _connectivityService = ref.read(connectivityServiceProvider);
     _documentService = ref.read(documentServiceProvider);
     _hapticsHelper = ref.read(hapticsHelperProvider);
-    _webSearchService = ref.read(webSearchServiceProvider);
+    _smartSearchService = ref.read(smartSearchServiceProvider);
 
-    // Load history and return initial state with messages
-    final history = _historyStorage.getHistory();
-    final messages = history.map((e) => ChatMessage.fromMap(e)).toList();
-
-    return ChatState(messages: messages);
+    _loadHistory();
+    return const ChatState();
   }
 
-  Future<void> startNewChat() async {
-    // Archive current chat session before clearing
-    // Only archive if there are messages and not in private mode
-    if (state.messages.isNotEmpty && !state.isPrivateMode) {
-      try {
-        final messageMaps = state.messages.map((m) => m.toMap()).toList();
-
-        // Always create a new session when starting new chat
-        // Don't try to update - this prevents "session not found" errors
-        await _archiveStorage.archiveSession(messages: messageMaps);
-        Log.storage('Created new archived session');
-      } catch (e) {
-        Log.e('Failed to archive session', e);
-        // Continue with clearing even if archiving fails
-      }
-    }
-
-    await clearHistory();
-    // Clear session ID for new chat
-    state = state.copyWith(currentSessionId: null);
-  }
-
-  void togglePrivateMode() {
-    final newMode = !state.isPrivateMode;
+  Future<void> _loadHistory() async {
+    final messages = await _historyStorage.getHistory();
     state = state.copyWith(
-      isPrivateMode: newMode,
-      messages: newMode ? [] : state.messages, // Clear messages when enabling
-      error: null,
+      messages: messages.map((m) => ChatMessage.fromMap(m)).toList(),
     );
   }
 
-  void disablePrivateMode() {
-    state = state.copyWith(isPrivateMode: false, messages: [], error: null);
+  void startNewChat() {
+    state = state.copyWith(
+      messages: [],
+      error: null,
+      currentSessionId: null,
+      isPrivateMode: false,
+    );
   }
 
-  StreamSubscription<StreamEvent>? _streamSubscription;
+  void togglePrivateMode() {
+    state = state.copyWith(isPrivateMode: !state.isPrivateMode);
+  }
 
-  void cancelStreaming() {
-    _streamSubscription?.cancel();
-    _streamSubscription = null;
+  void disablePrivateMode() {
+    state = state.copyWith(isPrivateMode: false);
+  }
 
-    // If we were streaming, finalize the message
-    if (state.isStreaming && state.streamingContent.isNotEmpty) {
-      final aiMessage = ChatMessage(
-        text: state.streamingContent,
-        isUser: false,
-        timestamp: DateTime.now(),
-      );
-
-      state = state.copyWith(
-        messages: [...state.messages, aiMessage],
-        isStreaming: false,
-        isLoading: false,
-        streamingContent: '',
-        thinkingContent: '',
-        isThinking: false,
-      );
-    } else {
-      state = state.copyWith(
-        isStreaming: false,
-        isLoading: false,
-        streamingContent: '',
-        thinkingContent: '',
-        isThinking: false,
-      );
+  Future<void> retryMessage(ChatMessage message) async {
+    // Remove the failed message and any subsequent AI response (if any)
+    final index = state.messages.indexOf(message);
+    if (index != -1) {
+      final newMessages = state.messages.sublist(0, index);
+      state = state.copyWith(messages: newMessages);
+      // Resend the message
+      await sendMessage(message.text, attachmentPaths: message.attachmentPaths);
     }
   }
 
   Future<void> editMessage(ChatMessage message, String newText) async {
+    // Remove the message and all subsequent messages
     final index = state.messages.indexOf(message);
-    if (index == -1) return;
-
-    // Remove this message and all subsequent messages
-    final newMessages = state.messages.sublist(0, index);
-    state = state.copyWith(messages: newMessages);
-
-    // Update history storage
-    if (!state.isPrivateMode) {
-      await _historyStorage.clearHistory();
-      for (final msg in newMessages) {
-        await _historyStorage.saveMessage(msg.toMap());
-      }
+    if (index != -1) {
+      final newMessages = state.messages.sublist(0, index);
+      state = state.copyWith(messages: newMessages);
+      // Send the new text
+      await sendMessage(newText, attachmentPaths: message.attachmentPaths);
     }
-
-    // Send the new message
-    await sendMessage(newText, attachmentPaths: message.attachmentPaths);
-  }
-
-  Future<void> retryMessage(ChatMessage message) async {
-    final index = state.messages.indexOf(message);
-    if (index == -1) return;
-
-    // Remove all messages AFTER this one (the AI response)
-    // We keep the user message for now, but sendMessage will add a NEW one.
-    // So we should actually remove this one too if we want to "resend" it cleanly
-    // OR we just remove the AI response and trigger generation again.
-    // But sendMessage adds the user message to the state.
-    // So we should remove this message and everything after it, then resend.
-
-    final newMessages = state.messages.sublist(0, index);
-    state = state.copyWith(messages: newMessages);
-
-    // Update history storage
-    if (!state.isPrivateMode) {
-      await _historyStorage.clearHistory();
-      for (final msg in newMessages) {
-        await _historyStorage.saveMessage(msg.toMap());
-      }
-    }
-
-    await sendMessage(message.text, attachmentPaths: message.attachmentPaths);
   }
 
   Future<void> sendMessage(
@@ -192,12 +118,6 @@ class ChatController extends Notifier<ChatState> {
       // Check if streaming is enabled
       final isStreamingEnabled = _settingsStorage.getStreamingEnabled();
 
-      // 🧪 In test mode, use mock responses (non-streaming)
-      if (TestConfig.enabled) {
-        await _sendNonStreamingMessage(text, attachmentPaths);
-        return;
-      }
-
       // Check connectivity for cloud mode (not needed for edge vision)
       final isLocal = _configStorage.getIsLocal();
       final visionMode = _settingsStorage.getVisionPipelineMode();
@@ -217,20 +137,85 @@ class ChatController extends Notifier<ChatState> {
         contextText = 'Document content:\n$docContent\n\nUser question: $text';
       }
 
-      // Web Search Logic
+      // Smart Web Search Logic
       if (_settingsStorage.getWebSearchEnabled() && text.isNotEmpty) {
-        state = state.copyWith(isSearching: true);
-        try {
-          final searchResults = await _webSearchService.search(text);
-          if (searchResults.isNotEmpty) {
-            contextText =
-                'Web Search Results:\n$searchResults\n\nUser Question: $text';
+        final executionMode = _settingsStorage.getWebSearchExecutionMode();
+
+        // Only Mobile mode does the 2-step flow on the client
+        if (executionMode == 'mobile') {
+          // Step 1: Intent Analysis (Generic Thinking UI)
+          state = state.copyWith(
+            isAnalyzingIntent: true,
+            isSearchingWeb: false,
+            searchStatusMessage: 'Analyzing intent...',
+            // Ensure no snippets are shown yet
+            isThinking: false,
+          );
+
+          try {
+            // Get history for context
+            final history = state.messages
+                .where((m) => !m.isUser)
+                .take(4)
+                .map(
+                  (m) => {
+                    'role': m.isUser ? 'user' : 'assistant',
+                    'content': m.text,
+                  },
+                )
+                .toList();
+
+            final searchResult = await _smartSearchService.smartSearch(
+              text,
+              history,
+            );
+
+            // Step 2: Action (Search or Skip)
+            if (searchResult.needsSearch) {
+              state = state.copyWith(
+                isAnalyzingIntent: false,
+                isSearchingWeb: true,
+                currentSearchQuery: searchResult.searchQuery,
+                searchStatusMessage:
+                    'Searching for "${searchResult.searchQuery}"...',
+              );
+
+              // Wait a bit to show the UI (optional, but good for UX)
+              await Future.delayed(const Duration(milliseconds: 500));
+
+              if (searchResult.results.isNotEmpty) {
+                contextText = '${searchResult.summary}\n\nUser Question: $text';
+                state = state.copyWith(
+                  searchStatusMessage:
+                      'Found ${searchResult.results.length} results',
+                );
+              } else {
+                state = state.copyWith(searchStatusMessage: 'No results found');
+              }
+            } else {
+              // No search needed
+              state = state.copyWith(
+                isAnalyzingIntent: false,
+                searchStatusMessage: 'No search needed',
+              );
+            }
+          } catch (e) {
+            Log.e('Smart search failed', e);
+          } finally {
+            // Clear search flags before generation starts
+            state = state.copyWith(
+              isAnalyzingIntent: false,
+              isSearchingWeb: false,
+            );
           }
-        } catch (e) {
-          Log.e('Web search failed', e);
-          // Continue without search results
-        } finally {
-          state = state.copyWith(isSearching: false);
+        } else {
+          // Middleware/Parallax Mode: Just set analyzing flag and let stream events drive UI
+          // We don't do the 2-step flow here, the server does.
+          // But we want to show "Analyzing" initially.
+          state = state.copyWith(
+            isAnalyzingIntent: true,
+            searchStatusMessage: 'Analyzing intent...',
+          );
         }
       }
 
@@ -258,6 +243,7 @@ class ChatController extends Notifier<ChatState> {
         await _finalizeMessage(response);
       } else if (isStreamingEnabled) {
         // Use streaming for text-only chat
+        // Step 3: Generation (Snippet Thinking -> Content)
         await _sendStreamingMessage(contextText);
       } else {
         // Use non-streaming for text-only chat
@@ -267,6 +253,8 @@ class ChatController extends Notifier<ChatState> {
       state = state.copyWith(
         isLoading: false,
         isStreaming: false,
+        isAnalyzingIntent: false,
+        isSearchingWeb: false,
         error: e.toString().replaceAll('Exception: ', ''),
       );
     }
@@ -288,7 +276,7 @@ class ChatController extends Notifier<ChatState> {
 
     final completer = Completer<void>();
 
-    _streamSubscription = _repository
+    _repository
         .generateTextStream(
           contextText,
           systemPrompt: systemPrompt,
@@ -297,10 +285,41 @@ class ChatController extends Notifier<ChatState> {
         .listen(
           (event) {
             if (event.isThinking) {
+              final content = event.content ?? '';
+              final thinkingContent = state.thinkingContent + content;
+
+              // Heuristic to trigger Premium Search UI from Middleware stream
+              bool isAnalyzing = state.isAnalyzingIntent;
+              bool isSearching = state.isSearchingWeb;
+              String statusMsg = state.searchStatusMessage;
+
+              if (content.contains('Analyzing intent') ||
+                  content.contains('Checking if search')) {
+                isAnalyzing = true;
+                isSearching = false;
+                statusMsg = 'Analyzing intent...';
+              } else if (content.contains('Searching for') ||
+                  content.contains('Searching the web')) {
+                isAnalyzing = false;
+                isSearching = true;
+                // Extract query if possible, or just use generic
+                statusMsg = content.replaceAll('Thinking: ', '').trim();
+              } else if (content.contains('Found') ||
+                  content.contains('results')) {
+                statusMsg = content.replaceAll('Thinking: ', '').trim();
+              } else if (content.trim().isNotEmpty && content.length > 5) {
+                // If we receive other substantial thinking content, assume we moved to generation phase
+                // and turn off the special search/analysis UI
+                isAnalyzing = false;
+                isSearching = false;
+              }
+
               state = state.copyWith(
                 isThinking: true,
-                thinkingContent:
-                    (state.thinkingContent + (event.content ?? '')),
+                thinkingContent: thinkingContent,
+                isAnalyzingIntent: isAnalyzing,
+                isSearchingWeb: isSearching,
+                searchStatusMessage: statusMsg,
               );
             } else if (event.isContent) {
               // Trigger haptic feedback for streaming content (typing feel)
@@ -308,6 +327,9 @@ class ChatController extends Notifier<ChatState> {
 
               state = state.copyWith(
                 isThinking: false,
+                isAnalyzingIntent:
+                    false, // Turn off search UI when content starts
+                isSearchingWeb: false,
                 streamingContent:
                     state.streamingContent + (event.content ?? ''),
               );
@@ -368,24 +390,16 @@ class ChatController extends Notifier<ChatState> {
   ) async {
     String response;
 
-    if (TestConfig.enabled) {
-      await Future.delayed(const Duration(seconds: 2));
-      response = MockResponses.getMockResponse(
-        contextText,
-        state.messages.length,
-      );
-    } else {
-      final systemPrompt = _settingsStorage.getSystemPrompt();
-      final history = state.messages.length > 1
-          ? state.messages.sublist(0, state.messages.length - 1)
-          : <ChatMessage>[];
+    final systemPrompt = _settingsStorage.getSystemPrompt();
+    final history = state.messages.length > 1
+        ? state.messages.sublist(0, state.messages.length - 1)
+        : <ChatMessage>[];
 
-      response = await _repository.generateText(
-        contextText,
-        systemPrompt: systemPrompt,
-        history: history,
-      );
-    }
+    response = await _repository.generateText(
+      contextText,
+      systemPrompt: systemPrompt,
+      history: history,
+    );
 
     await _finalizeMessage(response);
   }
@@ -474,4 +488,3 @@ class ChatController extends Notifier<ChatState> {
 final chatControllerProvider = NotifierProvider<ChatController, ChatState>(() {
   return ChatController();
 });
-
