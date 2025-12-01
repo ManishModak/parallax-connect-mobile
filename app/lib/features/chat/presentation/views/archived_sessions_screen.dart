@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
-import '../../../../core/storage/chat_archive_storage.dart';
+import '../../../../core/services/storage/chat_archive_storage.dart';
 import '../../../../app/constants/app_colors.dart';
 import '../../../../core/utils/logger.dart';
 import '../view_models/chat_controller.dart';

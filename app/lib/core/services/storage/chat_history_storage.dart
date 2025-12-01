@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
-import '../utils/logger.dart';
+import '../../utils/logger.dart';
 
 /// Storage service for chat history
 class ChatHistoryStorage {

@@ -2,7 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../network/dio_provider.dart';
-import '../storage/config_storage.dart';
+import 'storage/config_storage.dart';
 import '../utils/logger.dart';
 
 /// Server capabilities returned from /info endpoint

@@ -5,10 +5,10 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 
-import '../../../core/network/dio_provider.dart';
-import '../../../core/storage/config_storage.dart';
-import '../../../core/utils/logger.dart';
-import 'models/chat_message.dart';
+import '../../../../core/network/dio_provider.dart';
+import '../../../../core/services/storage/config_storage.dart';
+import '../../../../core/utils/logger.dart';
+import '../../models/chat_message.dart';
 
 /// Represents a streaming event from the server
 class StreamEvent {

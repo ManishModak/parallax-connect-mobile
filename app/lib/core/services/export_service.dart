@@ -7,7 +7,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:syncfusion_flutter_pdf/pdf.dart';
 
-import '../storage/models/chat_session.dart';
+import 'storage/models/chat_session.dart';
 import '../utils/logger.dart';
 
 class ExportService {

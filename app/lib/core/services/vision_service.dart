@@ -6,7 +6,7 @@ import 'package:google_mlkit_image_labeling/google_mlkit_image_labeling.dart';
 import 'package:google_mlkit_object_detection/google_mlkit_object_detection.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 
-import '../../features/chat/data/chat_repository.dart';
+import '../../features/chat/data/repositories/chat_repository.dart';
 import '../../features/settings/data/settings_storage.dart';
 import '../utils/logger.dart';
 

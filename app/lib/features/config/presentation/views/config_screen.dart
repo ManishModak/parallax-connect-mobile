@@ -13,9 +13,9 @@ import '../../../../app/constants/app_colors.dart';
 import '../../../../app/routes/app_router.dart';
 import '../../../../core/services/connectivity_service.dart';
 import '../../../../core/services/model_selection_service.dart';
-import '../../../../core/storage/config_storage.dart';
+import '../../../../core/services/storage/config_storage.dart';
 import '../../../../core/utils/haptics_helper.dart';
-import '../../../chat/data/chat_repository.dart';
+import '../../../chat/data/repositories/chat_repository.dart';
 import '../helpers/qr_scanner_handler.dart';
 import '../widgets/connection/connection_form.dart';
 

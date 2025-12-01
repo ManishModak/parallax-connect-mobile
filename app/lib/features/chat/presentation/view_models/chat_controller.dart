@@ -7,12 +7,12 @@ import '../../../../core/services/smart_search_service.dart';
 import '../../../../core/services/vision_service.dart';
 import '../../../../core/utils/haptics_helper.dart';
 import '../../../../core/utils/logger.dart';
-import '../../data/chat_repository.dart';
-import '../../../../core/storage/chat_history_storage.dart';
-import '../../../../core/storage/chat_archive_storage.dart';
-import '../../../../core/storage/config_storage.dart';
+import '../../data/repositories/chat_repository.dart';
+import '../../../../core/services/storage/chat_history_storage.dart';
+import '../../../../core/services/storage/chat_archive_storage.dart';
+import '../../../../core/services/storage/config_storage.dart';
 import '../../../settings/data/settings_storage.dart';
-import '../../data/models/chat_message.dart';
+import '../../models/chat_message.dart';
 import '../state/chat_state.dart';
 
 class ChatController extends Notifier<ChatState> {
@@ -45,7 +45,7 @@ class ChatController extends Notifier<ChatState> {
   }
 
   Future<void> _loadHistory() async {
-    final messages = await _historyStorage.getHistory();
+    final messages = _historyStorage.getHistory();
     state = state.copyWith(
       messages: messages.map((m) => ChatMessage.fromMap(m)).toList(),
     );

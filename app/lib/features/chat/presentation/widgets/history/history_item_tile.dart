@@ -3,8 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
-import '../../../../app/constants/app_colors.dart';
-import '../../../../core/utils/haptics_helper.dart';
+
+import 'package:parallax_connect/app/constants/app_colors.dart';
+import 'package:parallax_connect/core/utils/haptics_helper.dart';
 
 class HistoryItemTile extends ConsumerWidget {
   final String title;
@@ -95,9 +96,8 @@ class HistoryItemTile extends ConsumerWidget {
                         style: GoogleFonts.inter(
                           color: AppColors.primary,
                           fontSize: 14,
-                          fontWeight: isActive
-                              ? FontWeight.w600
-                              : FontWeight.w500,
+                          fontWeight:
+                              isActive ? FontWeight.w600 : FontWeight.w500,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,

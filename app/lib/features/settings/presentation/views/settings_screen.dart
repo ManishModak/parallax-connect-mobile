@@ -6,7 +6,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 
 import '../../../../app/constants/app_colors.dart';
 import '../../../../core/utils/haptics_helper.dart';
-import '../../../../core/storage/chat_archive_storage.dart';
+import '../../../../core/services/storage/chat_archive_storage.dart';
 import '../../../../core/services/feature_flags_service.dart';
 import '../../../chat/presentation/view_models/chat_controller.dart';
 import '../sections/media_documents_section.dart';

@@ -7,7 +7,7 @@ import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../../../../app/constants/app_colors.dart';
 import '../../utils/file_type_helper.dart';
-import '../../data/models/chat_message.dart';
+import '../../models/chat_message.dart';
 import 'code_block_builder.dart';
 
 class ChatMessageBubble extends StatefulWidget {

@@ -1,4 +1,4 @@
-import '../../data/models/chat_message.dart';
+import '../../models/chat_message.dart';
 
 class ChatState {
   final List<ChatMessage> messages;

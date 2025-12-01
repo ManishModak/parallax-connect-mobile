@@ -9,16 +9,15 @@ import 'package:lucide_icons/lucide_icons.dart';
 import '../../../../app/constants/app_colors.dart';
 import '../../../../app/routes/app_router.dart';
 import '../../../../core/services/export_service.dart';
-import '../../../../core/storage/chat_archive_storage.dart';
-import '../../../../core/storage/models/chat_session.dart';
+import '../../../../core/services/storage/chat_archive_storage.dart';
 import '../../../../core/utils/feature_snackbar.dart';
 import '../../../../core/utils/haptics_helper.dart';
 import '../view_models/chat_controller.dart';
 import '../widgets/delete_confirmation_dialog.dart';
 import '../widgets/rename_dialog.dart';
-import 'history/categorized_list.dart';
-import 'history/search_bar.dart';
-import 'history/search_results.dart';
+import '../widgets/history/categorized_list.dart';
+import '../widgets/history/search_bar.dart';
+import '../widgets/history/search_results.dart';
 
 class HistoryScreen extends ConsumerStatefulWidget {
   const HistoryScreen({super.key});

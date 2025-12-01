@@ -1,8 +1,8 @@
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
-import '../core/storage/chat_archive_storage.dart';
-import '../core/storage/chat_history_storage.dart';
+import '../core/services/storage/chat_archive_storage.dart';
+import '../core/services/storage/chat_history_storage.dart';
 import '../core/utils/logger.dart';
 
 /// Initialize app dependencies and services

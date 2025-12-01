@@ -10,7 +10,6 @@ import '../../../../app/constants/app_colors.dart';
 import '../../../../app/routes/app_router.dart';
 import '../../../../core/utils/haptics_helper.dart';
 import '../../../settings/presentation/view_models/settings_controller.dart';
-import '../../data/models/chat_message.dart';
 import '../view_models/chat_controller.dart';
 import '../widgets/chat_message_bubble.dart';
 import '../widgets/chat_input_area.dart';
@@ -18,6 +17,7 @@ import '../widgets/streaming_message_bubble.dart';
 import '../widgets/collapsible_thinking_indicator.dart';
 import '../widgets/web_search_indicator.dart';
 import '../widgets/app_icon_shimmer.dart';
+import '../widgets/edit_message_dialog.dart';
 
 class ChatScreen extends ConsumerStatefulWidget {
   const ChatScreen({super.key});
@@ -201,10 +201,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                 ref
                                     .read(hapticsHelperProvider)
                                     .triggerHaptics();
-                                _showEditMessageDialog(
-                                  context,
-                                  message,
-                                  chatController,
+                                showDialog(
+                                  context: context,
+                                  builder: (dialogContext) => EditMessageDialog(
+                                    message: message,
+                                    controller: chatController,
+                                  ),
                                 );
                               },
                             );
@@ -326,74 +328,4 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     );
   }
 
-  void _showEditMessageDialog(
-    BuildContext context,
-    ChatMessage message,
-    ChatController controller,
-  ) {
-    final textController = TextEditingController(text: message.text);
-
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: AppColors.surface,
-        title: Text(
-          'Edit Message',
-          style: GoogleFonts.inter(
-            color: AppColors.primary,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        content: TextField(
-          controller: textController,
-          autofocus: true,
-          maxLines: 5,
-          minLines: 1,
-          style: GoogleFonts.inter(color: AppColors.primary),
-          decoration: InputDecoration(
-            hintText: 'Edit your message...',
-            hintStyle: GoogleFonts.inter(color: AppColors.secondary),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: AppColors.surfaceLight),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: AppColors.surfaceLight),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: AppColors.accent),
-            ),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(
-              'Cancel',
-              style: GoogleFonts.inter(color: AppColors.secondary),
-            ),
-          ),
-          TextButton(
-            onPressed: () {
-              final newText = textController.text.trim();
-              if (newText.isNotEmpty && newText != message.text) {
-                controller.editMessage(message, newText);
-              }
-              Navigator.pop(context);
-            },
-            child: Text(
-              'Save & Send',
-              style: GoogleFonts.inter(
-                color: AppColors.accent,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ],
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      ),
-    );
-  }
 }

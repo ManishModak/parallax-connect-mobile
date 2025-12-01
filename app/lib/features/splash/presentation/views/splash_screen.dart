@@ -7,11 +7,11 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../app/constants/app_colors.dart';
 import '../../../../app/routes/app_router.dart';
-import '../../../../core/storage/config_storage.dart';
+import '../../../../core/services/storage/config_storage.dart';
 import '../../../../app/constants/app_constants.dart';
 
 import '../widgets/splash_branding.dart';
-import '../../../chat/data/chat_repository.dart';
+import '../../../chat/data/repositories/chat_repository.dart';
 import '../../../../core/services/model_selection_service.dart';
 
 class SplashScreen extends ConsumerStatefulWidget {

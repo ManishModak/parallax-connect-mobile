@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../../app/constants/app_colors.dart';
-import '../../../../../core/storage/models/chat_session.dart';
+import '../../../../../core/services/storage/models/chat_session.dart';
 import '../../../../../core/utils/date_formatter.dart';
-import '../../widgets/history_item_tile.dart';
+import 'history_item_tile.dart';
 import 'empty_states.dart';
 
 typedef SessionCallback = void Function(ChatSession session);

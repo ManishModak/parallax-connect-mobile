@@ -2,7 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:uuid/uuid.dart';
 
-import '../utils/logger.dart';
+import '../../utils/logger.dart';
 import 'models/chat_session.dart';
 
 export 'models/chat_session.dart';

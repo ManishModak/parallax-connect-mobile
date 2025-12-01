@@ -1,6 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../core/storage/chat_history_storage.dart';
+import '../../../../core/services/storage/chat_history_storage.dart';
 import '../../data/settings_storage.dart';
 import '../state/settings_state.dart';
 

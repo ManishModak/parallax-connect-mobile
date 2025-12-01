@@ -6,10 +6,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:encrypt/encrypt.dart' as encrypt;
 
-import '../../app/constants/app_constants.dart';
-import '../../global/providers.dart';
-import '../utils/logger.dart';
-import '../utils/validators.dart';
+import '../../../app/constants/app_constants.dart';
+import '../../../global/providers.dart';
+import '../../utils/logger.dart';
+import '../../utils/validators.dart';
 
 /// Storage service for app configuration
 class ConfigStorage {
