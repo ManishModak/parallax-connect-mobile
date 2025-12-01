@@ -223,7 +223,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
                       // Show thinking indicator (For Analysis OR Generation)
                       if (chatState.isAnalyzingIntent ||
-                          (chatState.isStreaming && chatState.isThinking))
+                          (chatState.isStreaming &&
+                              chatState.isThinking &&
+                              !chatState.isSearchingWeb))
                         SliverToBoxAdapter(
                           child: Builder(
                             builder: (context) {

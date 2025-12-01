@@ -1,24 +1,27 @@
 """Server configuration and constants."""
 
+import os
 from typing import Optional
 
 # Server Mode: "MOCK" or "PROXY"
-SERVER_MODE = "PROXY"
+SERVER_MODE = os.getenv("SERVER_MODE", "PROXY").upper()
 
 # Parallax Service URLs
-PARALLAX_SERVICE_URL = "http://localhost:3001/v1/chat/completions"
-PARALLAX_UI_URL = "http://localhost:3001"
+PARALLAX_SERVICE_URL = os.getenv(
+    "PARALLAX_SERVICE_URL", "http://localhost:3001/v1/chat/completions"
+)
+PARALLAX_UI_URL = os.getenv("PARALLAX_UI_URL", "http://localhost:3001")
 
 # Logging
 LOG_DIR = "applogs"
 LOG_FORMAT = "%(asctime)s [%(levelname)s] %(message)s"
 LOG_DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
-LOG_LEVEL = "INFO"
+LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
 LOG_JSON_FORMAT = False
 SENSITIVE_FIELDS = ["password", "token", "api_key", "authorization", "secret"]
 
 # Global password (set at runtime)
-PASSWORD: Optional[str] = None
+PASSWORD: Optional[str] = os.getenv("SERVER_PASSWORD")
 
 
 def set_password(pwd: Optional[str]):

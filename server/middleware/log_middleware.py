@@ -30,25 +30,10 @@ class LogMiddleware(BaseHTTPMiddleware):
         # Log Request
         client_host = request.client.host if request.client else "unknown"
 
-        # Capture body for logging (if JSON and not too large)
-        body_log = "<body_not_captured>"
-        try:
-            content_type = request.headers.get("content-type", "")
-            if "application/json" in content_type:
-                body_bytes = await request.body()
-
-                # Re-inject body for downstream consumers
-                async def receive():
-                    return {"type": "http.request", "body": body_bytes}
-
-                request._receive = receive
-
-                if len(body_bytes) < 10000:  # Limit to 10KB
-                    body_log = body_bytes.decode("utf-8")
-                else:
-                    body_log = f"<body_too_large_len_{len(body_bytes)}>"
-        except Exception as e:
-            body_log = f"<error_reading_body: {e}>"
+        # Capture body for logging
+        # NOTE: Reading request.body() in BaseHTTPMiddleware is unstable and causes RuntimeErrors.
+        # We rely on endpoint-specific logging (e.g. in chat.py) for payload details.
+        body_log = "<body_logging_disabled_for_stability>"
 
         logger.info(
             f"➡️ [{request_id}] {request.method} {request.url.path}",

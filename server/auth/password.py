@@ -9,6 +9,17 @@ from ..config import get_password, set_password
 
 def setup_password():
     """Prompt user for optional password protection with confirmation."""
+    # Check if password was already configured via env vars (e.g. by launcher)
+    current_pwd = get_password()
+    if current_pwd is not None:
+        if current_pwd:
+            print(
+                f"✅ Password configured from environment (Length: {len(current_pwd)})"
+            )
+        else:
+            print("⚠️  No password set (configured via launcher). Server is open.")
+        return
+
     try:
         choice = input("\n🔒 Set a password for this server? (y/n): ").strip().lower()
     except EOFError:

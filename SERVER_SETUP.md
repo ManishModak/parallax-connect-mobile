@@ -8,6 +8,7 @@ Before you begin, make sure you have:
 
 1. **Python Installed**: Download Python 3.10 or newer from [python.org](https://www.python.org/downloads/).
     * *Note during installation*: Check the box that says **"Add Python to PATH"**.
+
 2. **Parallax Running**: You must have the main Parallax AI software installed and running.
     * Run `parallax run` in a separate terminal window.
 
@@ -18,6 +19,7 @@ Before you begin, make sure you have:
 ### Step 1: Download the Server
 
 If you haven't already, download this project folder to your computer.
+
 * **Option A**: Download ZIP and extract it.
 * **Option B**: Use Git: `git clone https://github.com/ManishModak/parallax-connect.git`
 
@@ -46,7 +48,7 @@ python run_server.py
 
 You will see a menu like this:
 
-```
+```text
 🚀 Parallax Connect Server Launcher
 ===================================
 
@@ -77,13 +79,13 @@ The server supports two ways to connect:
 
 ### 1. Local Mode (Fastest) 🏠
 
-- **How**: Your phone and computer must be on the **same Wi-Fi network**.
+* **How**: Your phone and computer must be on the **same Wi-Fi network**.
 * **Pros**: Super fast, no internet required.
 * **Cons**: Only works at home.
 
 ### 2. Cloud Mode (Anywhere) ☁️
 
-- **How**: Uses a secure tunnel (Ngrok) to connect over the internet.
+* **How**: Uses a secure tunnel (Ngrok) to connect over the internet.
 * **Pros**: Works from anywhere (coffee shop, 5G, etc.).
 * **Cons**: Requires a free Ngrok account.
 
@@ -111,6 +113,7 @@ A: Try using `python3` instead. If that fails, reinstall Python and ensure **"Ad
 
 **Q: The app says "Connection Refused".**
 A:
+
 * Check if your firewall is blocking Python.
 * Ensure your phone is on the same Wi-Fi (for Local Mode).
 * Try using Cloud Mode (Ngrok) if local connection fails.
