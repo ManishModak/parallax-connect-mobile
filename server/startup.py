@@ -13,13 +13,16 @@ logger = get_logger(__name__)
 
 async def on_startup():
     """Server startup event handler."""
+    from .config import DEBUG_MODE
+
     logger.info(
-        f"🚀 Server Starting...",
+        "🚀 Server Starting...",
         extra={
             "extra_data": {
                 "event": "startup",
                 "mode": SERVER_MODE,
                 "parallax_url": PARALLAX_SERVICE_URL,
+                "debug_mode": DEBUG_MODE,
             }
         },
     )

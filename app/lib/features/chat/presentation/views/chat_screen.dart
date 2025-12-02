@@ -15,7 +15,7 @@ import '../widgets/messages/chat_message_bubble.dart';
 import '../widgets/chat_input_area.dart';
 import '../widgets/messages/streaming_message_bubble.dart';
 import '../widgets/indicators/collapsible_thinking_indicator.dart';
-import '../widgets/indicators/web_search_indicator.dart';
+import '../widgets/indicators/searching_indicator.dart';
 import '../widgets/indicators/app_icon_shimmer.dart';
 import '../widgets/dialogs/edit_message_dialog.dart';
 
@@ -213,11 +213,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                           }, childCount: chatState.messages.length),
                         ),
                       ),
-                      // Show web search indicator (Only when actually searching)
+                      // Show searching indicator (Only when actually searching)
                       if (chatState.isSearchingWeb)
                         SliverToBoxAdapter(
-                          child: WebSearchIndicator(
-                            status: chatState.searchStatusMessage,
+                          child: SearchingIndicator(
+                            statusMessage: chatState.searchStatusMessage,
+                            isSearching: true,
                           ),
                         ),
 

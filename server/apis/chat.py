@@ -3,26 +3,21 @@
 import asyncio
 import json
 import re
+import time
 from datetime import datetime
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, Request
 from fastapi.responses import StreamingResponse
 import httpx
 
 from ..auth import check_password
-from ..config import SERVER_MODE, PARALLAX_SERVICE_URL
+from ..config import SERVER_MODE, PARALLAX_SERVICE_URL, DEBUG_MODE
 from ..models import ChatRequest
 from ..logging_setup import get_logger
-from ..services.search_router import SearchRouter
-from ..services.web_search import WebSearchService
-from ..services.parallax import ParallaxClient
+from ..services.service_manager import service_manager
+from ..utils.error_handler import handle_service_error, log_debug
 
 router = APIRouter()
 logger = get_logger(__name__)
-
-# Initialize services
-parallax_client = ParallaxClient(PARALLAX_SERVICE_URL)
-search_router = SearchRouter(parallax_client)
-web_search_service = WebSearchService()
 
 
 @router.post("/chat")
@@ -33,6 +28,7 @@ async def chat_endpoint(
     request_id = getattr(
         request.state, "request_id", datetime.now().strftime("%Y%m%d%H%M%S%f")
     )
+    start_time = time.time()
 
     logger.info(
         f"📝 [{request_id}] Chat request: {chat_request.model}",
@@ -48,80 +44,18 @@ async def chat_endpoint(
         },
     )
 
+    # Log full request in debug mode
+    log_debug("Full chat request payload", request_id, chat_request.dict())
+
     if SERVER_MODE == "MOCK":
-        logger.info(f"📤 [{request_id}] Returning MOCK response")
-
-        # Check for search keyword
-        if "search for" in chat_request.prompt.lower():
-            match = re.search(r"search for (.*)", chat_request.prompt, re.IGNORECASE)
-            if match:
-                query = match.group(1).strip()
-                try:
-                    results = await web_search_service.search(query, depth="normal")
-                    if results.get("results"):
-                        response_text = f"### 🔍 Search Results for '{query}'\n\n"
-                        for i, res in enumerate(results["results"]):
-                            response_text += f"**{i + 1}. [{res['title']}]({res['url']})**\n> {res['snippet']}\n\n"
-                        return {"response": response_text}
-                    else:
-                        return {
-                            "response": f"I searched for '{query}' but found no results."
-                        }
-                except Exception as e:
-                    return {"response": f"Search error: {e}"}
-
-        return {
-            "response": f"[MOCK] Server received: '{chat_request.prompt}'. \n\n(Tip: Try 'search for python' to test web search)"
-        }
+        return await _handle_mock_chat(chat_request, request_id)
 
     # Smart Search Logic
     search_context = ""
     if chat_request.web_search_enabled:
-        try:
-            logger.info(f"🧠 [{request_id}] Analyzing search intent...")
-            intent = await search_router.classify_intent(
-                chat_request.prompt, chat_request.messages
-            )
-
-            if intent.get("needs_search"):
-                query = intent.get("search_query", chat_request.prompt)
-                logger.info(f"🔍 [{request_id}] Searching web for: {query}")
-
-                search_results = await web_search_service.search(
-                    query, depth=chat_request.web_search_depth
-                )
-
-                if search_results.get("results"):
-                    # Format results for context
-                    search_context = "\n\n[WEB SEARCH RESULTS]\n"
-                    for i, res in enumerate(search_results["results"]):
-                        search_context += (
-                            f"Source {i + 1}: {res['title']} ({res['url']})\n"
-                        )
-                        if res.get("is_full_content"):
-                            search_context += (
-                                f"Content: {res.get('content', '')[:1000]}...\n"
-                            )
-                        else:
-                            search_context += f"Snippet: {res['snippet']}\n"
-                        search_context += "---\n"
-                    search_context += "[END WEB SEARCH RESULTS]\n\n"
-
-                    logger.info(
-                        f"✅ [{request_id}] Injected {len(search_results['results'])} search results"
-                    )
-                else:
-                    logger.info(f"⚠️ [{request_id}] No search results found")
-            else:
-                logger.info(
-                    f"⏭️ [{request_id}] Search skipped (Reason: {intent.get('reason')})"
-                )
-
-        except Exception as e:
-            logger.error(f"❌ [{request_id}] Smart search failed: {e}")
+        search_context = await _perform_smart_search(chat_request, request_id)
 
     # PROXY mode
-    start_time = datetime.now()
     try:
         logger.info(
             f"🔄 [{request_id}] Forwarding to Parallax at {PARALLAX_SERVICE_URL}"
@@ -141,23 +75,15 @@ async def chat_endpoint(
             messages = _build_messages(modified_request)
             payload = _build_payload(modified_request, messages, stream=False)
 
-            logger.debug(
-                f"📦 [{request_id}] Payload prepared",
-                extra={
-                    "request_id": request_id,
-                    "extra_data": {
-                        "payload": payload,  # Log full payload
-                        "payload_keys": list(payload.keys()),
-                    },
-                },
+            log_debug(
+                "Proxy payload prepared",
+                request_id,
+                {"payload_keys": list(payload.keys())},
             )
 
             resp = await client.post(PARALLAX_SERVICE_URL, json=payload, timeout=60.0)
 
             if resp.status_code != 200:
-                logger.error(
-                    f"❌ [{request_id}] Parallax returned {resp.status_code}: {resp.text}"
-                )
                 raise HTTPException(
                     status_code=resp.status_code, detail=f"Parallax Error: {resp.text}"
                 )
@@ -178,7 +104,7 @@ async def chat_endpoint(
                 content = raw_content
 
             usage = data.get("usage", {})
-            elapsed = (datetime.now() - start_time).total_seconds()
+            elapsed = time.time() - start_time
 
             logger.info(
                 f"✅ [{request_id}] Response received ({elapsed:.2f}s)",
@@ -190,7 +116,6 @@ async def chat_endpoint(
                         "completion_tokens": usage.get("completion_tokens", 0),
                         "total_tokens": usage.get("total_tokens", 0),
                         "model": data.get("model", "default"),
-                        "full_response": data,  # Log full response data
                     },
                 },
             )
@@ -211,18 +136,8 @@ async def chat_endpoint(
                 },
             }
 
-    except httpx.TimeoutException as e:
-        logger.error(f"⏱️ [{request_id}] Parallax request timeout: {e}")
-        raise HTTPException(status_code=504, detail="Parallax request timed out.")
-    except httpx.ConnectError as e:
-        logger.error(f"🔌 [{request_id}] Cannot connect to Parallax: {e}")
-        raise HTTPException(
-            status_code=503,
-            detail="Cannot connect to Parallax. Make sure it's running.",
-        )
     except Exception as e:
-        logger.error(f"❌ [{request_id}] Proxy error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Remote Service Error: {e}")
+        return handle_service_error(e, "Chat Endpoint", request_id)
 
 
 @router.post("/chat/stream")
@@ -246,6 +161,8 @@ async def chat_stream_endpoint(
             },
         },
     )
+
+    log_debug("Full stream request payload", request_id, chat_request.dict())
 
     if SERVER_MODE == "MOCK":
         return StreamingResponse(
@@ -285,6 +202,75 @@ async def vision_endpoint(
 # Helper functions
 
 
+async def _perform_smart_search(chat_request: ChatRequest, request_id: str) -> str:
+    """Execute smart search logic and return context string."""
+    search_router = service_manager.get_search_router()
+    web_search_service = service_manager.get_web_search_service()
+
+    try:
+        logger.info(f"🧠 [{request_id}] Analyzing search intent...")
+        intent_start = time.time()
+
+        intent = await search_router.classify_intent(
+            chat_request.prompt, chat_request.messages
+        )
+
+        log_debug(
+            "Intent classification result",
+            request_id,
+            {"intent": intent, "duration": time.time() - intent_start},
+        )
+
+        if intent.get("needs_search"):
+            query = intent.get("search_query", chat_request.prompt)
+            logger.info(f"🔍 [{request_id}] Searching web for: {query}")
+
+            search_start = time.time()
+            search_results = await web_search_service.search(
+                query, depth=chat_request.web_search_depth
+            )
+
+            log_debug(
+                "Web search completed",
+                request_id,
+                {
+                    "result_count": len(search_results.get("results", [])),
+                    "duration": time.time() - search_start,
+                },
+            )
+
+            if search_results.get("results"):
+                # Format results for context
+                search_context = "\n\n[WEB SEARCH RESULTS]\n"
+                for i, res in enumerate(search_results["results"]):
+                    search_context += f"Source {i + 1}: {res['title']} ({res['url']})\n"
+                    if res.get("is_full_content"):
+                        search_context += (
+                            f"Content: {res.get('content', '')[:1000]}...\n"
+                        )
+                    else:
+                        search_context += f"Snippet: {res['snippet']}\n"
+                    search_context += "---\n"
+                search_context += "[END WEB SEARCH RESULTS]\n\n"
+
+                logger.info(
+                    f"✅ [{request_id}] Injected {len(search_results['results'])} search results"
+                )
+                return search_context
+            else:
+                logger.info(f"⚠️ [{request_id}] No search results found")
+        else:
+            logger.info(
+                f"⏭️ [{request_id}] Search skipped (Reason: {intent.get('reason')})"
+            )
+
+    except Exception as e:
+        logger.error(f"❌ [{request_id}] Smart search failed: {e}")
+        # Don't fail the whole request, just log and continue without search context
+
+    return ""
+
+
 def _build_messages(request: ChatRequest) -> list:
     """Build messages array from request."""
     if request.messages:
@@ -318,8 +304,39 @@ def _build_payload(request: ChatRequest, messages: list, stream: bool = False) -
     }
 
 
+async def _handle_mock_chat(chat_request: ChatRequest, request_id: str):
+    """Handle mock chat request."""
+    logger.info(f"📤 [{request_id}] Returning MOCK response")
+
+    web_search_service = service_manager.get_web_search_service()
+
+    # Check for search keyword
+    if "search for" in chat_request.prompt.lower():
+        match = re.search(r"search for (.*)", chat_request.prompt, re.IGNORECASE)
+        if match:
+            query = match.group(1).strip()
+            try:
+                results = await web_search_service.search(query, depth="normal")
+                if results.get("results"):
+                    response_text = f"### 🔍 Search Results for '{query}'\n\n"
+                    for i, res in enumerate(results["results"]):
+                        response_text += f"**{i + 1}. [{res['title']}]({res['url']})**\n> {res['snippet']}\n\n"
+                    return {"response": response_text}
+                else:
+                    return {
+                        "response": f"I searched for '{query}' but found no results."
+                    }
+            except Exception as e:
+                return {"response": f"Search error: {e}"}
+
+    return {
+        "response": f"[MOCK] Server received: '{chat_request.prompt}'. \n\n(Tip: Try 'search for python' to test web search)"
+    }
+
+
 async def _mock_stream(request: ChatRequest):
     """Generate mock streaming response with REAL web search capabilities."""
+    web_search_service = service_manager.get_web_search_service()
 
     # 1. Analyze Intent (Mocked)
     yield f"data: {json.dumps({'type': 'thinking', 'content': 'Analyzing intent...'})}\n\n"
@@ -400,7 +417,9 @@ async def _mock_stream(request: ChatRequest):
 
 async def _stream_from_parallax(request: ChatRequest, request_id: str):
     """Stream response from Parallax service."""
-    start_time = datetime.now()
+    start_time = time.time()
+    search_router = service_manager.get_search_router()
+    web_search_service = service_manager.get_web_search_service()
 
     # Smart Search Logic (Streaming)
     search_context = ""
@@ -460,15 +479,7 @@ async def _stream_from_parallax(request: ChatRequest, request_id: str):
         messages = _build_messages(modified_request)
         payload = _build_payload(modified_request, messages, stream=True)
 
-        logger.debug(
-            f"📦 [{request_id}] Streaming Payload prepared",
-            extra={
-                "request_id": request_id,
-                "extra_data": {
-                    "payload": payload,
-                },
-            },
-        )
+        log_debug("Streaming payload prepared", request_id, {"payload": payload})
 
         async with httpx.AsyncClient() as client:
             async with client.stream(
@@ -548,7 +559,7 @@ async def _stream_from_parallax(request: ChatRequest, request_id: str):
                     msg_type = "thinking" if in_thinking else "content"
                     yield f"data: {json.dumps({'type': msg_type, 'content': buffer})}\n\n"
 
-                elapsed = (datetime.now() - start_time).total_seconds()
+                elapsed = time.time() - start_time
                 logger.info(
                     f"✅ [{request_id}] Stream completed ({elapsed:.2f}s)",
                     extra={

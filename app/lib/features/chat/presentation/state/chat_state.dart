@@ -18,6 +18,7 @@ class ChatState {
   final bool isSearchingWeb;
   final String currentSearchQuery;
   final String searchStatusMessage;
+  final String webSearchMode; // 'off', 'normal', 'deep', 'deeper'
 
   const ChatState({
     this.messages = const [],
@@ -33,6 +34,7 @@ class ChatState {
     this.isSearchingWeb = false,
     this.currentSearchQuery = '',
     this.searchStatusMessage = '',
+    this.webSearchMode = 'deep',
   });
 
   ChatState copyWith({
@@ -49,6 +51,7 @@ class ChatState {
     bool? isSearchingWeb,
     String? currentSearchQuery,
     String? searchStatusMessage,
+    String? webSearchMode,
   }) {
     return ChatState(
       messages: messages ?? this.messages,
@@ -64,6 +67,7 @@ class ChatState {
       isSearchingWeb: isSearchingWeb ?? this.isSearchingWeb,
       currentSearchQuery: currentSearchQuery ?? this.currentSearchQuery,
       searchStatusMessage: searchStatusMessage ?? this.searchStatusMessage,
+      webSearchMode: webSearchMode ?? this.webSearchMode,
     );
   }
 }

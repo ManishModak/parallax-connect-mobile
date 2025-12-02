@@ -5,10 +5,12 @@ Implements Normal, Deep, and Deeper search strategies using DuckDuckGo and scrap
 
 import asyncio
 import httpx
+import time
 from duckduckgo_search import DDGS
 from bs4 import BeautifulSoup
 from typing import List, Dict, Any
 from ..logging_setup import get_logger
+from ..config import DEBUG_MODE
 
 logger = get_logger(__name__)
 
@@ -24,20 +26,33 @@ class WebSearchService:
         self.headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
         }
+        logger.info("🌐 Web Search Service initialized")
 
     async def search(self, query: str, depth: str = "normal") -> Dict[str, Any]:
         """
         Main entry point for search.
         """
+        start_time = time.time()
         logger.info(f"🔍 Searching for '{query}' with depth '{depth}'")
 
         try:
             if depth == "deeper":
-                return await self._deeper_search(query)
+                result = await self._deeper_search(query)
             elif depth == "deep":
-                return await self._deep_search(query)
+                result = await self._deep_search(query)
             else:
-                return await self._normal_search(query)
+                result = await self._normal_search(query)
+
+            elapsed = time.time() - start_time
+            if DEBUG_MODE:
+                logger.debug(
+                    f"Search completed in {elapsed:.2f}s",
+                    extra={
+                        "extra_data": {"result_count": len(result.get("results", []))}
+                    },
+                )
+            return result
+
         except Exception as e:
             logger.error(f"❌ Search failed: {e}", exc_info=True)
             return {"error": str(e), "results": []}
@@ -47,7 +62,6 @@ class WebSearchService:
         Normal: 1 Full Visit (Top Result) + 3 Snippets.
         """
         # Fetch results (synchronous DDGS call wrapped in thread if needed, but it's fast)
-        # DDGS.text() is a generator
         results = list(self.ddgs.text(query, max_results=4))
 
         if not results:
@@ -136,9 +150,7 @@ class WebSearchService:
                 }
             )
 
-        # Phase 2: Gap Analysis (Simulated for now to save latency/complexity)
-        # In a full agentic loop, we'd feed `broad_contents` to LLM and ask "What's missing?"
-        # Here, we'll just do a targeted search for "latest details" or "analysis" of the query
+        # Phase 2: Gap Analysis (Simulated for now)
         targeted_query = f"{query} analysis details"
 
         # Phase 3: Targeted Search
@@ -178,6 +190,10 @@ class WebSearchService:
             async with httpx.AsyncClient(follow_redirects=True, verify=False) as client:
                 resp = await client.get(url, headers=self.headers, timeout=5.0)
                 if resp.status_code != 200:
+                    if DEBUG_MODE:
+                        logger.debug(
+                            f"Scrape failed for {url}: Status {resp.status_code}"
+                        )
                     return ""
 
                 soup = BeautifulSoup(resp.text, "lxml")
@@ -206,5 +222,6 @@ class WebSearchService:
                 return text
 
         except Exception as e:
-            logger.warning(f"⚠️ Failed to scrape {url}: {e}")
+            if DEBUG_MODE:
+                logger.debug(f"⚠️ Failed to scrape {url}: {e}")
             return ""

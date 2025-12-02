@@ -9,6 +9,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.types import ASGIApp
 
 from ..logging_setup import get_logger
+from ..config import DEBUG_MODE, ENABLE_PERFORMANCE_METRICS
 
 logger = get_logger(__name__)
 
@@ -30,24 +31,25 @@ class LogMiddleware(BaseHTTPMiddleware):
         # Log Request
         client_host = request.client.host if request.client else "unknown"
 
-        # Capture body for logging
-        # NOTE: Reading request.body() in BaseHTTPMiddleware is unstable and causes RuntimeErrors.
-        # We rely on endpoint-specific logging (e.g. in chat.py) for payload details.
-        body_log = "<body_logging_disabled_for_stability>"
+        # Basic request info
+        log_data = {
+            "type": "request",
+            "method": request.method,
+            "path": request.url.path,
+            "query_params": str(request.query_params),
+            "client_ip": client_host,
+            "user_agent": request.headers.get("user-agent"),
+        }
+
+        # Add headers in debug mode
+        if DEBUG_MODE:
+            log_data["headers"] = dict(request.headers)
 
         logger.info(
             f"➡️ [{request_id}] {request.method} {request.url.path}",
             extra={
                 "request_id": request_id,
-                "extra_data": {
-                    "type": "request",
-                    "method": request.method,
-                    "path": request.url.path,
-                    "query_params": str(request.query_params),
-                    "client_ip": client_host,
-                    "user_agent": request.headers.get("user-agent"),
-                    "body": body_log,
-                },
+                "extra_data": log_data,
             },
         )
 
@@ -57,16 +59,25 @@ class LogMiddleware(BaseHTTPMiddleware):
             # Calculate duration
             duration = time.time() - start_time
 
+            # Response log data
+            resp_log_data = {
+                "type": "response",
+                "status_code": response.status_code,
+                "duration_seconds": duration,
+            }
+
+            if ENABLE_PERFORMANCE_METRICS:
+                resp_log_data["performance"] = {
+                    "duration_ms": int(duration * 1000),
+                    "is_slow": duration > 1.0,
+                }
+
             # Log Response
             logger.info(
                 f"⬅️ [{request_id}] {response.status_code} ({duration:.3f}s)",
                 extra={
                     "request_id": request_id,
-                    "extra_data": {
-                        "type": "response",
-                        "status_code": response.status_code,
-                        "duration_seconds": duration,
-                    },
+                    "extra_data": resp_log_data,
                 },
             )
 

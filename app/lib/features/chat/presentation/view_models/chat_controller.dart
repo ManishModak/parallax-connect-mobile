@@ -57,7 +57,12 @@ class ChatController extends Notifier<ChatState> {
       error: null,
       currentSessionId: null,
       isPrivateMode: false,
+      webSearchMode: 'deep',
     );
+  }
+
+  void setWebSearchMode(String mode) {
+    state = state.copyWith(webSearchMode: mode);
   }
 
   void togglePrivateMode() {
@@ -138,7 +143,7 @@ class ChatController extends Notifier<ChatState> {
       }
 
       // Smart Web Search Logic
-      if (_settingsStorage.getWebSearchEnabled() && text.isNotEmpty) {
+      if (state.webSearchMode != 'off' && text.isNotEmpty) {
         final executionMode = _settingsStorage.getWebSearchExecutionMode();
 
         // Only Mobile mode does the 2-step flow on the client
@@ -168,6 +173,7 @@ class ChatController extends Notifier<ChatState> {
             final searchResult = await _smartSearchService.smartSearch(
               text,
               history,
+              depth: state.webSearchMode,
             );
 
             // Step 2: Action (Search or Skip)

@@ -4,9 +4,12 @@ Determines if a user query requires external information from the web.
 """
 
 import json
+import httpx
+import time
 from typing import Dict, Any, Optional
 from ..services.parallax import ParallaxClient
 from ..logging_setup import get_logger
+from ..config import DEBUG_MODE
 
 logger = get_logger(__name__)
 
@@ -18,17 +21,14 @@ class SearchRouter:
 
     def __init__(self, parallax_client: ParallaxClient):
         self.client = parallax_client
+        logger.info("🧭 Search Router initialized")
 
     async def classify_intent(self, query: str, history: list = None) -> Dict[str, Any]:
         """
         Analyze query to see if it needs web search.
-        Returns:
-            {
-                "needs_search": bool,
-                "search_query": str (optimized),
-                "reason": str
-            }
         """
+        start_time = time.time()
+
         # Fast exit for obvious non-search queries
         if len(query.split()) < 2 and query.lower() in ["hi", "hello", "test"]:
             return {"needs_search": False, "search_query": "", "reason": "Greeting"}
@@ -60,27 +60,13 @@ class SearchRouter:
         messages.append({"role": "user", "content": query})
 
         try:
-            # We use a non-streaming call for this control logic
-            # Create a temporary payload for the classification
-            # We need to access the raw generate/chat endpoint of the client or construct it manually
-            # Since ParallaxClient is designed for proxying, we'll use its internal http client logic
-            # but we need to be careful not to trigger infinite loops if we were inside the chat loop.
-            # Here we are in the router, so it's fine.
-
-            # We'll use a "fast" model if available, otherwise default
-            # For now, just use the default active model
-
-            # Construct payload manually to ensure JSON mode if possible (or just prompt engineering)
             payload = {
-                "model": "default",  # The client will resolve this
+                "model": "default",
                 "messages": messages,
                 "stream": False,
                 "max_tokens": 150,
-                "temperature": 0.0,  # Deterministic
+                "temperature": 0.0,
             }
-
-            # We need to use the client's base_url to hit the chat endpoint
-            import httpx
 
             async with httpx.AsyncClient() as http_client:
                 resp = await http_client.post(
@@ -98,11 +84,20 @@ class SearchRouter:
 
                     try:
                         result = json.loads(content)
-                        logger.info(f"🧭 Intent classified: {result}")
+
+                        elapsed = time.time() - start_time
+                        if DEBUG_MODE:
+                            logger.debug(
+                                f"Intent classified in {elapsed:.3f}s: {result}"
+                            )
+                        else:
+                            logger.info(
+                                f"🧭 Intent classified: {result.get('needs_search')} ({result.get('reason')})"
+                            )
+
                         return result
                     except json.JSONDecodeError:
                         logger.warning(f"⚠️ Failed to parse router JSON: {content}")
-                        # Fallback heuristic
                         return self._heuristic_fallback(query)
                 else:
                     logger.error(f"❌ Router LLM call failed: {resp.status_code}")

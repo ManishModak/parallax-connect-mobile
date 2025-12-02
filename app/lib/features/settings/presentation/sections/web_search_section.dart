@@ -120,14 +120,12 @@ class WebSearchSection extends ConsumerWidget {
                         ),
                         const SizedBox(height: 8),
                         RadioOption(
-                          title: 'Parallax (Model)',
+                          title: 'Parallax (Model) (Not supported yet)',
                           description: 'Model decides. Most flexible.',
                           value: 'parallax',
                           groupValue: state.webSearchExecutionMode,
-                          onChanged: (val) {
-                            hapticsHelper.triggerHaptics();
-                            controller.setWebSearchExecutionMode(val!);
-                          },
+                          isDisabled: true,
+                          onChanged: null,
                         ),
                       ],
                     ),
@@ -218,57 +216,7 @@ class WebSearchSection extends ConsumerWidget {
                     ),
                   ),
                 ],
-                const Divider(height: 1, indent: 16, endIndent: 16),
-                Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Search Depth',
-                        style: GoogleFonts.inter(
-                          color: AppColors.primary,
-                          fontWeight: FontWeight.w500,
-                          fontSize: 14,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      RadioOption(
-                        title: 'Normal',
-                        description: 'Fast. Checks top 3-4 sources.',
-                        value: 'normal',
-                        groupValue: state.webSearchDepth,
-                        onChanged: (val) {
-                          hapticsHelper.triggerHaptics();
-                          controller.setWebSearchDepth(val!);
-                        },
-                      ),
-                      const SizedBox(height: 8),
-                      RadioOption(
-                        title: 'Deep',
-                        description: 'Comprehensive. Checks top 10 sources.',
-                        value: 'deep',
-                        groupValue: state.webSearchDepth,
-                        onChanged: (val) {
-                          hapticsHelper.triggerHaptics();
-                          controller.setWebSearchDepth(val!);
-                        },
-                      ),
-                      const SizedBox(height: 8),
-                      RadioOption(
-                        title: 'Deeper',
-                        description: 'Intensive. Deep reading of sources.',
-                        techNote: 'Slower but most thorough',
-                        value: 'deeper',
-                        groupValue: state.webSearchDepth,
-                        onChanged: (val) {
-                          hapticsHelper.triggerHaptics();
-                          controller.setWebSearchDepth(val!);
-                        },
-                      ),
-                    ],
-                  ),
-                ),
+                // Search Depth removed (moved to Chat Input)
               ],
             ),
           ),

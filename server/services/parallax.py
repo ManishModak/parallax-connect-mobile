@@ -2,9 +2,11 @@
 
 import json
 import httpx
+import time
 from typing import Optional, List, Dict, Any
 
 from ..logging_setup import get_logger
+from ..config import DEBUG_MODE
 
 logger = get_logger(__name__)
 
@@ -15,6 +17,7 @@ class ParallaxClient:
     def __init__(self, base_url: str = "http://localhost:3001"):
         self.base_url = base_url
         self.chat_url = f"{base_url}/v1/chat/completions"
+        logger.info(f"🔌 Parallax Client initialized at {base_url}")
 
     async def check_connection(self) -> bool:
         """Test connection to Parallax service."""
@@ -30,6 +33,8 @@ class ParallaxClient:
         active_model = None
         models = []
 
+        start_time = time.time()
+
         try:
             async with httpx.AsyncClient() as client:
                 # Get supported models list
@@ -39,7 +44,11 @@ class ParallaxClient:
                     raw_models = response_data.get("data", [])
                     if not raw_models and isinstance(response_data, list):
                         raw_models = response_data
-                    if raw_models and "id" in raw_models[0] and "name" not in raw_models[0]:
+                    if (
+                        raw_models
+                        and "id" in raw_models[0]
+                        and "name" not in raw_models[0]
+                    ):
                         raw_models = [{"name": m.get("id"), **m} for m in raw_models]
 
                     models = [
@@ -54,10 +63,14 @@ class ParallaxClient:
 
                 # Get active model from cluster status
                 try:
-                    async with client.stream("GET", f"{self.base_url}/cluster/status", timeout=2.0) as stream:
+                    async with client.stream(
+                        "GET", f"{self.base_url}/cluster/status", timeout=2.0
+                    ) as stream:
                         async for line in stream.aiter_lines():
                             if line.strip():
-                                line_data = line[6:] if line.startswith("data: ") else line
+                                line_data = (
+                                    line[6:] if line.startswith("data: ") else line
+                                )
                                 if line_data == "[DONE]":
                                     break
                                 try:
@@ -72,12 +85,19 @@ class ParallaxClient:
                                 except json.JSONDecodeError:
                                     continue
                 except Exception as e:
-                    logger.debug(f"Could not get cluster status: {e}")
+                    if DEBUG_MODE:
+                        logger.debug(f"Could not get cluster status: {e}")
 
         except Exception as e:
             logger.error(f"❌ Failed to fetch models: {e}")
 
         default_model = active_model or (models[0]["id"] if models else "default")
+
+        if DEBUG_MODE:
+            logger.debug(
+                f"Fetched models in {time.time() - start_time:.3f}s",
+                extra={"extra_data": {"count": len(models)}},
+            )
 
         return {
             "models": models,

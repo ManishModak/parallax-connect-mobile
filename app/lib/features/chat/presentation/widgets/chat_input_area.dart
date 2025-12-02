@@ -12,8 +12,7 @@ import '../../../../core/utils/haptics_helper.dart';
 import 'chat_input/attachment_menu_handler.dart';
 import 'chat_input/attachment_preview.dart';
 import 'chat_input/model_selector.dart';
-import 'chat_input/search_options_handler.dart';
-import 'chat_input/web_search_toggle.dart';
+import 'chat_input/web_search_mode_selector.dart';
 
 class ChatInputArea extends ConsumerStatefulWidget {
   final Function(String text, List<String> attachmentPaths) onSubmitted;
@@ -40,15 +39,12 @@ class _ChatInputAreaState extends ConsumerState<ChatInputArea> {
   final List<String> _selectedAttachments = [];
   bool _isAttachmentMenuOpen = false;
   final LayerLink _layerLink = LayerLink();
-  final LayerLink _searchOptionsLayerLink = LayerLink();
   OverlayEntry? _overlayEntry;
-  OverlayEntry? _searchOptionsOverlayEntry;
 
   @override
   void dispose() {
     _controller.dispose();
     _removeOverlay();
-    _removeSearchOptionsOverlay();
     super.dispose();
   }
 
@@ -56,21 +52,11 @@ class _ChatInputAreaState extends ConsumerState<ChatInputArea> {
     if (_isAttachmentMenuOpen) {
       _removeOverlay();
     } else {
-      _removeSearchOptionsOverlay();
       _showOverlay();
     }
     setState(() {
       _isAttachmentMenuOpen = !_isAttachmentMenuOpen;
     });
-  }
-
-  void _toggleSearchOptionsMenu() {
-    if (_searchOptionsOverlayEntry != null) {
-      _removeSearchOptionsOverlay();
-    } else {
-      _removeOverlay();
-      _showSearchOptionsOverlay();
-    }
   }
 
   void _showOverlay() {
@@ -98,27 +84,12 @@ class _ChatInputAreaState extends ConsumerState<ChatInputArea> {
     Overlay.of(context).insert(_overlayEntry!);
   }
 
-  void _showSearchOptionsOverlay() {
-    _searchOptionsOverlayEntry = SearchOptionsHandler.createOverlayEntry(
-      context: context,
-      ref: ref,
-      layerLink: _searchOptionsLayerLink,
-      onRemoveOverlay: _removeSearchOptionsOverlay,
-    );
-    Overlay.of(context).insert(_searchOptionsOverlayEntry!);
-  }
-
   void _removeOverlay() {
     _overlayEntry?.remove();
     _overlayEntry = null;
     if (_isAttachmentMenuOpen) {
       setState(() => _isAttachmentMenuOpen = false);
     }
-  }
-
-  void _removeSearchOptionsOverlay() {
-    _searchOptionsOverlayEntry?.remove();
-    _searchOptionsOverlayEntry = null;
   }
 
   void _handleSubmit() {
@@ -244,13 +215,8 @@ class _ChatInputAreaState extends ConsumerState<ChatInputArea> {
                     child: _buildAttachmentButton(),
                   ),
                   const SizedBox(width: 8),
-                  // Web Search Toggle with Options Menu
-                  CompositedTransformTarget(
-                    link: _searchOptionsLayerLink,
-                    child: WebSearchToggle(
-                      onLongPress: _toggleSearchOptionsMenu,
-                    ),
-                  ),
+                  // Web Search Mode Selector
+                  const WebSearchModeSelector(),
                   const SizedBox(width: 8),
                   // Model Selector
                   const ModelSelector(),

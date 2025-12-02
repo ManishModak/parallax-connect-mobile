@@ -20,6 +20,17 @@ LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
 LOG_JSON_FORMAT = False
 SENSITIVE_FIELDS = ["password", "token", "api_key", "authorization", "secret"]
 
+# Debug & Performance
+DEBUG_MODE = os.getenv("DEBUG_MODE", "false").lower() == "true"
+ENABLE_PERFORMANCE_METRICS = (
+    os.getenv("ENABLE_PERFORMANCE_METRICS", "false").lower() == "true" or DEBUG_MODE
+)
+
+# Timeouts (seconds)
+TIMEOUT_DEFAULT = 60.0
+TIMEOUT_FAST = 5.0
+TIMEOUT_SEARCH = 15.0
+
 # Global password (set at runtime)
 PASSWORD: Optional[str] = os.getenv("SERVER_PASSWORD")
 

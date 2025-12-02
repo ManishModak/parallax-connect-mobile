@@ -84,7 +84,14 @@ def setup_logging():
     log_file = os.path.join(LOG_DIR, f"server_{timestamp}.log")
 
     # Determine log level
-    level = getattr(logging, LOG_LEVEL.upper(), logging.INFO)
+    # If DEBUG_MODE is enabled, force DEBUG level
+    from .config import DEBUG_MODE
+
+    if DEBUG_MODE:
+        level = logging.DEBUG
+        print("🔧 DEBUG MODE ENABLED: Detailed logging active")
+    else:
+        level = getattr(logging, LOG_LEVEL.upper(), logging.INFO)
 
     # Root logger
     root_logger = logging.getLogger()
@@ -115,7 +122,9 @@ def setup_logging():
 
     root_logger.addHandler(file_handler)
 
-    logging.info(f"📝 Logging initialized. Level: {LOG_LEVEL}, JSON: {LOG_JSON_FORMAT}")
+    logging.info(
+        f"📝 Logging initialized. Level: {logging.getLevelName(level)}, JSON: {LOG_JSON_FORMAT}, Debug Mode: {DEBUG_MODE}"
+    )
     logging.info(f"📂 Log file: {os.path.abspath(log_file)}")
 
 

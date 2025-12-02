@@ -46,8 +46,9 @@ class SmartSearchService {
   /// Main entry point: Analyze intent and search if needed
   Future<SmartSearchResult> smartSearch(
     String query,
-    List<Map<String, String>> history,
-  ) async {
+    List<Map<String, String>> history, {
+    String depth = 'deep',
+  }) async {
     final isSmartEnabled = _settings.getSmartSearchEnabled();
     final executionMode = _settings
         .getWebSearchExecutionMode(); // mobile, middleware, parallax
@@ -76,9 +77,9 @@ class SmartSearchService {
     List<SearchResultItem> results = [];
 
     if (executionMode == 'middleware') {
-      results = await _searchViaMiddleware(searchQuery);
+      results = await _searchViaMiddleware(searchQuery, depth);
     } else if (executionMode == 'mobile') {
-      results = await _searchOnDevice(searchQuery);
+      results = await _searchOnDevice(searchQuery, depth);
     } else {
       // Parallax mode (future)
       Log.w('Parallax search mode not implemented yet');
@@ -148,9 +149,12 @@ class SmartSearchService {
   }
 
   /// Execute search via Middleware API
-  Future<List<SearchResultItem>> _searchViaMiddleware(String query) async {
+  Future<List<SearchResultItem>> _searchViaMiddleware(
+    String query,
+    String depth,
+  ) async {
     try {
-      final depth = _settings.getWebSearchDepth();
+      // final depth = _settings.getWebSearchDepth(); // Removed
       final response = await http.post(
         Uri.parse('$_baseUrl/search'), // Custom endpoint we created
         headers: {'Content-Type': 'application/json'},
@@ -178,7 +182,10 @@ class SmartSearchService {
   }
 
   /// Execute search on device (DuckDuckGo HTML scraping)
-  Future<List<SearchResultItem>> _searchOnDevice(String query) async {
+  Future<List<SearchResultItem>> _searchOnDevice(
+    String query,
+    String depth,
+  ) async {
     try {
       // 1. Get Links (Lite)
       final url = Uri.parse('https://html.duckduckgo.com/html/');
@@ -193,7 +200,7 @@ class SmartSearchService {
       int count = 0;
 
       // Determine limits based on depth
-      final depth = _settings.getWebSearchDepth();
+      // final depth = _settings.getWebSearchDepth(); // Removed
       int maxResults = depth == 'normal' ? 4 : (depth == 'deep' ? 3 : 6);
       int fullContentCount = depth == 'normal' ? 1 : (depth == 'deep' ? 3 : 6);
 

@@ -22,6 +22,11 @@ def create_app() -> FastAPI:
     # Register startup event
     app.add_event_handler("startup", on_startup)
 
+    # Initialize Service Manager
+    from .services.service_manager import service_manager
+
+    app.add_event_handler("startup", service_manager.initialize_services)
+
     # Add Middleware
     app.add_middleware(LogMiddleware)
 

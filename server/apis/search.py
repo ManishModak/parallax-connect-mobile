@@ -2,16 +2,15 @@
 Search API endpoints.
 """
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Request
 from pydantic import BaseModel
-from typing import Optional, Dict, Any
 
-from ..services.web_search import WebSearchService
+from ..services.service_manager import service_manager
 from ..logging_setup import get_logger
+from ..utils.error_handler import handle_service_error
 
 router = APIRouter()
 logger = get_logger(__name__)
-search_service = WebSearchService()
 
 
 class SearchRequest(BaseModel):
@@ -20,13 +19,15 @@ class SearchRequest(BaseModel):
 
 
 @router.post("/search")
-async def search_endpoint(request: SearchRequest):
+async def search_endpoint(request: Request, search_req: SearchRequest):
     """
     Execute a web search.
     """
+    request_id = getattr(request.state, "request_id", "unknown")
+
     try:
-        results = await search_service.search(request.query, request.depth)
+        search_service = service_manager.get_web_search_service()
+        results = await search_service.search(search_req.query, search_req.depth)
         return results
     except Exception as e:
-        logger.error(f"❌ Search endpoint error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        return handle_service_error(e, "Search Endpoint", request_id)
