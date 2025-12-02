@@ -8,9 +8,9 @@ import httpx
 import time
 from duckduckgo_search import DDGS
 from bs4 import BeautifulSoup
-from typing import List, Dict, Any
+from typing import Dict, Any
 from ..logging_setup import get_logger
-from ..config import DEBUG_MODE
+from ..config import DEBUG_MODE, TIMEOUT_FAST
 
 logger = get_logger(__name__)
 
@@ -35,12 +35,30 @@ class WebSearchService:
         start_time = time.time()
         logger.info(f"🔍 Searching for '{query}' with depth '{depth}'")
 
+        if DEBUG_MODE:
+            logger.debug(
+                "Starting web search",
+                extra={
+                    "extra_data": {
+                        "query": query,
+                        "depth": depth,
+                        "timestamp": start_time,
+                    }
+                },
+            )
+
         try:
             if depth == "deeper":
+                if DEBUG_MODE:
+                    logger.debug("Using DEEPER search strategy (4 broad + 2 targeted)")
                 result = await self._deeper_search(query)
             elif depth == "deep":
+                if DEBUG_MODE:
+                    logger.debug("Using DEEP search strategy (3 parallel full visits)")
                 result = await self._deep_search(query)
             else:
+                if DEBUG_MODE:
+                    logger.debug("Using NORMAL search strategy (1 full + 3 snippets)")
                 result = await self._normal_search(query)
 
             elapsed = time.time() - start_time
@@ -48,7 +66,11 @@ class WebSearchService:
                 logger.debug(
                     f"Search completed in {elapsed:.2f}s",
                     extra={
-                        "extra_data": {"result_count": len(result.get("results", []))}
+                        "extra_data": {
+                            "result_count": len(result.get("results", [])),
+                            "duration_seconds": elapsed,
+                            "depth_used": depth,
+                        }
                     },
                 )
             return result
@@ -186,13 +208,27 @@ class WebSearchService:
         """
         Scrapes text from a URL, stripping HTML.
         """
+        scrape_start = time.time()
+        if DEBUG_MODE:
+            logger.debug(
+                f"Starting scrape: {url}",
+                extra={"extra_data": {"url": url, "max_words": max_words}},
+            )
+
         try:
             async with httpx.AsyncClient(follow_redirects=True, verify=False) as client:
-                resp = await client.get(url, headers=self.headers, timeout=5.0)
+                resp = await client.get(url, headers=self.headers, timeout=TIMEOUT_FAST)
                 if resp.status_code != 200:
                     if DEBUG_MODE:
                         logger.debug(
-                            f"Scrape failed for {url}: Status {resp.status_code}"
+                            f"Scrape failed for {url}: Status {resp.status_code}",
+                            extra={
+                                "extra_data": {
+                                    "url": url,
+                                    "status_code": resp.status_code,
+                                    "duration": time.time() - scrape_start,
+                                }
+                            },
                         )
                     return ""
 
@@ -217,11 +253,39 @@ class WebSearchService:
 
                 # Truncate
                 words = text.split()
-                if len(words) > max_words:
-                    return " ".join(words[:max_words]) + "..."
-                return text
+                truncated = len(words) > max_words
+
+                if truncated:
+                    final_text = " ".join(words[:max_words]) + "..."
+                else:
+                    final_text = text
+
+                if DEBUG_MODE:
+                    logger.debug(
+                        f"✅ Scraped {url}",
+                        extra={
+                            "extra_data": {
+                                "url": url,
+                                "word_count": len(words),
+                                "truncated": truncated,
+                                "final_word_count": min(len(words), max_words),
+                                "duration_seconds": time.time() - scrape_start,
+                            }
+                        },
+                    )
+
+                return final_text
 
         except Exception as e:
             if DEBUG_MODE:
-                logger.debug(f"⚠️ Failed to scrape {url}: {e}")
+                logger.debug(
+                    f"⚠️ Failed to scrape {url}: {e}",
+                    extra={
+                        "extra_data": {
+                            "url": url,
+                            "error": str(e),
+                            "duration": time.time() - scrape_start,
+                        }
+                    },
+                )
             return ""

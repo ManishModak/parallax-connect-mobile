@@ -16,6 +16,7 @@ from .config import (
     LOG_LEVEL,
     LOG_JSON_FORMAT,
     SENSITIVE_FIELDS,
+    DEBUG_MODE,
 )
 
 
@@ -85,8 +86,6 @@ def setup_logging():
 
     # Determine log level
     # If DEBUG_MODE is enabled, force DEBUG level
-    from .config import DEBUG_MODE
-
     if DEBUG_MODE:
         level = logging.DEBUG
         print("🔧 DEBUG MODE ENABLED: Detailed logging active")

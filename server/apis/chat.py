@@ -10,11 +10,12 @@ from fastapi.responses import StreamingResponse
 import httpx
 
 from ..auth import check_password
-from ..config import SERVER_MODE, PARALLAX_SERVICE_URL, DEBUG_MODE
+from ..config import SERVER_MODE, PARALLAX_SERVICE_URL, DEBUG_MODE, TIMEOUT_DEFAULT
 from ..models import ChatRequest
 from ..logging_setup import get_logger
 from ..services.service_manager import service_manager
 from ..utils.error_handler import handle_service_error, log_debug
+from ..utils.request_validator import validate_chat_request
 
 router = APIRouter()
 logger = get_logger(__name__)
@@ -46,6 +47,14 @@ async def chat_endpoint(
 
     # Log full request in debug mode
     log_debug("Full chat request payload", request_id, chat_request.dict())
+
+    # Validate request
+    validate_chat_request(
+        prompt=chat_request.prompt,
+        system_prompt=chat_request.system_prompt,
+        messages=chat_request.messages,
+        request_id=request_id,
+    )
 
     if SERVER_MODE == "MOCK":
         return await _handle_mock_chat(chat_request, request_id)
@@ -81,7 +90,32 @@ async def chat_endpoint(
                 {"payload_keys": list(payload.keys())},
             )
 
-            resp = await client.post(PARALLAX_SERVICE_URL, json=payload, timeout=60.0)
+            if DEBUG_MODE:
+                # Log full payload in debug mode for troubleshooting
+                logger.debug(
+                    f"[{request_id}] Full Parallax request payload",
+                    extra={
+                        "request_id": request_id,
+                        "extra_data": {
+                            "model": payload.get("model"),
+                            "message_count": len(payload.get("messages", [])),
+                            "max_tokens": payload.get("max_tokens"),
+                            "sampling_params": payload.get("sampling_params"),
+                            "stream": payload.get("stream"),
+                            # Include first/last messages for context
+                            "first_message": payload.get("messages", [{}])[0]
+                            if payload.get("messages")
+                            else None,
+                            "last_message": payload.get("messages", [{}])[-1]
+                            if payload.get("messages")
+                            else None,
+                        },
+                    },
+                )
+
+            resp = await client.post(
+                PARALLAX_SERVICE_URL, json=payload, timeout=TIMEOUT_DEFAULT
+            )
 
             if resp.status_code != 200:
                 raise HTTPException(
@@ -163,6 +197,14 @@ async def chat_stream_endpoint(
     )
 
     log_debug("Full stream request payload", request_id, chat_request.dict())
+
+    # Validate request
+    validate_chat_request(
+        prompt=chat_request.prompt,
+        system_prompt=chat_request.system_prompt,
+        messages=chat_request.messages,
+        request_id=request_id,
+    )
 
     if SERVER_MODE == "MOCK":
         return StreamingResponse(

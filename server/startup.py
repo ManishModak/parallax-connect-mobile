@@ -4,7 +4,7 @@ import httpx
 from pyngrok import ngrok
 
 from .auth import setup_password
-from .config import SERVER_MODE, PARALLAX_SERVICE_URL
+from .config import SERVER_MODE, PARALLAX_SERVICE_URL, TIMEOUT_FAST
 from .utils import get_local_ip, print_qr
 from .logging_setup import get_logger
 
@@ -43,7 +43,9 @@ async def _test_parallax_connection():
     logger.info(f"Testing connection to Parallax at {PARALLAX_SERVICE_URL}...")
     try:
         async with httpx.AsyncClient() as client:
-            resp = await client.get("http://localhost:3001/model/list", timeout=5.0)
+            resp = await client.get(
+                "http://localhost:3001/model/list", timeout=TIMEOUT_FAST
+            )
             if resp.status_code == 200:
                 logger.info(
                     "✅ Parallax connection successful",

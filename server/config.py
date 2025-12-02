@@ -26,10 +26,18 @@ ENABLE_PERFORMANCE_METRICS = (
     os.getenv("ENABLE_PERFORMANCE_METRICS", "false").lower() == "true" or DEBUG_MODE
 )
 
+# Cache Configuration
+MODEL_CACHE_TTL = int(os.getenv("MODEL_CACHE_TTL", "60"))  # seconds
+
 # Timeouts (seconds)
 TIMEOUT_DEFAULT = 60.0
 TIMEOUT_FAST = 5.0
 TIMEOUT_SEARCH = 15.0
+
+# Request Validation Limits
+MAX_PROMPT_LENGTH = int(os.getenv("MAX_PROMPT_LENGTH", "100000"))  # characters
+MAX_SYSTEM_PROMPT_LENGTH = int(os.getenv("MAX_SYSTEM_PROMPT_LENGTH", "50000"))
+MAX_MESSAGE_HISTORY = int(os.getenv("MAX_MESSAGE_HISTORY", "100"))  # messages
 
 # Global password (set at runtime)
 PASSWORD: Optional[str] = os.getenv("SERVER_PASSWORD")

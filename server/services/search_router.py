@@ -6,10 +6,10 @@ Determines if a user query requires external information from the web.
 import json
 import httpx
 import time
-from typing import Dict, Any, Optional
+from typing import Dict, Any
 from ..services.parallax import ParallaxClient
 from ..logging_setup import get_logger
-from ..config import DEBUG_MODE
+from ..config import DEBUG_MODE, TIMEOUT_FAST
 
 logger = get_logger(__name__)
 
@@ -72,7 +72,7 @@ class SearchRouter:
                 resp = await http_client.post(
                     self.client.chat_url,
                     json=payload,
-                    timeout=5.0,  # Fast timeout for routing
+                    timeout=TIMEOUT_FAST,  # Fast timeout for routing
                 )
 
                 if resp.status_code == 200:
