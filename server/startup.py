@@ -1,12 +1,12 @@
 """Server startup logic and event handlers."""
 
-import httpx
 from pyngrok import ngrok
 
 from .auth import setup_password
 from .config import SERVER_MODE, PARALLAX_SERVICE_URL, TIMEOUT_FAST
 from .utils import get_local_ip, print_qr
 from .logging_setup import get_logger
+from .services.http_client import get_async_http_client
 
 logger = get_logger(__name__)
 
@@ -42,25 +42,23 @@ async def _test_parallax_connection():
     """Test connection to Parallax service."""
     logger.info(f"Testing connection to Parallax at {PARALLAX_SERVICE_URL}...")
     try:
-        async with httpx.AsyncClient() as client:
-            resp = await client.get(
-                "http://localhost:3001/model/list", timeout=TIMEOUT_FAST
+        client = await get_async_http_client()
+        resp = await client.get("http://localhost:3001/model/list", timeout=TIMEOUT_FAST)
+        if resp.status_code == 200:
+            logger.info(
+                "✅ Parallax connection successful",
+                extra={"extra_data": {"parallax_status": "connected"}},
             )
-            if resp.status_code == 200:
-                logger.info(
-                    "✅ Parallax connection successful",
-                    extra={"extra_data": {"parallax_status": "connected"}},
-                )
-            else:
-                logger.warning(
-                    f"⚠️ Parallax returned status {resp.status_code}",
-                    extra={
-                        "extra_data": {
-                            "parallax_status": "error",
-                            "status_code": resp.status_code,
-                        }
-                    },
-                )
+        else:
+            logger.warning(
+                f"⚠️ Parallax returned status {resp.status_code}",
+                extra={
+                    "extra_data": {
+                        "parallax_status": "error",
+                        "status_code": resp.status_code,
+                    }
+                },
+            )
     except Exception as e:
         logger.warning(
             f"⚠️ Cannot reach Parallax: {e}",

@@ -4,12 +4,63 @@ Determines if a user query requires external information from the web.
 """
 
 import json
-import httpx
 import time
-from typing import Dict, Any
+from collections import OrderedDict
+from typing import Dict, Any, Optional
+import threading
+
 from ..services.parallax import ParallaxClient
 from ..logging_setup import get_logger
 from ..config import DEBUG_MODE, TIMEOUT_FAST
+from .http_client import get_async_http_client
+
+
+class _IntentCacheEntry:
+    __slots__ = ("value", "timestamp")
+
+    def __init__(self, value: Dict[str, Any], timestamp: float):
+        self.value = value
+        self.timestamp = timestamp
+
+
+class _BoundedTTLCache:
+    """Simple bounded LRU cache with TTL semantics for intent results."""
+
+    def __init__(self, max_size: int = 1000, ttl_seconds: float = 120.0):
+        self._cache: "OrderedDict[str, _IntentCacheEntry]" = OrderedDict()
+        self._max_size = max_size
+        self._ttl = ttl_seconds
+        self._lock = threading.Lock()
+
+    def get(self, key: str) -> Optional[Dict[str, Any]]:
+        with self._lock:
+            if key not in self._cache:
+                return None
+            entry = self._cache[key]
+            if time.time() - entry.timestamp > self._ttl:
+                del self._cache[key]
+                return None
+            # Move to end (most recently used)
+            self._cache.move_to_end(key)
+            return entry.value
+
+    def set(self, key: str, value: Dict[str, Any]) -> None:
+        with self._lock:
+            now = time.time()
+            # Evict oldest if at capacity
+            while len(self._cache) >= self._max_size:
+                self._cache.popitem(last=False)
+            self._cache[key] = _IntentCacheEntry(value=value, timestamp=now)
+
+    def cleanup_expired(self) -> int:
+        """Remove all expired entries. Returns count removed."""
+        with self._lock:
+            now = time.time()
+            expired = [k for k, v in self._cache.items() if now - v.timestamp > self._ttl]
+            for k in expired:
+                del self._cache[k]
+            return len(expired)
+
 
 logger = get_logger(__name__)
 
@@ -19,8 +70,16 @@ class SearchRouter:
     Decides if a query needs web search using an LLM call.
     """
 
-    def __init__(self, parallax_client: ParallaxClient):
+    def __init__(
+        self,
+        parallax_client: ParallaxClient,
+        cache_ttl_seconds: float = 120.0,
+        cache_max_size: int = 1000,
+    ):
         self.client = parallax_client
+        self._intent_cache = _BoundedTTLCache(
+            max_size=cache_max_size, ttl_seconds=cache_ttl_seconds
+        )
         logger.info("🧭 Search Router initialized")
 
     async def classify_intent(self, query: str, history: list = None) -> Dict[str, Any]:
@@ -29,9 +88,34 @@ class SearchRouter:
         """
         start_time = time.time()
 
+        q_lower = query.lower()
+
         # Fast exit for obvious non-search queries
         if len(query.split()) < 2 and query.lower() in ["hi", "hello", "test"]:
             return {"needs_search": False, "search_query": "", "reason": "Greeting"}
+
+        # Fast-path for explicit search requests
+        if "search for" in q_lower or "look up" in q_lower:
+            return {
+                "needs_search": True,
+                "search_query": query,
+                "reason": "Explicit search request",
+            }
+
+        # Cache lookup for repeated queries (normalized)
+        cache_key = q_lower.strip()
+        cached = self._intent_cache.get(cache_key)
+        if cached is not None:
+            if DEBUG_MODE:
+                logger.debug(
+                    "🧭 Using cached intent for query",
+                    extra={
+                        "extra_data": {
+                            "query": cache_key,
+                        }
+                    },
+                )
+            return cached
 
         system_prompt = (
             "You are a Search Intent Classifier. Your job is to determine if the user's "
@@ -68,40 +152,42 @@ class SearchRouter:
                 "temperature": 0.0,
             }
 
-            async with httpx.AsyncClient() as http_client:
-                resp = await http_client.post(
-                    self.client.chat_url,
-                    json=payload,
-                    timeout=TIMEOUT_FAST,  # Fast timeout for routing
-                )
+            http_client = await get_async_http_client()
+            resp = await http_client.post(
+                self.client.chat_url,
+                json=payload,
+                timeout=TIMEOUT_FAST,  # Fast timeout for routing
+            )
 
-                if resp.status_code == 200:
-                    data = resp.json()
-                    content = data["choices"][0]["message"]["content"]
+            if resp.status_code == 200:
+                data = resp.json()
+                content = data["choices"][0]["message"]["content"]
 
-                    # Clean potential markdown code blocks
-                    content = content.replace("```json", "").replace("```", "").strip()
+                # Clean potential markdown code blocks
+                content = content.replace("```json", "").replace("```", "").strip()
 
-                    try:
-                        result = json.loads(content)
+                try:
+                    result = json.loads(content)
 
-                        elapsed = time.time() - start_time
-                        if DEBUG_MODE:
-                            logger.debug(
-                                f"Intent classified in {elapsed:.3f}s: {result}"
-                            )
-                        else:
-                            logger.info(
-                                f"🧭 Intent classified: {result.get('needs_search')} ({result.get('reason')})"
-                            )
+                    elapsed = time.time() - start_time
+                    if DEBUG_MODE:
+                        logger.debug(
+                            f"Intent classified in {elapsed:.3f}s: {result}"
+                        )
+                    else:
+                        logger.info(
+                            f"🧭 Intent classified: {result.get('needs_search')} ({result.get('reason')})"
+                        )
 
-                        return result
-                    except json.JSONDecodeError:
-                        logger.warning(f"⚠️ Failed to parse router JSON: {content}")
-                        return self._heuristic_fallback(query)
-                else:
-                    logger.error(f"❌ Router LLM call failed: {resp.status_code}")
+                    # Store in cache
+                    self._intent_cache.set(cache_key, result)
+                    return result
+                except json.JSONDecodeError:
+                    logger.warning(f"⚠️ Failed to parse router JSON: {content}")
                     return self._heuristic_fallback(query)
+            else:
+                logger.error(f"❌ Router LLM call failed: {resp.status_code}")
+                return self._heuristic_fallback(query)
 
         except Exception as e:
             logger.error(f"❌ Router error: {e}")

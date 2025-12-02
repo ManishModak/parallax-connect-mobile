@@ -9,6 +9,10 @@ import '../../../../../app/constants/app_colors.dart';
 import '../../../utils/file_type_helper.dart';
 import '../../../models/chat_message.dart';
 import 'code_block_builder.dart';
+import '../indicators/sources_pill.dart';
+import '../indicators/thinking_pill.dart';
+import '../sheets/search_results_sheet.dart';
+import '../sheets/thinking_details_sheet.dart';
 
 class ChatMessageBubble extends StatefulWidget {
   final ChatMessage? message;
@@ -30,6 +34,7 @@ class ChatMessageBubble extends StatefulWidget {
 
 class _ChatMessageBubbleState extends State<ChatMessageBubble> {
   bool _copiedAll = false;
+  bool _showOptions = false;
   final Map<String, bool> _copiedCode = {};
 
   void _copyToClipboard(String text, {String? codeKey}) async {
@@ -88,61 +93,71 @@ class _ChatMessageBubbleState extends State<ChatMessageBubble> {
                       borderRadius: BorderRadius.circular(20),
                     )
                   : null,
-              child: MarkdownBody(
-                data: widget.message!.text,
-                selectable: true,
-                builders: {
-                  'code': CodeElementBuilder(
-                    onCopy: (code) => _copyToClipboard(
-                      code,
-                      codeKey: code.hashCode.toString(),
+              child: GestureDetector(
+                onTap: isUser
+                    ? () {
+                        setState(() {
+                          _showOptions = !_showOptions;
+                        });
+                      }
+                    : null,
+                child: MarkdownBody(
+                  data: widget.message!.text,
+                  selectable:
+                      !isUser, // Only selectable if not user (user taps to toggle options)
+                  builders: {
+                    'code': CodeElementBuilder(
+                      onCopy: (code) => _copyToClipboard(
+                        code,
+                        codeKey: code.hashCode.toString(),
+                      ),
+                      isCopied: (code) =>
+                          _copiedCode[code.hashCode.toString()] ?? false,
                     ),
-                    isCopied: (code) =>
-                        _copiedCode[code.hashCode.toString()] ?? false,
-                  ),
-                },
-                styleSheet: MarkdownStyleSheet(
-                  p: GoogleFonts.inter(
-                    color: AppColors.primary,
-                    fontSize: 16,
-                    height: 1.5,
-                  ),
-                  strong: GoogleFonts.inter(
-                    color: AppColors.primary,
-                    fontWeight: FontWeight.bold,
-                  ),
-                  em: GoogleFonts.inter(
-                    color: AppColors.primary,
-                    fontStyle: FontStyle.italic,
-                  ),
-                  h1: GoogleFonts.inter(
-                    color: AppColors.primary,
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                  ),
-                  h2: GoogleFonts.inter(
-                    color: AppColors.primary,
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                  ),
-                  h3: GoogleFonts.inter(
-                    color: AppColors.primary,
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                  code: GoogleFonts.firaCode(
-                    color: AppColors.primary,
-                    backgroundColor: AppColors.codeBlockBorder,
-                    fontSize: 14,
-                  ),
-                  // Removed codeblockDecoration - using custom code builder
-                  blockquote: GoogleFonts.inter(
-                    color: AppColors.secondary,
-                    fontStyle: FontStyle.italic,
-                  ),
-                  blockquoteDecoration: BoxDecoration(
-                    border: Border(
-                      left: BorderSide(color: AppColors.accent, width: 4),
+                  },
+                  styleSheet: MarkdownStyleSheet(
+                    p: GoogleFonts.inter(
+                      color: AppColors.primary,
+                      fontSize: 16,
+                      height: 1.5,
+                    ),
+                    strong: GoogleFonts.inter(
+                      color: AppColors.primary,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    em: GoogleFonts.inter(
+                      color: AppColors.primary,
+                      fontStyle: FontStyle.italic,
+                    ),
+                    h1: GoogleFonts.inter(
+                      color: AppColors.primary,
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    h2: GoogleFonts.inter(
+                      color: AppColors.primary,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    h3: GoogleFonts.inter(
+                      color: AppColors.primary,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    code: GoogleFonts.firaCode(
+                      color: AppColors.primary,
+                      backgroundColor: AppColors.codeBlockBorder,
+                      fontSize: 14,
+                    ),
+                    // Removed codeblockDecoration - using custom code builder
+                    blockquote: GoogleFonts.inter(
+                      color: AppColors.secondary,
+                      fontStyle: FontStyle.italic,
+                    ),
+                    blockquoteDecoration: BoxDecoration(
+                      border: Border(
+                        left: BorderSide(color: AppColors.accent, width: 4),
+                      ),
                     ),
                   ),
                 ),
@@ -189,25 +204,71 @@ class _ChatMessageBubbleState extends State<ChatMessageBubble> {
               }).toList(),
             ),
           ],
-          // User Message Actions (Edit, Retry)
-          if (isUser) ...[
-            const SizedBox(height: 4),
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _buildActionIcon(
-                  icon: LucideIcons.pencil,
-                  tooltip: 'Edit',
-                  onTap: widget.onEdit ?? () {},
-                ),
-                const SizedBox(width: 8),
-                _buildActionIcon(
-                  icon: LucideIcons.refreshCw,
-                  tooltip: 'Retry',
-                  onTap: widget.onRetry ?? () {},
-                ),
-              ],
+          // User Message Actions (Edit, Retry) - Tap to reveal
+          if (isUser)
+            AnimatedSize(
+              duration: const Duration(milliseconds: 200),
+              curve: Curves.easeInOut,
+              child: _showOptions
+                  ? Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          _buildActionIcon(
+                            icon: LucideIcons.pencil,
+                            tooltip: 'Edit',
+                            onTap: widget.onEdit ?? () {},
+                          ),
+                          const SizedBox(width: 8),
+                          _buildActionIcon(
+                            icon: LucideIcons.refreshCw,
+                            tooltip: 'Retry',
+                            onTap: widget.onRetry ?? () {},
+                          ),
+                        ],
+                      ),
+                    )
+                  : const SizedBox.shrink(),
             ),
+
+          // Bot Message Extras (Thinking & Search)
+          if (!isUser) ...[
+            if (widget.message!.thinkingContent != null &&
+                widget.message!.thinkingContent!.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              ThinkingPill(
+                onTap: () {
+                  showModalBottomSheet(
+                    context: context,
+                    isScrollControlled: true,
+                    backgroundColor: Colors.transparent,
+                    builder: (context) => ThinkingDetailsSheet(
+                      thinkingContent: widget.message!.thinkingContent!,
+                    ),
+                  );
+                },
+              ),
+            ],
+            if (widget.message!.searchMetadata != null &&
+                widget.message!.searchMetadata!['results'] != null) ...[
+              const SizedBox(height: 8),
+              SourcesPill(
+                sourceCount:
+                    (widget.message!.searchMetadata!['results'] as List).length,
+                onTap: () {
+                  showModalBottomSheet(
+                    context: context,
+                    isScrollControlled: true,
+                    backgroundColor: Colors.transparent,
+                    builder: (context) => SearchResultsSheet(
+                      results:
+                          widget.message!.searchMetadata!['results'] as List,
+                    ),
+                  );
+                },
+              ),
+            ],
           ],
           // Copy All button for bot messages
           if (!isUser && widget.message!.text.isNotEmpty) ...[

@@ -4,13 +4,16 @@ Implements Normal, Deep, and Deeper search strategies using DuckDuckGo and scrap
 """
 
 import asyncio
-import httpx
 import time
-from duckduckgo_search import DDGS
+from typing import Dict, Any, List
+
+from ddgs import DDGS
 from bs4 import BeautifulSoup
-from typing import Dict, Any
+import httpx
+
 from ..logging_setup import get_logger
 from ..config import DEBUG_MODE, TIMEOUT_FAST
+from .http_client import get_scraping_http_client
 
 logger = get_logger(__name__)
 
@@ -21,10 +24,21 @@ class WebSearchService:
     """
 
     def __init__(self):
-        self.ddgs = DDGS()
         # Headers for scraping to look like a real browser
         self.headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+            "Accept-Language": "en-US,en;q=0.9",
+            "Upgrade-Insecure-Requests": "1",
+            "Sec-Fetch-Dest": "document",
+            "Sec-Fetch-Mode": "navigate",
+            "Sec-Fetch-Site": "none",
+            "Sec-Fetch-User": "?1",
+        }
+        # Domains that commonly block scraping - use snippets only
+        self.blocked_domains = {
+            "mit.edu", "nytimes.com", "wsj.com", "bloomberg.com",
+            "ft.com", "economist.com", "washingtonpost.com"
         }
         logger.info("🌐 Web Search Service initialized")
 
@@ -79,30 +93,67 @@ class WebSearchService:
             logger.error(f"❌ Search failed: {e}", exc_info=True)
             return {"error": str(e), "results": []}
 
+    def _is_blocked_domain(self, url: str) -> bool:
+        """Check if URL is from a domain known to block scraping."""
+        for domain in self.blocked_domains:
+            if domain in url:
+                return True
+        return False
+
+    async def _search_ddg(self, query: str, max_results: int = 4) -> List[Dict]:
+        """Execute DuckDuckGo search in thread pool to avoid blocking."""
+        loop = asyncio.get_running_loop()
+        return await loop.run_in_executor(
+            None, lambda: list(DDGS().text(query, max_results=max_results))
+        )
+
+    async def _search_ddg_news(self, query: str, max_results: int = 4) -> List[Dict]:
+        """Execute DuckDuckGo news search for recent content."""
+        loop = asyncio.get_running_loop()
+        return await loop.run_in_executor(
+            None, lambda: list(DDGS().news(query, max_results=max_results))
+        )
+
     async def _normal_search(self, query: str) -> Dict[str, Any]:
         """
         Normal: 1 Full Visit (Top Result) + 3 Snippets.
         """
-        # Fetch results (synchronous DDGS call wrapped in thread if needed, but it's fast)
-        results = list(self.ddgs.text(query, max_results=4))
+        results = await self._search_ddg(query, max_results=4)
+
+        logger.info(
+            f"🔎 [AUDIT] Raw DDG Results for '{query}':",
+            extra={
+                "extra_data": {
+                    "count": len(results),
+                    "urls": [r.get("href") for r in results],
+                    "titles": [r.get("title") for r in results],
+                }
+            },
+        )
 
         if not results:
             return {"results": [], "summary": "No results found."}
 
-        # Result #1: Full Visit
+        # Result #1: Full Visit (skip if blocked domain)
         top_result = results[0]
-        full_content = await self._scrape_url(top_result["href"], max_words=750)
+        full_content = ""
+        
+        if not self._is_blocked_domain(top_result["href"]):
+            logger.info(f"⬇️ [AUDIT] Scraping Top Result: {top_result['href']}")
+            full_content = await self._scrape_url(top_result["href"], max_words=750)
+        else:
+            logger.info(f"⏭️ Skipping blocked domain: {top_result['href']}")
 
         processed_results = []
 
-        # Add top result with full content
+        # Add top result with full content (or snippet if scrape failed)
         processed_results.append(
             {
                 "title": top_result["title"],
                 "url": top_result["href"],
                 "snippet": top_result["body"],
-                "content": full_content,
-                "is_full_content": True,
+                "content": full_content if full_content else top_result["body"],
+                "is_full_content": bool(full_content),
             }
         )
 
@@ -121,25 +172,51 @@ class WebSearchService:
 
     async def _deep_search(self, query: str) -> Dict[str, Any]:
         """
-        Deep: 3 Full Visits (Parallel).
+        Deep: 3 Full Visits (Parallel), skipping blocked domains.
         """
-        results = list(self.ddgs.text(query, max_results=3))
+        results = await self._search_ddg(query, max_results=5)  # Get extra in case some are blocked
+
+        logger.info(
+            f"🔎 [AUDIT] Raw DDG Results (Deep) for '{query}':",
+            extra={
+                "extra_data": {
+                    "count": len(results),
+                    "urls": [r.get("href") for r in results],
+                    "titles": [r.get("title") for r in results],
+                }
+            },
+        )
 
         if not results:
             return {"results": [], "summary": "No results found."}
 
-        tasks = [self._scrape_url(r["href"], max_words=1500) for r in results]
+        # Filter out blocked domains and limit to 3
+        scrapeable = [r for r in results if not self._is_blocked_domain(r["href"])][:3]
+        blocked = [r for r in results if self._is_blocked_domain(r["href"])]
+
+        tasks = [self._scrape_url(r["href"], max_words=1500) for r in scrapeable]
         contents = await asyncio.gather(*tasks)
 
         processed_results = []
-        for i, r in enumerate(results):
+        for i, r in enumerate(scrapeable):
             processed_results.append(
                 {
                     "title": r["title"],
                     "url": r["href"],
                     "snippet": r["body"],
-                    "content": contents[i],
-                    "is_full_content": True,
+                    "content": contents[i] if contents[i] else r["body"],
+                    "is_full_content": bool(contents[i]),
+                }
+            )
+
+        # Add blocked domains as snippets only
+        for r in blocked[:2]:
+            processed_results.append(
+                {
+                    "title": r["title"],
+                    "url": r["href"],
+                    "snippet": r["body"],
+                    "is_full_content": False,
                 }
             )
 
@@ -147,60 +224,131 @@ class WebSearchService:
 
     async def _deeper_search(self, query: str) -> Dict[str, Any]:
         """
-        Deeper: 4 Broad Visits -> Gap Analysis (Simulated) -> 2 Targeted Visits.
+        Deeper: Combines web + news search, with smart scraping.
+        Phase 1: Broad web search (4 results)
+        Phase 2: News search for recent content (2 results)
+        Phase 3: Targeted follow-up search (2 results)
         """
-        # Phase 1: Broad Search
-        broad_results = list(self.ddgs.text(query, max_results=4))
+        # Phase 1: Broad Web Search + News Search in parallel
+        broad_task = self._search_ddg(query, max_results=6)
+        news_task = self._search_ddg_news(query, max_results=3)
+        
+        broad_results, news_results = await asyncio.gather(broad_task, news_task)
 
-        if not broad_results:
+        logger.info(
+            f"🔎 [AUDIT] Raw DDG Results (Deeper - Broad) for '{query}':",
+            extra={
+                "extra_data": {
+                    "web_count": len(broad_results),
+                    "news_count": len(news_results),
+                    "urls": [r.get("href") for r in broad_results],
+                    "titles": [r.get("title") for r in broad_results],
+                }
+            },
+        )
+
+        if not broad_results and not news_results:
             return {"results": [], "summary": "No results found."}
 
-        # Scrape top 4
-        tasks = [self._scrape_url(r["href"], max_words=2000) for r in broad_results]
-        broad_contents = await asyncio.gather(*tasks)
-
         processed_results = []
-        for i, r in enumerate(broad_results):
-            processed_results.append(
-                {
-                    "title": r["title"],
-                    "url": r["href"],
-                    "snippet": r["body"],
-                    "content": broad_contents[i],
-                    "is_full_content": True,
-                    "phase": "broad",
-                }
-            )
+        existing_urls = set()
 
-        # Phase 2: Gap Analysis (Simulated for now)
-        targeted_query = f"{query} analysis details"
+        # Process broad results - scrape non-blocked domains
+        scrapeable_broad = [r for r in broad_results if not self._is_blocked_domain(r["href"])][:4]
+        blocked_broad = [r for r in broad_results if self._is_blocked_domain(r["href"])]
 
-        # Phase 3: Targeted Search
-        targeted_results = list(self.ddgs.text(targeted_query, max_results=2))
+        if scrapeable_broad:
+            tasks = [self._scrape_url(r["href"], max_words=2000) for r in scrapeable_broad]
+            broad_contents = await asyncio.gather(*tasks)
 
-        # Filter out duplicates
-        existing_urls = {r["href"] for r in broad_results}
-        unique_targeted = [
-            r for r in targeted_results if r["href"] not in existing_urls
-        ]
-
-        if unique_targeted:
-            t_tasks = [
-                self._scrape_url(r["href"], max_words=1500) for r in unique_targeted
-            ]
-            t_contents = await asyncio.gather(*t_tasks)
-
-            for i, r in enumerate(unique_targeted):
+            for i, r in enumerate(scrapeable_broad):
+                existing_urls.add(r["href"])
                 processed_results.append(
                     {
                         "title": r["title"],
                         "url": r["href"],
                         "snippet": r["body"],
-                        "content": t_contents[i],
-                        "is_full_content": True,
-                        "phase": "targeted",
+                        "content": broad_contents[i] if broad_contents[i] else r["body"],
+                        "is_full_content": bool(broad_contents[i]),
+                        "phase": "broad",
                     }
                 )
+
+        # Add blocked domains as snippets
+        for r in blocked_broad[:2]:
+            if r["href"] not in existing_urls:
+                existing_urls.add(r["href"])
+                processed_results.append(
+                    {
+                        "title": r["title"],
+                        "url": r["href"],
+                        "snippet": r["body"],
+                        "is_full_content": False,
+                        "phase": "broad",
+                    }
+                )
+
+        # Process news results (usually have good snippets, scrape if possible)
+        unique_news = [r for r in news_results if r.get("url") and r["url"] not in existing_urls][:2]
+        if unique_news:
+            news_tasks = [self._scrape_url(r["url"], max_words=1500) for r in unique_news 
+                         if not self._is_blocked_domain(r["url"])]
+            news_contents = await asyncio.gather(*news_tasks) if news_tasks else []
+            
+            content_idx = 0
+            for r in unique_news:
+                existing_urls.add(r["url"])
+                content = ""
+                if not self._is_blocked_domain(r["url"]) and content_idx < len(news_contents):
+                    content = news_contents[content_idx]
+                    content_idx += 1
+                
+                processed_results.append(
+                    {
+                        "title": r.get("title", ""),
+                        "url": r["url"],
+                        "snippet": r.get("body", r.get("excerpt", "")),
+                        "content": content if content else r.get("body", ""),
+                        "is_full_content": bool(content),
+                        "phase": "news",
+                        "date": r.get("date", ""),
+                    }
+                )
+
+        # Phase 3: Targeted Search for additional context
+        targeted_query = f"{query} analysis details"
+        targeted_results = await self._search_ddg(targeted_query, max_results=3)
+
+        logger.info(
+            f"🔎 [AUDIT] Raw DDG Results (Deeper - Targeted) for '{targeted_query}':",
+            extra={
+                "extra_data": {
+                    "count": len(targeted_results),
+                    "urls": [r.get("href") for r in targeted_results],
+                }
+            },
+        )
+
+        unique_targeted = [r for r in targeted_results if r["href"] not in existing_urls][:2]
+
+        if unique_targeted:
+            scrapeable_targeted = [r for r in unique_targeted if not self._is_blocked_domain(r["href"])]
+            
+            if scrapeable_targeted:
+                t_tasks = [self._scrape_url(r["href"], max_words=1500) for r in scrapeable_targeted]
+                t_contents = await asyncio.gather(*t_tasks)
+
+                for i, r in enumerate(scrapeable_targeted):
+                    processed_results.append(
+                        {
+                            "title": r["title"],
+                            "url": r["href"],
+                            "snippet": r["body"],
+                            "content": t_contents[i] if t_contents[i] else r["body"],
+                            "is_full_content": bool(t_contents[i]),
+                            "phase": "targeted",
+                        }
+                    )
 
         return {"results": processed_results, "depth": "deeper"}
 
@@ -216,76 +364,78 @@ class WebSearchService:
             )
 
         try:
-            async with httpx.AsyncClient(follow_redirects=True, verify=False) as client:
-                resp = await client.get(url, headers=self.headers, timeout=TIMEOUT_FAST)
-                if resp.status_code != 200:
-                    if DEBUG_MODE:
-                        logger.debug(
-                            f"Scrape failed for {url}: Status {resp.status_code}",
-                            extra={
-                                "extra_data": {
-                                    "url": url,
-                                    "status_code": resp.status_code,
-                                    "duration": time.time() - scrape_start,
-                                }
-                            },
-                        )
-                    return ""
-
-                soup = BeautifulSoup(resp.text, "lxml")
-
-                # Remove noise
-                for tag in soup(
-                    [
-                        "script",
-                        "style",
-                        "nav",
-                        "footer",
-                        "header",
-                        "aside",
-                        "iframe",
-                        "form",
-                    ]
-                ):
-                    tag.decompose()
-
-                text = soup.get_text(separator=" ", strip=True)
-
-                # Truncate
-                words = text.split()
-                truncated = len(words) > max_words
-
-                if truncated:
-                    final_text = " ".join(words[:max_words]) + "..."
-                else:
-                    final_text = text
-
+            client = await get_scraping_http_client()
+            resp = await client.get(url, headers=self.headers, timeout=TIMEOUT_FAST)
+            if resp.status_code != 200:
                 if DEBUG_MODE:
                     logger.debug(
-                        f"✅ Scraped {url}",
+                        f"Scrape failed for {url}: Status {resp.status_code}",
                         extra={
                             "extra_data": {
                                 "url": url,
-                                "word_count": len(words),
-                                "truncated": truncated,
-                                "final_word_count": min(len(words), max_words),
-                                "duration_seconds": time.time() - scrape_start,
+                                "status_code": resp.status_code,
+                                "duration": time.time() - scrape_start,
                             }
                         },
                     )
+                return ""
 
-                return final_text
+            soup = BeautifulSoup(resp.text, "lxml")
 
-        except Exception as e:
+            # Remove noise
+            for tag in soup(
+                [
+                    "script",
+                    "style",
+                    "nav",
+                    "footer",
+                    "header",
+                    "aside",
+                    "iframe",
+                    "form",
+                ]
+            ):
+                tag.decompose()
+
+            text = soup.get_text(separator=" ", strip=True)
+
+            # Truncate
+            words = text.split()
+            truncated = len(words) > max_words
+
+            if truncated:
+                final_text = " ".join(words[:max_words]) + "..."
+            else:
+                final_text = text
+
             if DEBUG_MODE:
                 logger.debug(
-                    f"⚠️ Failed to scrape {url}: {e}",
+                    f"✅ Scraped {url}",
                     extra={
                         "extra_data": {
                             "url": url,
-                            "error": str(e),
-                            "duration": time.time() - scrape_start,
+                            "word_count": len(words),
+                            "truncated": truncated,
+                            "final_word_count": min(len(words), max_words),
+                            "duration_seconds": time.time() - scrape_start,
+                            "preview": final_text[:200] + "..."
+                            if final_text
+                            else "No content",
                         }
                     },
                 )
+
+            # Always log scrape summary in INFO
+            logger.info(
+                f"📄 Scraped {len(words)} words from {url} ({time.time() - scrape_start:.2f}s)"
+            )
+
+            return final_text
+
+        except httpx.ConnectError as e:
+            # Surface SSL / connection issues clearly for debugging, but don't fail the request.
+            logger.warning(f"⚠️ Connection/SSL error while scraping {url}: {e}")
+            return ""
+        except Exception as e:
+            logger.warning(f"⚠️ Failed to scrape {url}: {e}")
             return ""

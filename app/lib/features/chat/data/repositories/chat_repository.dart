@@ -37,6 +37,7 @@ class StreamEvent {
   bool get isContent => type == 'content';
   bool get isDone => type == 'done';
   bool get isError => type == 'error';
+  bool get isSearchResults => type == 'search_results';
 }
 
 class ChatRepository {
@@ -152,6 +153,8 @@ class ChatRepository {
     String prompt, {
     String? systemPrompt,
     List<ChatMessage>? history,
+    bool webSearchEnabled = false,
+    String webSearchDepth = 'normal',
   }) async* {
     final baseUrl = _configStorage.getBaseUrl();
     if (baseUrl == null) {
@@ -160,7 +163,11 @@ class ChatRepository {
     }
 
     try {
-      final data = <String, dynamic>{'prompt': prompt};
+      final data = <String, dynamic>{
+        'prompt': prompt,
+        'web_search_enabled': webSearchEnabled,
+        'web_search_depth': webSearchDepth,
+      };
 
       if (systemPrompt != null && systemPrompt.isNotEmpty) {
         data['system_prompt'] = systemPrompt;

@@ -53,6 +53,10 @@ class WebSearchModeSelector extends ConsumerWidget {
         // Keep keyboard dismissed when menu is cancelled
         FocusScope.of(context).unfocus();
       },
+      onOpened: () {
+        // Dismiss keyboard when menu opens
+        FocusScope.of(context).unfocus();
+      },
       itemBuilder: (context) => [
         _buildMenuItem(
           'deep',
@@ -81,49 +85,43 @@ class WebSearchModeSelector extends ConsumerWidget {
           isDestructive: true,
         ),
       ],
-      child: GestureDetector(
-        onTap: () {
-          // Dismiss keyboard before opening menu
-          FocusScope.of(context).unfocus();
-        },
-        child: Container(
-          height: 36,
-          padding: EdgeInsets.symmetric(horizontal: isActive ? 12 : 0),
-          width: isActive ? null : 36,
-          decoration: BoxDecoration(
-            color: isActive
-                ? AppColors.primary.withValues(alpha: 0.1)
-                : AppColors.surfaceLight.withValues(alpha: 0.2),
-            borderRadius: BorderRadius.circular(18),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                icon,
-                size: 18,
-                color: isActive
-                    ? AppColors.primary
-                    : AppColors.secondary.withValues(alpha: 0.5),
-              ),
-              if (isActive) ...[
-                const SizedBox(width: 6),
-                ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 120),
-                  child: Text(
-                    label,
-                    style: GoogleFonts.inter(
-                      color: AppColors.primary,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                    ),
-                    overflow: TextOverflow.ellipsis,
+      child: Container(
+        height: 36,
+        padding: EdgeInsets.symmetric(horizontal: isActive ? 12 : 0),
+        width: isActive ? null : 36,
+        decoration: BoxDecoration(
+          color: isActive
+              ? AppColors.primary.withValues(alpha: 0.1)
+              : AppColors.surfaceLight.withValues(alpha: 0.2),
+          borderRadius: BorderRadius.circular(18),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              icon,
+              size: 18,
+              color: isActive
+                  ? AppColors.primary
+                  : AppColors.secondary.withValues(alpha: 0.5),
+            ),
+            if (isActive) ...[
+              const SizedBox(width: 6),
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 120),
+                child: Text(
+                  label,
+                  style: GoogleFonts.inter(
+                    color: AppColors.primary,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
                   ),
+                  overflow: TextOverflow.ellipsis,
                 ),
-              ],
+              ),
             ],
-          ),
+          ],
         ),
       ),
     );

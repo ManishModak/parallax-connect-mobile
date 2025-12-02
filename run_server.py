@@ -19,8 +19,9 @@ def check_and_install_dependencies():
         "pyngrok": "pyngrok",
         "qrcode": "qrcode",
         "httpx": "httpx",
-        "duckduckgo_search": "duckduckgo-search",
+        "ddgs": "ddgs",
         "bs4": "beautifulsoup4",
+        "lxml": "lxml",
     }
 
     missing = []
@@ -111,6 +112,8 @@ def main():
     # Set Environment Variables
     os.environ["SERVER_MODE"] = mode
     os.environ["LOG_LEVEL"] = log_level
+    if mode == "DEBUG":
+        os.environ["DEBUG_MODE"] = "true"
 
     print(f"\nStarting server in {mode} mode with LOG_LEVEL={log_level}...")
     print("------------------------------------------------------------\n")

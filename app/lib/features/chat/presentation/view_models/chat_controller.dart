@@ -79,7 +79,21 @@ class ChatController extends Notifier<ChatState> {
     }
   }
 
-  Future<void> editMessage(ChatMessage message, String newText) async {
+  void startEditing(ChatMessage message) {
+    state = state.copyWith(editingMessage: message);
+  }
+
+  void cancelEditing() {
+    state = state.copyWith(editingMessage: null);
+  }
+
+  Future<void> submitEdit(String newText) async {
+    final message = state.editingMessage;
+    if (message == null) return;
+
+    // Clear editing state
+    state = state.copyWith(editingMessage: null);
+
     // Remove the message and all subsequent messages
     final index = state.messages.indexOf(message);
     if (index != -1) {
@@ -88,6 +102,12 @@ class ChatController extends Notifier<ChatState> {
       // Send the new text
       await sendMessage(newText, attachmentPaths: message.attachmentPaths);
     }
+  }
+
+  Future<void> editMessage(ChatMessage message, String newText) async {
+    // Legacy method, keeping for compatibility if needed, but submitEdit is preferred for inline flow
+    startEditing(message);
+    await submitEdit(newText);
   }
 
   Future<void> sendMessage(
@@ -189,6 +209,11 @@ class ChatController extends Notifier<ChatState> {
                 state = state.copyWith(
                   searchStatusMessage:
                       'Found ${searchResult.results.length} results',
+                  lastSearchMetadata: {
+                    'query': searchResult.searchQuery,
+                    'results': searchResult.results,
+                    'summary': searchResult.summary,
+                  },
                 );
               } else {
                 state = state.copyWith(searchStatusMessage: 'No results found');
@@ -282,6 +307,8 @@ class ChatController extends Notifier<ChatState> {
           contextText,
           systemPrompt: systemPrompt,
           history: history,
+          webSearchEnabled: state.webSearchMode != 'off',
+          webSearchDepth: state.webSearchMode,
         )
         .listen(
           (event) {
@@ -322,6 +349,19 @@ class ChatController extends Notifier<ChatState> {
                 isSearchingWeb: isSearching,
                 searchStatusMessage: statusMsg,
               );
+            } else if (event.isSearchResults) {
+              // Handle structured search results from middleware
+              final results = event.metadata?['results'] ?? [];
+              if (results is List && results.isNotEmpty) {
+                state = state.copyWith(
+                  lastSearchMetadata: {
+                    'query': event.metadata?['query'] ?? 'Search Query',
+                    'results': results,
+                  },
+                  searchStatusMessage: 'Found ${results.length} results',
+                  isSearchingWeb: false, // Stop spinner
+                );
+              }
             } else if (event.isContent) {
               // Trigger haptic feedback for streaming content (typing feel)
               _hapticsHelper.triggerStreamingHaptic();
@@ -372,6 +412,10 @@ class ChatController extends Notifier<ChatState> {
       text: state.streamingContent,
       isUser: false,
       timestamp: DateTime.now(),
+      thinkingContent: state.thinkingContent.isNotEmpty
+          ? state.thinkingContent
+          : null,
+      searchMetadata: state.lastSearchMetadata,
     );
 
     state = state.copyWith(
@@ -380,6 +424,7 @@ class ChatController extends Notifier<ChatState> {
       streamingContent: '',
       thinkingContent: '',
       isThinking: false,
+      lastSearchMetadata: null, // Clear search metadata after using it
     );
 
     _saveAiMessage(aiMessage);
@@ -410,11 +455,13 @@ class ChatController extends Notifier<ChatState> {
       text: response,
       isUser: false,
       timestamp: DateTime.now(),
+      searchMetadata: state.lastSearchMetadata,
     );
 
     state = state.copyWith(
       messages: [...state.messages, aiMessage],
       isLoading: false,
+      lastSearchMetadata: null, // Clear search metadata after using it
     );
 
     await _saveAiMessage(aiMessage);

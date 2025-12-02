@@ -26,6 +26,7 @@ def create_app() -> FastAPI:
     from .services.service_manager import service_manager
 
     app.add_event_handler("startup", service_manager.initialize_services)
+    app.add_event_handler("shutdown", service_manager.shutdown)
 
     # Add Middleware
     app.add_middleware(LogMiddleware)

@@ -2,11 +2,11 @@
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse, Response, StreamingResponse
-import httpx
 
 from ..auth import check_password
 from ..config import PARALLAX_UI_URL
 from ..logging_setup import get_logger
+from ..services.http_client import get_async_http_client
 
 router = APIRouter()
 logger = get_logger(__name__)
@@ -25,8 +25,8 @@ async def ui_redirect(_: bool = Depends(check_password)):
 async def ui_index(_: bool = Depends(check_password)):
     """Serve the Parallax UI index page."""
     try:
-        async with httpx.AsyncClient() as client:
-            resp = await client.get(f"{PARALLAX_UI_URL}/", timeout=10.0)
+        client = await get_async_http_client()
+        resp = await client.get(f"{PARALLAX_UI_URL}/", timeout=10.0)
 
             content = resp.text
             content = content.replace('href="/', 'href="/ui/')
@@ -51,9 +51,9 @@ async def ui_proxy(path: str, request: Request, _: bool = Depends(check_password
         if request.query_params:
             target_url += f"?{request.query_params}"
 
-        async with httpx.AsyncClient() as client:
-            resp = await client.get(target_url, timeout=30.0)
-            content_type = resp.headers.get("content-type", "application/octet-stream")
+        client = await get_async_http_client()
+        resp = await client.get(target_url, timeout=30.0)
+        content_type = resp.headers.get("content-type", "application/octet-stream")
 
             if "text/html" in content_type:
                 content = resp.text
@@ -81,42 +81,43 @@ async def ui_api_proxy(path: str, request: Request, _: bool = Depends(check_pass
         if request.query_params:
             target_url += f"?{request.query_params}"
 
-        async with httpx.AsyncClient() as client:
-            body = await request.body()
+        client = await get_async_http_client()
+        body = await request.body()
 
-            resp = await client.request(
-                method=request.method,
-                url=target_url,
-                content=body if body else None,
-                headers={
-                    k: v for k, v in request.headers.items()
-                    if k.lower() not in ["host", "content-length"]
-                },
-                timeout=60.0,
-            )
+        resp = await client.request(
+            method=request.method,
+            url=target_url,
+            content=body if body else None,
+            headers={
+                k: v
+                for k, v in request.headers.items()
+                if k.lower() not in ["host", "content-length"]
+            },
+            timeout=60.0,
+        )
 
-            content_type = resp.headers.get("content-type", "application/json")
+        content_type = resp.headers.get("content-type", "application/json")
 
-            # Handle SSE streams
-            if "text/event-stream" in content_type or "application/x-ndjson" in content_type:
-                async def stream_response():
-                    async with httpx.AsyncClient() as stream_client:
-                        async with stream_client.stream(
-                            method=request.method,
-                            url=target_url,
-                            content=body if body else None,
-                            timeout=None,
-                        ) as stream_resp:
-                            async for chunk in stream_resp.aiter_bytes():
-                                yield chunk
+        # Handle SSE streams
+        if "text/event-stream" in content_type or "application/x-ndjson" in content_type:
+            async def stream_response():
+                stream_client = await get_async_http_client()
+                async with stream_client.stream(
+                    method=request.method,
+                    url=target_url,
+                    content=body if body else None,
+                    timeout=60.0,
+                ) as stream_resp:
+                    async for chunk in stream_resp.aiter_bytes():
+                        yield chunk
 
-                return StreamingResponse(stream_response(), media_type=content_type)
+            return StreamingResponse(stream_response(), media_type=content_type)
 
-            return Response(
-                content=resp.content,
-                status_code=resp.status_code,
-                media_type=content_type,
-            )
+        return Response(
+            content=resp.content,
+            status_code=resp.status_code,
+            media_type=content_type,
+        )
     except Exception as e:
         logger.error(f"❌ UI API proxy error for {path}: {e}")
         return Response(content=str(e), status_code=503)

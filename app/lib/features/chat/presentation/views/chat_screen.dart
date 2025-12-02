@@ -16,7 +16,6 @@ import '../widgets/chat_input_area.dart';
 import '../widgets/messages/streaming_message_bubble.dart';
 import '../widgets/indicators/collapsible_thinking_indicator.dart';
 import '../widgets/indicators/searching_indicator.dart';
-import '../widgets/dialogs/edit_message_dialog.dart';
 
 class ChatScreen extends ConsumerStatefulWidget {
   const ChatScreen({super.key});
@@ -187,6 +186,18 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                             context,
                             index,
                           ) {
+                            // Retrace Logic:
+                            // If editing, only show messages before the one being edited.
+                            // The edited message itself is in the input area.
+                            if (chatState.editingMessage != null) {
+                              final editingIndex = chatState.messages.indexOf(
+                                chatState.editingMessage!,
+                              );
+                              if (editingIndex != -1 && index >= editingIndex) {
+                                return const SizedBox.shrink();
+                              }
+                            }
+
                             final message = chatState.messages[index];
                             return ChatMessageBubble(
                               message: message,
@@ -200,13 +211,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                 ref
                                     .read(hapticsHelperProvider)
                                     .triggerHaptics();
-                                showDialog(
-                                  context: context,
-                                  builder: (dialogContext) => EditMessageDialog(
-                                    message: message,
-                                    controller: chatController,
-                                  ),
-                                );
+                                chatController.startEditing(message);
                               },
                             );
                           }, childCount: chatState.messages.length),

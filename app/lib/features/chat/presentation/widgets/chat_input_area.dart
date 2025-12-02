@@ -13,6 +13,7 @@ import 'chat_input/attachment_menu_handler.dart';
 import 'chat_input/attachment_preview.dart';
 import 'chat_input/model_selector.dart';
 import 'chat_input/web_search_mode_selector.dart';
+import '../view_models/chat_controller.dart';
 
 class ChatInputArea extends ConsumerStatefulWidget {
   final Function(String text, List<String> attachmentPaths) onSubmitted;
@@ -97,15 +98,30 @@ class _ChatInputAreaState extends ConsumerState<ChatInputArea> {
 
   void _handleSubmit() {
     final text = _controller.text.trim();
+    final chatState = ref.read(chatControllerProvider);
+    final isEditing = chatState.editingMessage != null;
+
     if ((text.isNotEmpty || _selectedAttachments.isNotEmpty) &&
         !widget.isLoading) {
       ref.read(hapticsHelperProvider).triggerHaptics();
-      widget.onSubmitted(text, List.from(_selectedAttachments));
+
+      if (isEditing) {
+        ref.read(chatControllerProvider.notifier).submitEdit(text);
+      } else {
+        widget.onSubmitted(text, List.from(_selectedAttachments));
+      }
+
       _controller.clear();
       setState(() {
         _selectedAttachments.clear();
       });
     }
+  }
+
+  void _handleCancelEdit() {
+    ref.read(hapticsHelperProvider).triggerHaptics();
+    ref.read(chatControllerProvider.notifier).cancelEditing();
+    _controller.clear();
   }
 
   void _removeAttachment(int index) {
@@ -158,6 +174,31 @@ class _ChatInputAreaState extends ConsumerState<ChatInputArea> {
 
   @override
   Widget build(BuildContext context) {
+    final chatState = ref.watch(chatControllerProvider);
+    final isEditing = chatState.editingMessage != null;
+
+    // Listen for editing state changes to populate text field
+    ref.listen(chatControllerProvider, (previous, next) {
+      if (previous?.editingMessage != next.editingMessage) {
+        if (next.editingMessage != null) {
+          _controller.text = next.editingMessage!.text;
+          // Move cursor to end
+          _controller.selection = TextSelection.fromPosition(
+            TextPosition(offset: _controller.text.length),
+          );
+          // Focus the field
+          _focusNode.requestFocus();
+        } else {
+          // Cleared editing, clear text if it matches the old message (optional, but good for cancel)
+          // Actually _handleCancelEdit clears it, so we might not need to do it here unless external cancel
+          if (previous?.editingMessage != null) {
+            _controller.clear();
+            _focusNode.unfocus();
+          }
+        }
+      }
+    });
+
     return TapRegion(
       groupId: 'attachment_menu',
       onTapOutside: (_) {
@@ -198,7 +239,7 @@ class _ChatInputAreaState extends ConsumerState<ChatInputArea> {
                 maxLines: 6,
                 minLines: 2,
                 decoration: InputDecoration(
-                  hintText: 'Ask anything',
+                  hintText: isEditing ? 'Edit your message...' : 'Ask anything',
                   hintStyle: GoogleFonts.inter(color: AppColors.secondary),
                   border: InputBorder.none,
                   contentPadding: const EdgeInsets.symmetric(
@@ -236,7 +277,20 @@ class _ChatInputAreaState extends ConsumerState<ChatInputArea> {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  // Send/Voice Button
+                  // Cancel Edit Button
+                  if (isEditing) ...[
+                    IconButton(
+                      icon: const Icon(
+                        LucideIcons.x,
+                        size: 20,
+                        color: AppColors.secondary,
+                      ),
+                      onPressed: _handleCancelEdit,
+                      tooltip: 'Cancel Edit',
+                    ),
+                    const SizedBox(width: 8),
+                  ],
+                  // Send/Voice/Update Button
                   Container(
                     width: 36,
                     height: 36,
@@ -254,8 +308,10 @@ class _ChatInputAreaState extends ConsumerState<ChatInputArea> {
                                 color: AppColors.background,
                               ),
                             )
-                          : const Icon(
-                              LucideIcons.arrowUp,
+                          : Icon(
+                              isEditing
+                                  ? LucideIcons.check
+                                  : LucideIcons.arrowUp,
                               size: 20,
                               color: AppColors.background,
                             ),

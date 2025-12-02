@@ -1,12 +1,12 @@
 """Parallax service client for API communication."""
 
 import json
-import httpx
 import time
 from typing import Optional, Dict, Any
 
 from ..logging_setup import get_logger
 from ..config import DEBUG_MODE, TIMEOUT_FAST, MODEL_CACHE_TTL
+from .http_client import get_async_http_client
 
 logger = get_logger(__name__)
 
@@ -76,10 +76,8 @@ class ParallaxClient:
     async def check_connection(self) -> bool:
         """Test connection to Parallax service."""
         try:
-            async with httpx.AsyncClient() as client:
-                resp = await client.get(
-                    f"{self.base_url}/model/list", timeout=TIMEOUT_FAST
-                )
+            client = await get_async_http_client()
+            resp = await client.get(f"{self.base_url}/model/list", timeout=TIMEOUT_FAST)
                 return resp.status_code == 200
         except Exception:
             return False
@@ -101,11 +99,9 @@ class ParallaxClient:
             logger.debug("Fetching models from Parallax service")
 
         try:
-            async with httpx.AsyncClient() as client:
-                # Get supported models list
-                resp = await client.get(
-                    f"{self.base_url}/model/list", timeout=TIMEOUT_FAST
-                )
+            client = await get_async_http_client()
+            # Get supported models list
+            resp = await client.get(f"{self.base_url}/model/list", timeout=TIMEOUT_FAST)
                 if resp.status_code == 200:
                     response_data = resp.json()
 
@@ -232,10 +228,8 @@ class ParallaxClient:
         active_models = []
 
         try:
-            async with httpx.AsyncClient() as client:
-                resp = await client.get(
-                    f"{self.base_url}/model/list", timeout=TIMEOUT_FAST
-                )
+            client = await get_async_http_client()
+            resp = await client.get(f"{self.base_url}/model/list", timeout=TIMEOUT_FAST)
                 if resp.status_code == 200:
                     model_data = resp.json()
                     models = model_data.get("data", [])

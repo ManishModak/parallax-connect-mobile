@@ -19,6 +19,8 @@ class ChatState {
   final String currentSearchQuery;
   final String searchStatusMessage;
   final String webSearchMode; // 'off', 'normal', 'deep', 'deeper'
+  final ChatMessage? editingMessage;
+  final Map<String, dynamic>? lastSearchMetadata;
 
   const ChatState({
     this.messages = const [],
@@ -35,6 +37,8 @@ class ChatState {
     this.currentSearchQuery = '',
     this.searchStatusMessage = '',
     this.webSearchMode = 'deep',
+    this.editingMessage,
+    this.lastSearchMetadata,
   });
 
   ChatState copyWith({
@@ -52,6 +56,8 @@ class ChatState {
     String? currentSearchQuery,
     String? searchStatusMessage,
     String? webSearchMode,
+    ChatMessage? editingMessage,
+    Map<String, dynamic>? lastSearchMetadata,
   }) {
     return ChatState(
       messages: messages ?? this.messages,
@@ -68,6 +74,8 @@ class ChatState {
       currentSearchQuery: currentSearchQuery ?? this.currentSearchQuery,
       searchStatusMessage: searchStatusMessage ?? this.searchStatusMessage,
       webSearchMode: webSearchMode ?? this.webSearchMode,
+      editingMessage: editingMessage, // Allow null to clear editing state
+      lastSearchMetadata: lastSearchMetadata,
     );
   }
 }

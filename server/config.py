@@ -33,6 +33,8 @@ MODEL_CACHE_TTL = int(os.getenv("MODEL_CACHE_TTL", "60"))  # seconds
 TIMEOUT_DEFAULT = 60.0
 TIMEOUT_FAST = 5.0
 TIMEOUT_SEARCH = 15.0
+TIMEOUT_STREAM_CONNECT = 10.0
+TIMEOUT_STREAM_CHUNK = 30.0
 
 # Request Validation Limits
 MAX_PROMPT_LENGTH = int(os.getenv("MAX_PROMPT_LENGTH", "100000"))  # characters

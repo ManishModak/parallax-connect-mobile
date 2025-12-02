@@ -10,10 +10,18 @@ from fastapi.responses import StreamingResponse
 import httpx
 
 from ..auth import check_password
-from ..config import SERVER_MODE, PARALLAX_SERVICE_URL, DEBUG_MODE, TIMEOUT_DEFAULT
+from ..config import (
+    SERVER_MODE,
+    PARALLAX_SERVICE_URL,
+    DEBUG_MODE,
+    TIMEOUT_DEFAULT,
+    TIMEOUT_STREAM_CONNECT,
+    TIMEOUT_STREAM_CHUNK,
+)
 from ..models import ChatRequest
 from ..logging_setup import get_logger
 from ..services.service_manager import service_manager
+from ..services.http_client import get_async_http_client
 from ..utils.error_handler import handle_service_error, log_debug
 from ..utils.request_validator import validate_chat_request
 
@@ -46,7 +54,7 @@ async def chat_endpoint(
     )
 
     # Log full request in debug mode
-    log_debug("Full chat request payload", request_id, chat_request.dict())
+    log_debug("Full chat request payload", request_id, chat_request.model_dump())
 
     # Validate request
     validate_chat_request(
@@ -70,105 +78,105 @@ async def chat_endpoint(
             f"🔄 [{request_id}] Forwarding to Parallax at {PARALLAX_SERVICE_URL}"
         )
 
-        async with httpx.AsyncClient() as client:
-            # Inject search context into system prompt or user message
-            modified_request = chat_request.copy()
-            if search_context:
-                if modified_request.system_prompt:
-                    modified_request.system_prompt += search_context
-                else:
-                    modified_request.system_prompt = (
-                        "You are a helpful AI assistant.\n" + search_context
-                    )
-
-            messages = _build_messages(modified_request)
-            payload = _build_payload(modified_request, messages, stream=False)
-
-            log_debug(
-                "Proxy payload prepared",
-                request_id,
-                {"payload_keys": list(payload.keys())},
-            )
-
-            if DEBUG_MODE:
-                # Log full payload in debug mode for troubleshooting
-                logger.debug(
-                    f"[{request_id}] Full Parallax request payload",
-                    extra={
-                        "request_id": request_id,
-                        "extra_data": {
-                            "model": payload.get("model"),
-                            "message_count": len(payload.get("messages", [])),
-                            "max_tokens": payload.get("max_tokens"),
-                            "sampling_params": payload.get("sampling_params"),
-                            "stream": payload.get("stream"),
-                            # Include first/last messages for context
-                            "first_message": payload.get("messages", [{}])[0]
-                            if payload.get("messages")
-                            else None,
-                            "last_message": payload.get("messages", [{}])[-1]
-                            if payload.get("messages")
-                            else None,
-                        },
-                    },
+        client = await get_async_http_client()
+        # Inject search context into system prompt or user message
+        modified_request = chat_request.model_copy()
+        if search_context:
+            if modified_request.system_prompt:
+                modified_request.system_prompt += search_context
+            else:
+                modified_request.system_prompt = (
+                    "You are a helpful AI assistant.\n" + search_context
                 )
 
-            resp = await client.post(
-                PARALLAX_SERVICE_URL, json=payload, timeout=TIMEOUT_DEFAULT
-            )
+        messages = _build_messages(modified_request)
+        payload = _build_payload(modified_request, messages, stream=False)
 
-            if resp.status_code != 200:
-                raise HTTPException(
-                    status_code=resp.status_code, detail=f"Parallax Error: {resp.text}"
-                )
+        log_debug(
+            "Proxy payload prepared",
+            request_id,
+            {"payload_keys": list(payload.keys())},
+        )
 
-            data = resp.json()
-            choice = data["choices"][0]
-            raw_content = (
-                choice.get("messages", {}).get("content")
-                or choice.get("message", {}).get("content")
-                or ""
-            )
-
-            # Clean response - remove <think>...</think> tags
-            content = re.sub(
-                r"<think>.*?</think>", "", raw_content, flags=re.DOTALL
-            ).strip()
-            if not content:
-                content = raw_content
-
-            usage = data.get("usage", {})
-            elapsed = time.time() - start_time
-
-            logger.info(
-                f"✅ [{request_id}] Response received ({elapsed:.2f}s)",
+        if DEBUG_MODE:
+            # Log full payload in debug mode for troubleshooting
+            logger.debug(
+                f"[{request_id}] Full Parallax request payload",
                 extra={
                     "request_id": request_id,
                     "extra_data": {
-                        "duration_seconds": elapsed,
-                        "prompt_tokens": usage.get("prompt_tokens", 0),
-                        "completion_tokens": usage.get("completion_tokens", 0),
-                        "total_tokens": usage.get("total_tokens", 0),
-                        "model": data.get("model", "default"),
+                        "model": payload.get("model"),
+                        "message_count": len(payload.get("messages", [])),
+                        "max_tokens": payload.get("max_tokens"),
+                        "sampling_params": payload.get("sampling_params"),
+                        "stream": payload.get("stream"),
+                        # Include first/last messages for context
+                        "first_message": payload.get("messages", [{}])[0]
+                        if payload.get("messages")
+                        else None,
+                        "last_message": payload.get("messages", [{}])[-1]
+                        if payload.get("messages")
+                        else None,
                     },
                 },
             )
 
-            return {
-                "response": content,
-                "metadata": {
-                    "usage": {
-                        "prompt_tokens": usage.get("prompt_tokens", 0),
-                        "completion_tokens": usage.get("completion_tokens", 0),
-                        "total_tokens": usage.get("total_tokens", 0),
-                    },
-                    "timing": {
-                        "duration_ms": int(elapsed * 1000),
-                        "duration_seconds": round(elapsed, 2),
-                    },
+        resp = await client.post(
+            PARALLAX_SERVICE_URL, json=payload, timeout=TIMEOUT_DEFAULT
+        )
+
+        if resp.status_code != 200:
+            raise HTTPException(
+                status_code=resp.status_code, detail=f"Parallax Error: {resp.text}"
+            )
+
+        data = resp.json()
+        choice = data["choices"][0]
+        raw_content = (
+            choice.get("messages", {}).get("content")
+            or choice.get("message", {}).get("content")
+            or ""
+        )
+
+        # Clean response - remove <think>...</think> tags
+        content = re.sub(
+            r"<think>.*?</think>", "", raw_content, flags=re.DOTALL
+        ).strip()
+        if not content:
+            content = raw_content
+
+        usage = data.get("usage", {})
+        elapsed = time.time() - start_time
+
+        logger.info(
+            f"✅ [{request_id}] Response received ({elapsed:.2f}s)",
+            extra={
+                "request_id": request_id,
+                "extra_data": {
+                    "duration_seconds": elapsed,
+                    "prompt_tokens": usage.get("prompt_tokens", 0),
+                    "completion_tokens": usage.get("completion_tokens", 0),
+                    "total_tokens": usage.get("total_tokens", 0),
                     "model": data.get("model", "default"),
                 },
-            }
+            },
+        )
+
+        return {
+            "response": content,
+            "metadata": {
+                "usage": {
+                    "prompt_tokens": usage.get("prompt_tokens", 0),
+                    "completion_tokens": usage.get("completion_tokens", 0),
+                    "total_tokens": usage.get("total_tokens", 0),
+                },
+                "timing": {
+                    "duration_ms": int(elapsed * 1000),
+                    "duration_seconds": round(elapsed, 2),
+                },
+                "model": data.get("model", "default"),
+            },
+        }
 
     except Exception as e:
         return handle_service_error(e, "Chat Endpoint", request_id)
@@ -196,7 +204,7 @@ async def chat_stream_endpoint(
         },
     )
 
-    log_debug("Full stream request payload", request_id, chat_request.dict())
+    log_debug("Full stream request payload", request_id, chat_request.model_dump())
 
     # Validate request
     validate_chat_request(
@@ -282,21 +290,19 @@ async def _perform_smart_search(chat_request: ChatRequest, request_id: str) -> s
             )
 
             if search_results.get("results"):
-                # Format results for context
-                search_context = "\n\n[WEB SEARCH RESULTS]\n"
-                for i, res in enumerate(search_results["results"]):
-                    search_context += f"Source {i + 1}: {res['title']} ({res['url']})\n"
-                    if res.get("is_full_content"):
-                        search_context += (
-                            f"Content: {res.get('content', '')[:1000]}...\n"
-                        )
-                    else:
-                        search_context += f"Snippet: {res['snippet']}\n"
-                    search_context += "---\n"
-                search_context += "[END WEB SEARCH RESULTS]\n\n"
+                search_context = _build_search_context(search_results)
 
                 logger.info(
-                    f"✅ [{request_id}] Injected {len(search_results['results'])} search results"
+                    f"✅ [{request_id}] Injected {len(search_results['results'])} search results",
+                    extra={
+                        "extra_data": {
+                            "context_preview": search_context[:500] + "..."
+                            if len(search_context) > 500
+                            else search_context,
+                            "context_length": len(search_context),
+                            "sources": [r["url"] for r in search_results["results"]],
+                        }
+                    },
                 )
                 return search_context
             else:
@@ -311,6 +317,21 @@ async def _perform_smart_search(chat_request: ChatRequest, request_id: str) -> s
         # Don't fail the whole request, just log and continue without search context
 
     return ""
+
+
+def _build_search_context(search_results: dict) -> str:
+    """Format search results into a reusable context block for the model."""
+    results = search_results.get("results", [])
+    search_context = "\n\n[WEB SEARCH RESULTS]\n"
+    for i, res in enumerate(results):
+        search_context += f"Source {i + 1}: {res['title']} ({res['url']})\n"
+        if res.get("is_full_content"):
+            search_context += f"Content: {res.get('content', '')[:1000]}...\n"
+        else:
+            search_context += f"Snippet: {res['snippet']}\n"
+        search_context += "---\n"
+    search_context += "[END WEB SEARCH RESULTS]\n\n"
+    return search_context
 
 
 def _build_messages(request: ChatRequest) -> list:
@@ -396,7 +417,9 @@ async def _handle_mock_chat(chat_request: ChatRequest, request_id: str):
 
             search_start = time.time()
             try:
-                results = await web_search_service.search(query, depth="normal")
+                results = await web_search_service.search(
+                    query, depth=chat_request.web_search_depth
+                )
                 search_duration = time.time() - search_start
 
                 search_metadata = {
@@ -495,7 +518,7 @@ async def _mock_stream(request: ChatRequest):
             search_start = time.time()
             # Execute actual search service
             search_results = await web_search_service.search(
-                search_query, depth="normal"
+                search_query, depth=request.web_search_depth
             )
             search_duration = time.time() - search_start
 
@@ -610,22 +633,13 @@ async def _stream_from_parallax(request: ChatRequest, request_id: str):
                 )
 
                 if search_results.get("results"):
-                    yield f"data: {json.dumps({'type': 'thinking', 'content': f'Found {len(search_results["results"])} results. Reading content...'})}\n\n"
+                    # Yield structured search results first
+                    yield f"data: {json.dumps({'type': 'search_results', 'metadata': search_results})}\n\n"
+
+                    yield f"data: {json.dumps({'type': 'thinking', 'content': f'Found {len(search_results['results'])} results. Reading content...'})}\n\n"
 
                     # Format results for context
-                    search_context = "\n\n[WEB SEARCH RESULTS]\n"
-                    for i, res in enumerate(search_results["results"]):
-                        search_context += (
-                            f"Source {i + 1}: {res['title']} ({res['url']})\n"
-                        )
-                        if res.get("is_full_content"):
-                            search_context += (
-                                f"Content: {res.get('content', '')[:1000]}...\n"
-                            )
-                        else:
-                            search_context += f"Snippet: {res['snippet']}\n"
-                        search_context += "---\n"
-                    search_context += "[END WEB SEARCH RESULTS]\n\n"
+                    search_context = _build_search_context(search_results)
                 else:
                     yield f"data: {json.dumps({'type': 'thinking', 'content': 'No relevant results found.'})}\n\n"
             else:
@@ -637,7 +651,7 @@ async def _stream_from_parallax(request: ChatRequest, request_id: str):
 
     try:
         # Inject search context
-        modified_request = request.copy()
+        modified_request = request.model_copy()
         if search_context:
             if modified_request.system_prompt:
                 modified_request.system_prompt += search_context
@@ -651,99 +665,104 @@ async def _stream_from_parallax(request: ChatRequest, request_id: str):
 
         log_debug("Streaming payload prepared", request_id, {"payload": payload})
 
-        async with httpx.AsyncClient() as client:
-            async with client.stream(
-                "POST", PARALLAX_SERVICE_URL, json=payload, timeout=None
-            ) as response:
-                if response.status_code != 200:
-                    error_text = await response.aread()
-                    yield f"data: {json.dumps({'type': 'error', 'message': f'Parallax error: {error_text.decode()}'})}\n\n"
-                    return
+        client = await get_async_http_client()
+        async with client.stream(
+            "POST",
+            PARALLAX_SERVICE_URL,
+            json=payload,
+            timeout=httpx.Timeout(
+                TIMEOUT_STREAM_CHUNK, connect=TIMEOUT_STREAM_CONNECT
+            ),
+        ) as response:
+            if response.status_code != 200:
+                error_text = await response.aread()
+                yield f"data: {json.dumps({'type': 'error', 'message': f'Parallax error: {error_text.decode()}'})}\n\n"
+                return
 
-                buffer = ""
-                in_thinking = False
-                prompt_tokens = 0
-                completion_tokens = 0
+            buffer = ""
+            in_thinking = False
+            prompt_tokens = 0
+            completion_tokens = 0
 
-                async for line in response.aiter_lines():
-                    if not line.strip() or line.startswith(":"):
+            async for line in response.aiter_lines():
+                if not line.strip() or line.startswith(":"):
+                    continue
+
+                if line.startswith("data: "):
+                    data_str = line[6:]
+                    if data_str == "[DONE]":
+                        break
+
+                    try:
+                        data = json.loads(data_str)
+                        choices = data.get("choices", [{}])
+                        content = ""
+                        if choices:
+                            choice = choices[0]
+                            delta = choice.get("delta", {})
+                            content = (
+                                delta.get("content", "")
+                                or choice.get("message", {}).get("content", "")
+                                or choice.get("messages", {}).get("content", "")
+                                or choice.get("text", "")
+                            )
+
+                        usage = data.get("usage", {})
+                        if usage.get("prompt_tokens"):
+                            prompt_tokens = usage["prompt_tokens"]
+                        if usage.get("completion_tokens"):
+                            completion_tokens = usage["completion_tokens"]
+
+                        if content:
+                            buffer += content
+
+                            if "<think>" in buffer and not in_thinking:
+                                in_thinking = True
+                                buffer = buffer.replace("<think>", "")
+
+                            if "</think>" in buffer and in_thinking:
+                                in_thinking = False
+                                think_content = buffer.split("</think>")[0]
+                                if think_content.strip():
+                                    yield f"data: {json.dumps({'type': 'thinking', 'content': think_content})}\n\n"
+                                buffer = (
+                                    buffer.split("</think>", 1)[1]
+                                    if "</think>" in buffer
+                                    else ""
+                                )
+                                continue
+
+                            if in_thinking:
+                                if "\n" in buffer or len(buffer) > 50:
+                                    yield f"data: {json.dumps({'type': 'thinking', 'content': buffer})}\n\n"
+                                    buffer = ""
+                            else:
+                                if buffer:
+                                    yield f"data: {json.dumps({'type': 'content', 'content': buffer})}\n\n"
+                                    buffer = ""
+
+                    except json.JSONDecodeError:
                         continue
 
-                    if line.startswith("data: "):
-                        data_str = line[6:]
-                        if data_str == "[DONE]":
-                            break
+            if buffer.strip():
+                msg_type = "thinking" if in_thinking else "content"
+                yield f"data: {json.dumps({'type': msg_type, 'content': buffer})}\n\n"
 
-                        try:
-                            data = json.loads(data_str)
-                            choices = data.get("choices", [{}])
-                            content = ""
-                            if choices:
-                                choice = choices[0]
-                                delta = choice.get("delta", {})
-                                content = (
-                                    delta.get("content", "")
-                                    or choice.get("message", {}).get("content", "")
-                                    or choice.get("messages", {}).get("content", "")
-                                    or choice.get("text", "")
-                                )
-
-                            usage = data.get("usage", {})
-                            if usage.get("prompt_tokens"):
-                                prompt_tokens = usage["prompt_tokens"]
-                            if usage.get("completion_tokens"):
-                                completion_tokens = usage["completion_tokens"]
-
-                            if content:
-                                buffer += content
-
-                                if "<think>" in buffer and not in_thinking:
-                                    in_thinking = True
-                                    buffer = buffer.replace("<think>", "")
-
-                                if "</think>" in buffer and in_thinking:
-                                    in_thinking = False
-                                    think_content = buffer.split("</think>")[0]
-                                    if think_content.strip():
-                                        yield f"data: {json.dumps({'type': 'thinking', 'content': think_content})}\n\n"
-                                    buffer = (
-                                        buffer.split("</think>", 1)[1]
-                                        if "</think>" in buffer
-                                        else ""
-                                    )
-                                    continue
-
-                                if in_thinking:
-                                    if "\n" in buffer or len(buffer) > 50:
-                                        yield f"data: {json.dumps({'type': 'thinking', 'content': buffer})}\n\n"
-                                        buffer = ""
-                                else:
-                                    if buffer:
-                                        yield f"data: {json.dumps({'type': 'content', 'content': buffer})}\n\n"
-                                        buffer = ""
-
-                        except json.JSONDecodeError:
-                            continue
-
-                if buffer.strip():
-                    msg_type = "thinking" if in_thinking else "content"
-                    yield f"data: {json.dumps({'type': msg_type, 'content': buffer})}\n\n"
-
-                elapsed = time.time() - start_time
-                logger.info(
-                    f"✅ [{request_id}] Stream completed ({elapsed:.2f}s)",
-                    extra={
-                        "request_id": request_id,
-                        "extra_data": {
-                            "duration_seconds": elapsed,
-                            "prompt_tokens": prompt_tokens,
-                            "completion_tokens": completion_tokens,
-                            "total_tokens": prompt_tokens + completion_tokens,
-                        },
+            elapsed = time.time() - start_time
+            logger.info(
+                f"✅ [{request_id}] Stream completed ({elapsed:.2f}s)",
+                extra={
+                    "request_id": request_id,
+                    "extra_data": {
+                        "duration_seconds": elapsed,
+                        "prompt_tokens": prompt_tokens,
+                        "completion_tokens": completion_tokens,
+                        "total_tokens": prompt_tokens + completion_tokens,
                     },
-                )
+                },
+            )
 
-                yield f"data: {json.dumps({'type': 'done', 'metadata': {'prompt_tokens': prompt_tokens, 'completion_tokens': completion_tokens, 'duration_seconds': round(elapsed, 2)}})}\n\n"
+            yield f"data: {json.dumps({'type': 'done', 'metadata': {'prompt_tokens': prompt_tokens, 'completion_tokens': completion_tokens, 'duration_seconds': round(elapsed, 2)}})}\n\n"
 
     except httpx.ConnectError as e:
         logger.error(f"🔌 [{request_id}] Cannot connect to Parallax: {e}")

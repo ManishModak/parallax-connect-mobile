@@ -10,6 +10,7 @@ from ..logging_setup import get_logger
 from .parallax import ParallaxClient
 from .web_search import WebSearchService
 from .search_router import SearchRouter
+from .http_client import close_async_http_client
 
 logger = get_logger(__name__)
 
@@ -53,6 +54,11 @@ class ServiceManager:
         self.search_router = SearchRouter(self.parallax_client)
 
         logger.info("✅ All services initialized successfully")
+
+    async def shutdown(self):
+        """Gracefully shut down shared resources (HTTP clients, etc.)."""
+        logger.info("🧹 Shutting down Service Manager resources")
+        await close_async_http_client()
 
     def get_parallax_client(self) -> ParallaxClient:
         """Get the ParallaxClient instance."""

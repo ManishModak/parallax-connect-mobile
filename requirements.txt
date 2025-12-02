@@ -4,6 +4,6 @@ python-multipart
 pyngrok
 qrcode[pil]
 httpx
-duckduckgo-search
+ddgs
 beautifulsoup4
 lxml
