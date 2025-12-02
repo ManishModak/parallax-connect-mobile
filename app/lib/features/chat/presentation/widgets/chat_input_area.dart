@@ -36,6 +36,7 @@ class ChatInputArea extends ConsumerStatefulWidget {
 
 class _ChatInputAreaState extends ConsumerState<ChatInputArea> {
   final TextEditingController _controller = TextEditingController();
+  final FocusNode _focusNode = FocusNode();
   final List<String> _selectedAttachments = [];
   bool _isAttachmentMenuOpen = false;
   final LayerLink _layerLink = LayerLink();
@@ -44,19 +45,20 @@ class _ChatInputAreaState extends ConsumerState<ChatInputArea> {
   @override
   void dispose() {
     _controller.dispose();
+    _focusNode.dispose();
     _removeOverlay();
     super.dispose();
   }
 
   void _toggleAttachmentMenu() {
+    // Dismiss keyboard first
+    _focusNode.unfocus();
+
     if (_isAttachmentMenuOpen) {
       _removeOverlay();
     } else {
       _showOverlay();
     }
-    setState(() {
-      _isAttachmentMenuOpen = !_isAttachmentMenuOpen;
-    });
   }
 
   void _showOverlay() {
@@ -82,6 +84,7 @@ class _ChatInputAreaState extends ConsumerState<ChatInputArea> {
       },
     );
     Overlay.of(context).insert(_overlayEntry!);
+    setState(() => _isAttachmentMenuOpen = true);
   }
 
   void _removeOverlay() {
@@ -187,6 +190,7 @@ class _ChatInputAreaState extends ConsumerState<ChatInputArea> {
               // Text Input
               TextField(
                 controller: _controller,
+                focusNode: _focusNode,
                 style: GoogleFonts.inter(
                   color: AppColors.primary,
                   fontSize: 16,
@@ -215,12 +219,23 @@ class _ChatInputAreaState extends ConsumerState<ChatInputArea> {
                     child: _buildAttachmentButton(),
                   ),
                   const SizedBox(width: 8),
-                  // Web Search Mode Selector
-                  const WebSearchModeSelector(),
+                  // Scrollable Middle Section
+                  Expanded(
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // Web Search Mode Selector
+                          const WebSearchModeSelector(),
+                          const SizedBox(width: 8),
+                          // Model Selector
+                          const ModelSelector(),
+                        ],
+                      ),
+                    ),
+                  ),
                   const SizedBox(width: 8),
-                  // Model Selector
-                  const ModelSelector(),
-                  const Spacer(),
                   // Send/Voice Button
                   Container(
                     width: 36,

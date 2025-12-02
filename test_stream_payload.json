@@ -1,0 +1,6 @@
+{
+    "model": "mock-model",
+    "prompt": "search for latest ai news",
+    "web_search_enabled": true,
+    "messages": []
+}

@@ -4,9 +4,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
 import '../../../../../app/constants/app_colors.dart';
-import '../../../../../core/utils/haptics_helper.dart';
 
-class SearchingIndicator extends ConsumerStatefulWidget {
+class SearchingIndicator extends ConsumerWidget {
   final String statusMessage;
   final bool isSearching;
 
@@ -16,30 +15,79 @@ class SearchingIndicator extends ConsumerStatefulWidget {
     required this.isSearching,
   });
 
+  IconData _getIconForStatus(String status) {
+    final s = status.toLowerCase();
+    if (s.contains('searching')) return LucideIcons.search;
+    if (s.contains('browsing') || s.contains('reading'))
+      return LucideIcons.globe;
+    if (s.contains('found') || s.contains('result'))
+      return LucideIcons.fileText;
+    if (s.contains('analyzing')) return LucideIcons.brainCircuit;
+    return LucideIcons.loader;
+  }
+
   @override
-  ConsumerState<SearchingIndicator> createState() => _SearchingIndicatorState();
+  Widget build(BuildContext context, WidgetRef ref) {
+    final icon = _getIconForStatus(statusMessage);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 16),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Icon with subtle animation if searching
+          if (isSearching)
+            _PulsingIcon(icon: icon)
+          else
+            Icon(icon, size: 16, color: AppColors.secondary),
+
+          const SizedBox(width: 12),
+
+          // Status Text
+          Flexible(
+            child: Text(
+              statusMessage,
+              style: GoogleFonts.inter(
+                color: AppColors.secondary,
+                fontSize: 14,
+                fontWeight: FontWeight.w400,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
-class _SearchingIndicatorState extends ConsumerState<SearchingIndicator>
+class _PulsingIcon extends StatefulWidget {
+  final IconData icon;
+
+  const _PulsingIcon({required this.icon});
+
+  @override
+  State<_PulsingIcon> createState() => _PulsingIconState();
+}
+
+class _PulsingIconState extends State<_PulsingIcon>
     with SingleTickerProviderStateMixin {
-  bool _isExpanded = true; // Default to expanded for search to show progress
   late AnimationController _controller;
-  late Animation<double> _iconTurns;
-  late Animation<double> _heightFactor;
+  late Animation<double> _opacity;
 
   @override
   void initState() {
     super.initState();
     _controller = AnimationController(
-      duration: const Duration(milliseconds: 300),
+      duration: const Duration(milliseconds: 1500),
       vsync: this,
-      value: 1.0, // Start expanded
-    );
-    _iconTurns = Tween<double>(begin: 0.0, end: 0.5).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOutCubic),
-    );
+    )..repeat(reverse: true);
 
-    _heightFactor = _controller.view;
+    _opacity = Tween<double>(
+      begin: 0.5,
+      end: 1.0,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
   }
 
   @override
@@ -48,113 +96,11 @@ class _SearchingIndicatorState extends ConsumerState<SearchingIndicator>
     super.dispose();
   }
 
-  void _toggleExpanded() {
-    ref.read(hapticsHelperProvider).triggerHaptics();
-    setState(() {
-      _isExpanded = !_isExpanded;
-      if (_isExpanded) {
-        _controller.forward();
-      } else {
-        _controller.reverse();
-      }
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeInOut,
-      margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-      decoration: BoxDecoration(
-        color: _isExpanded
-            ? AppColors.surfaceLight.withValues(alpha: 0.5)
-            : AppColors.surfaceLight.withValues(alpha: 0.2),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: _isExpanded
-              ? AppColors.surfaceLight
-              : AppColors.surfaceLight.withValues(alpha: 0.3),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          InkWell(
-            onTap: _toggleExpanded,
-            borderRadius: BorderRadius.circular(16),
-            child: Padding(
-              padding: const EdgeInsets.all(12),
-              child: Row(
-                children: [
-                  if (widget.isSearching) ...[
-                    SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: AppColors.primary,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                  ] else ...[
-                    Icon(LucideIcons.globe, size: 16, color: AppColors.primary),
-                    const SizedBox(width: 12),
-                  ],
-                  Text(
-                    widget.isSearching ? 'Searching Web...' : 'Search Complete',
-                    style: GoogleFonts.inter(
-                      color: AppColors.primary,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  const Spacer(),
-                  RotationTransition(
-                    turns: _iconTurns,
-                    child: Icon(
-                      LucideIcons.chevronDown,
-                      size: 16,
-                      color: AppColors.secondary,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          ClipRect(
-            child: AnimatedBuilder(
-              animation: _controller,
-              builder: (context, child) {
-                return Align(
-                  heightFactor: _heightFactor.value,
-                  alignment: Alignment.topCenter,
-                  child: child,
-                );
-              },
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Divider(height: 1, color: AppColors.surfaceLight),
-                    const SizedBox(height: 12),
-                    Text(
-                      widget.statusMessage,
-                      style: GoogleFonts.firaCode(
-                        color: AppColors.secondary,
-                        fontSize: 12,
-                        height: 1.5,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
+    return FadeTransition(
+      opacity: _opacity,
+      child: Icon(widget.icon, size: 16, color: AppColors.primary),
     );
   }
 }

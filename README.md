@@ -65,6 +65,9 @@ Follow the on-screen prompts to start the server. You can choose **Normal Mode**
 **"Port already in use"**
 > Another program might be using port 8000. Close it or restart your computer.
 
+**"Local connection worked yesterday but not today"**
+> Your phone's WiFi MAC randomization may be interfering. See the [Troubleshooting Guide in SERVER_SETUP.md](SERVER_SETUP.md#-troubleshooting-local-connection-issues) for the fix.
+
 ---
 
 *Built with ❤️ for the Local AI Community.*

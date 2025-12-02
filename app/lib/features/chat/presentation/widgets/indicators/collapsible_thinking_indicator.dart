@@ -8,12 +8,10 @@ import '../../../../../core/utils/haptics_helper.dart';
 
 class CollapsibleThinkingIndicator extends ConsumerStatefulWidget {
   final String thinkingContent;
-  final bool isThinking;
 
   const CollapsibleThinkingIndicator({
     super.key,
     required this.thinkingContent,
-    required this.isThinking,
   });
 
   @override
@@ -88,26 +86,17 @@ class _CollapsibleThinkingIndicatorState
               padding: const EdgeInsets.all(12),
               child: Row(
                 children: [
-                  if (widget.isThinking) ...[
-                    SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: AppColors.secondary,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                  ] else ...[
-                    Icon(
-                      LucideIcons.brainCircuit,
-                      size: 16,
+                  SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
                       color: AppColors.secondary,
                     ),
-                    const SizedBox(width: 12),
-                  ],
+                  ),
+                  const SizedBox(width: 12),
                   Text(
-                    widget.isThinking ? 'Thinking...' : 'Thought Process',
+                    'Thinking...',
                     style: GoogleFonts.inter(
                       color: AppColors.secondary,
                       fontSize: 13,

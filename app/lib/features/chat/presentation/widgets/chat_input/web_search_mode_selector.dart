@@ -39,13 +39,19 @@ class WebSearchModeSelector extends ConsumerWidget {
     }
 
     return PopupMenuButton<String>(
-      offset: const Offset(0, -160), // Adjust to show above
+      offset: const Offset(0, -260), // Adjust to show above
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       color: AppColors.surface,
       elevation: 4,
       onSelected: (value) {
         ref.read(hapticsHelperProvider).triggerHaptics();
         ref.read(chatControllerProvider.notifier).setWebSearchMode(value);
+        // Keep keyboard dismissed after selection
+        FocusScope.of(context).unfocus();
+      },
+      onCanceled: () {
+        // Keep keyboard dismissed when menu is cancelled
+        FocusScope.of(context).unfocus();
       },
       itemBuilder: (context) => [
         _buildMenuItem(
@@ -75,43 +81,49 @@ class WebSearchModeSelector extends ConsumerWidget {
           isDestructive: true,
         ),
       ],
-      child: Container(
-        height: 36,
-        padding: EdgeInsets.symmetric(horizontal: isActive ? 12 : 0),
-        width: isActive ? null : 36,
-        decoration: BoxDecoration(
-          color: isActive
-              ? AppColors.primary.withValues(alpha: 0.1)
-              : AppColors.surfaceLight.withValues(alpha: 0.2),
-          borderRadius: BorderRadius.circular(18),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              icon,
-              size: 18,
-              color: isActive
-                  ? AppColors.primary
-                  : AppColors.secondary.withValues(alpha: 0.5),
-            ),
-            if (isActive) ...[
-              const SizedBox(width: 6),
-              ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 120),
-                child: Text(
-                  label,
-                  style: GoogleFonts.inter(
-                    color: AppColors.primary,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
+      child: GestureDetector(
+        onTap: () {
+          // Dismiss keyboard before opening menu
+          FocusScope.of(context).unfocus();
+        },
+        child: Container(
+          height: 36,
+          padding: EdgeInsets.symmetric(horizontal: isActive ? 12 : 0),
+          width: isActive ? null : 36,
+          decoration: BoxDecoration(
+            color: isActive
+                ? AppColors.primary.withValues(alpha: 0.1)
+                : AppColors.surfaceLight.withValues(alpha: 0.2),
+            borderRadius: BorderRadius.circular(18),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                icon,
+                size: 18,
+                color: isActive
+                    ? AppColors.primary
+                    : AppColors.secondary.withValues(alpha: 0.5),
               ),
+              if (isActive) ...[
+                const SizedBox(width: 6),
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 120),
+                  child: Text(
+                    label,
+                    style: GoogleFonts.inter(
+                      color: AppColors.primary,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );

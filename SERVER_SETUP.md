@@ -117,3 +117,56 @@ A:
 * Check if your firewall is blocking Python.
 * Ensure your phone is on the same Wi-Fi (for Local Mode).
 * Try using Cloud Mode (Ngrok) if local connection fails.
+
+---
+
+## 🔧 Troubleshooting Local Connection Issues
+
+### Issue: "It worked yesterday but not connecting today" (Random MAC Address)
+
+**Symptom**: Local Mode worked fine before, but now fails to connect even though both devices are on the same Wi-Fi.
+
+**Root Cause**: Modern Android/iOS devices use **MAC Address Randomization** for privacy. This can occasionally cause network routing issues.
+
+**Solution**: Set WiFi to use **Device MAC** instead of random MAC:
+
+#### Android
+
+1. Open **Settings** → **Wi-Fi**
+2. Long-press your current Wi-Fi network → **Modify network**
+3. Tap **Advanced options**
+4. Under **Privacy**, change from **"Randomized MAC"** to **"Use device MAC"**
+5. Tap **Save**
+6. Reconnect to WiFi and retry connection
+
+#### iOS
+
+1. Open **Settings** → **Wi-Fi**
+2. Tap the **(i)** icon next to your connected network
+3. Toggle **OFF** the option **"Private Wi-Fi Address"**
+4. Reconnect to WiFi and retry connection
+
+**Note**: This is only needed if you experience intermittent connection issues. Random MAC usually works fine.
+
+### Issue: Firewall Blocking Connection
+
+**Symptom**: Server starts successfully but app cannot reach it.
+
+**Solution**:
+
+* **Windows**: Allow Python through Windows Defender Firewall
+  * Go to **Settings** → **Privacy & Security** → **Windows Security** → **Firewall & network protection**
+  * Click **Allow an app through firewall**
+  * Find Python and ensure both **Private** and **Public** are checked
+  
+* **macOS**: Allow Python in System Preferences → Security & Privacy → Firewall
+
+### Issue: Wrong Network Interface
+
+**Symptom**: Server shows IP like `192.168.56.1` but phone is on `192.168.1.x`
+
+**Solution**:
+
+* Ensure computer is connected to the **same WiFi network** as phone (not Ethernet/VPN)
+* Disable VPN on both devices
+* If using virtual machines (VMware/VirtualBox), disable their network adapters temporarily

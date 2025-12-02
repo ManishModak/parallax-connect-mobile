@@ -40,13 +40,8 @@ class ChatController extends Notifier<ChatState> {
     _hapticsHelper = ref.read(hapticsHelperProvider);
     _smartSearchService = ref.read(smartSearchServiceProvider);
 
-    _loadHistory();
-    return const ChatState();
-  }
-
-  Future<void> _loadHistory() async {
     final messages = _historyStorage.getHistory();
-    state = state.copyWith(
+    return ChatState(
       messages: messages.map((m) => ChatMessage.fromMap(m)).toList(),
     );
   }

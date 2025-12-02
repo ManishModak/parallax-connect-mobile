@@ -16,7 +16,6 @@ import '../widgets/chat_input_area.dart';
 import '../widgets/messages/streaming_message_bubble.dart';
 import '../widgets/indicators/collapsible_thinking_indicator.dart';
 import '../widgets/indicators/searching_indicator.dart';
-import '../widgets/indicators/app_icon_shimmer.dart';
 import '../widgets/dialogs/edit_message_dialog.dart';
 
 class ChatScreen extends ConsumerStatefulWidget {
@@ -222,11 +221,23 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                           ),
                         ),
 
-                      // Show thinking indicator (For Analysis OR Generation)
-                      if (chatState.isAnalyzingIntent ||
-                          (chatState.isStreaming &&
-                              chatState.isThinking &&
-                              !chatState.isSearchingWeb))
+                      // Show analyzing indicator (Minimal style)
+                      if (chatState.isAnalyzingIntent)
+                        SliverToBoxAdapter(
+                          child: SearchingIndicator(
+                            statusMessage:
+                                chatState.searchStatusMessage.isNotEmpty
+                                ? chatState.searchStatusMessage
+                                : 'Analyzing intent...',
+                            isSearching: true, // Triggers the pulse animation
+                          ),
+                        ),
+
+                      // Show thinking indicator (Only for actual generation/thinking content)
+                      if (chatState.isStreaming &&
+                          chatState.isThinking &&
+                          !chatState.isSearchingWeb &&
+                          !chatState.isAnalyzingIntent)
                         SliverToBoxAdapter(
                           child: Builder(
                             builder: (context) {
@@ -235,22 +246,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                   (s) => s.showThinking,
                                 ),
                               );
-                              if (!showThinking &&
-                                  !chatState.isAnalyzingIntent) {
-                                return const AppIconShimmer();
+                              if (!showThinking) {
+                                return const SizedBox.shrink();
                               }
 
-                              // During analysis, use the status message (e.g., "Analyzing intent...")
-                              // During generation, use the streaming thinking content
-                              final content = chatState.isAnalyzingIntent
-                                  ? (chatState.searchStatusMessage.isNotEmpty
-                                        ? chatState.searchStatusMessage
-                                        : 'Thinking...')
-                                  : chatState.thinkingContent;
-
                               return CollapsibleThinkingIndicator(
-                                thinkingContent: content,
-                                isThinking: true,
+                                thinkingContent: chatState.thinkingContent,
                               );
                             },
                           ),
@@ -264,9 +265,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                             isComplete: false,
                           ),
                         ),
-                      // Show shimmer for non-streaming loading
-                      if (chatState.isLoading && !chatState.isStreaming)
-                        const SliverToBoxAdapter(child: AppIconShimmer()),
                     ],
                   ),
           ),

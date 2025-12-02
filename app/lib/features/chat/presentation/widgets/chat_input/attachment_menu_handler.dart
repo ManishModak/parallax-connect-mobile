@@ -24,7 +24,7 @@ class AttachmentMenuHandler {
         child: CompositedTransformFollower(
           link: layerLink,
           showWhenUnlinked: false,
-          offset: const Offset(0, -180),
+          offset: const Offset(0, -220),
           child: TapRegion(
             groupId: 'attachment_menu',
             child: AttachmentMenu(

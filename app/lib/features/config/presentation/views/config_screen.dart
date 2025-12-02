@@ -143,10 +143,12 @@ class _ConfigScreenState extends ConsumerState<ConfigScreen> {
         if (!mounted) return;
         context.go(AppRoutes.chat);
       } else {
-        _showErrorSnackBar(
-          'Failed to connect to server. Please check the URL and try again.',
-          LucideIcons.serverOff,
-        );
+        // Provide mode-specific troubleshooting hints
+        final errorMessage = _isLocal
+            ? 'Failed to connect. Check: 1) Same WiFi network 2) Server is running 3) Firewall allows connection. If it worked before, try disabling WiFi MAC randomization in phone settings.'
+            : 'Failed to connect. Check: 1) Internet connection 2) Server is running 3) URL is correct.';
+
+        _showErrorSnackBar(errorMessage, LucideIcons.serverOff);
       }
     }
   }

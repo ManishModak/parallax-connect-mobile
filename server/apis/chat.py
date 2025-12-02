@@ -347,38 +347,132 @@ def _build_payload(request: ChatRequest, messages: list, stream: bool = False) -
 
 
 async def _handle_mock_chat(chat_request: ChatRequest, request_id: str):
-    """Handle mock chat request."""
-    logger.info(f"📤 [{request_id}] Returning MOCK response")
+    """Handle mock chat request with comprehensive debugging."""
+    start_time = time.time()
+
+    # Log initial request details (matching proxy mode)
+    logger.info(
+        f"📤 [{request_id}] Processing MOCK request",
+        extra={
+            "request_id": request_id,
+            "extra_data": {
+                "model": chat_request.model,
+                "prompt_length": len(chat_request.prompt),
+                "web_search": chat_request.web_search_enabled,
+                "mock_mode": True,
+            },
+        },
+    )
+
+    # Debug payload logging
+    if DEBUG_MODE:
+        log_debug(
+            "Mock request payload",
+            request_id,
+            {
+                "model": chat_request.model,
+                "messages_count": len(chat_request.messages)
+                if chat_request.messages
+                else 0,
+                "max_tokens": chat_request.max_tokens,
+                "sampling_params": {
+                    "temperature": chat_request.temperature,
+                    "top_p": chat_request.top_p,
+                },
+                "stream": False,
+            },
+        )
 
     web_search_service = service_manager.get_web_search_service()
+    response_content = ""
+    search_metadata = {}
 
     # Check for search keyword
     if "search for" in chat_request.prompt.lower():
         match = re.search(r"search for (.*)", chat_request.prompt, re.IGNORECASE)
         if match:
             query = match.group(1).strip()
+            logger.info(f"🔍 [{request_id}] [MOCK] Detected search query: '{query}'")
+
+            search_start = time.time()
             try:
                 results = await web_search_service.search(query, depth="normal")
+                search_duration = time.time() - search_start
+
+                search_metadata = {
+                    "query": query,
+                    "results_count": len(results.get("results", [])),
+                    "duration": search_duration,
+                }
+
+                log_debug("Mock search results", request_id, search_metadata)
+
                 if results.get("results"):
-                    response_text = f"### 🔍 Search Results for '{query}'\n\n"
+                    response_content = f"### 🔍 Search Results for '{query}'\n\n"
                     for i, res in enumerate(results["results"]):
-                        response_text += f"**{i + 1}. [{res['title']}]({res['url']})**\n> {res['snippet']}\n\n"
-                    return {"response": response_text}
+                        response_content += f"**{i + 1}. [{res['title']}]({res['url']})**\n> {res['snippet']}\n\n"
                 else:
-                    return {
-                        "response": f"I searched for '{query}' but found no results."
-                    }
+                    response_content = f"I searched for '{query}' but found no results."
+
             except Exception as e:
-                return {"response": f"Search error: {e}"}
+                logger.error(f"❌ [{request_id}] [MOCK] Search error: {e}")
+                response_content = f"Search error: {e}"
+
+    if not response_content:
+        response_content = f"[MOCK] Server received: '{chat_request.prompt}'. \n\n(Tip: Try 'search for python' to test web search)"
+
+    elapsed = time.time() - start_time
+
+    # Log completion (matching proxy mode)
+    logger.info(
+        f"✅ [{request_id}] [MOCK] Response generated ({elapsed:.2f}s)",
+        extra={
+            "request_id": request_id,
+            "extra_data": {
+                "duration_seconds": elapsed,
+                "response_length": len(response_content),
+                "search_performed": bool(search_metadata),
+                **search_metadata,
+            },
+        },
+    )
 
     return {
-        "response": f"[MOCK] Server received: '{chat_request.prompt}'. \n\n(Tip: Try 'search for python' to test web search)"
+        "response": response_content,
+        "metadata": {
+            "usage": {
+                "prompt_tokens": 10,
+                "completion_tokens": len(response_content.split()),
+                "total_tokens": 10 + len(response_content.split()),
+            },
+            "timing": {
+                "duration_ms": int(elapsed * 1000),
+                "duration_seconds": round(elapsed, 2),
+            },
+            "model": "mock-model",
+        },
     }
 
 
 async def _mock_stream(request: ChatRequest):
-    """Generate mock streaming response with REAL web search capabilities."""
+    """Generate mock streaming response with REAL web search capabilities and full logging."""
+    request_id = datetime.now().strftime("%Y%m%d%H%M%S%f")
+    start_time = time.time()
+
+    logger.info(
+        f"🌊 [{request_id}] Starting MOCK stream",
+        extra={
+            "request_id": request_id,
+            "extra_data": {
+                "model": request.model,
+                "stream": True,
+                "web_search": request.web_search_enabled,
+            },
+        },
+    )
+
     web_search_service = service_manager.get_web_search_service()
+    total_content = ""
 
     # 1. Analyze Intent (Mocked)
     yield f"data: {json.dumps({'type': 'thinking', 'content': 'Analyzing intent...'})}\n\n"
@@ -390,19 +484,30 @@ async def _mock_stream(request: ChatRequest):
         match = re.search(r"search for (.*)", request.prompt, re.IGNORECASE)
         if match:
             search_query = match.group(1).strip()
+            log_debug("Mock stream search intent", request_id, {"query": search_query})
 
     if search_query:
         # 2. Perform Real Search
         yield f"data: {json.dumps({'type': 'thinking', 'content': f'Searching for "{search_query}"...'})}\n\n"
+        logger.info(f"🔍 [{request_id}] [MOCK] Stream searching: {search_query}")
 
         try:
+            search_start = time.time()
             # Execute actual search service
             search_results = await web_search_service.search(
                 search_query, depth="normal"
             )
+            search_duration = time.time() - search_start
 
             if search_results.get("results"):
                 count = len(search_results["results"])
+
+                log_debug(
+                    "Mock stream search success",
+                    request_id,
+                    {"count": count, "duration": search_duration},
+                )
+
                 yield f"data: {json.dumps({'type': 'thinking', 'content': f'Found {count} results.'})}\n\n"
                 await asyncio.sleep(1.0)
 
@@ -418,10 +523,14 @@ async def _mock_stream(request: ChatRequest):
 
                 response_text += "\n*(Generated by Parallax Mock Server)*"
             else:
+                logger.warning(
+                    f"⚠️ [{request_id}] [MOCK] No results for: {search_query}"
+                )
                 yield f"data: {json.dumps({'type': 'thinking', 'content': 'No results found.'})}\n\n"
                 response_text = f"I searched for '{search_query}' but found no results."
 
         except Exception as e:
+            logger.error(f"❌ [{request_id}] [MOCK] Stream search error: {e}")
             yield f"data: {json.dumps({'type': 'thinking', 'content': f'Search error: {e}'})}\n\n"
             response_text = f"An error occurred while searching: {e}"
 
@@ -450,11 +559,30 @@ async def _mock_stream(request: ChatRequest):
     for line in lines:
         words = line.split(" ")
         for word in words:
-            yield f"data: {json.dumps({'type': 'content', 'content': word + ' '})}\n\n"
+            chunk = word + " "
+            total_content += chunk
+            yield f"data: {json.dumps({'type': 'content', 'content': chunk})}\n\n"
             await asyncio.sleep(0.02)  # Fast typing
+
+        total_content += "\n"
         yield f"data: {json.dumps({'type': 'content', 'content': '\n'})}\n\n"
 
-    yield f"data: {json.dumps({'type': 'done', 'metadata': {'prompt_tokens': 10, 'completion_tokens': len(response_text.split()), 'model': 'mock-model'}})}\n\n"
+    elapsed = time.time() - start_time
+    completion_tokens = len(total_content.split())
+
+    logger.info(
+        f"✅ [{request_id}] [MOCK] Stream completed ({elapsed:.2f}s)",
+        extra={
+            "request_id": request_id,
+            "extra_data": {
+                "duration_seconds": elapsed,
+                "completion_tokens": completion_tokens,
+                "search_performed": bool(search_query),
+            },
+        },
+    )
+
+    yield f"data: {json.dumps({'type': 'done', 'metadata': {'prompt_tokens': 10, 'completion_tokens': completion_tokens, 'model': 'mock-model', 'duration_seconds': round(elapsed, 2)}})}\n\n"
 
 
 async def _stream_from_parallax(request: ChatRequest, request_id: str):
