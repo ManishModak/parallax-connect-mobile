@@ -79,6 +79,7 @@ class ModelSelector extends ConsumerWidget {
     return GestureDetector(
       onTap: () {
         ref.read(hapticsHelperProvider).triggerHaptics();
+        FocusScope.of(context).unfocus();
         _showModelInfoSnackbar(context, modelState);
       },
       child: Container(

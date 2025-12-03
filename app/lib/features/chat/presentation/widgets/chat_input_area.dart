@@ -112,6 +112,7 @@ class _ChatInputAreaState extends ConsumerState<ChatInputArea> {
       }
 
       _controller.clear();
+      _focusNode.unfocus();
       setState(() {
         _selectedAttachments.clear();
       });
@@ -154,6 +155,7 @@ class _ChatInputAreaState extends ConsumerState<ChatInputArea> {
         ),
         onPressed: () {
           if (isEnabled) {
+            ref.read(hapticsHelperProvider).triggerHaptics();
             _toggleAttachmentMenu();
           } else {
             ref.read(hapticsHelperProvider).triggerHaptics();
@@ -186,8 +188,7 @@ class _ChatInputAreaState extends ConsumerState<ChatInputArea> {
           _controller.selection = TextSelection.fromPosition(
             TextPosition(offset: _controller.text.length),
           );
-          // Focus the field
-          _focusNode.requestFocus();
+          // Don't auto-focus - user must tap to focus
         } else {
           // Cleared editing, clear text if it matches the old message (optional, but good for cancel)
           // Actually _handleCancelEdit clears it, so we might not need to do it here unless external cancel

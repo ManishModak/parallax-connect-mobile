@@ -1,21 +1,24 @@
 import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
-
-import 'package:shimmer/shimmer.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:shimmer/shimmer.dart';
+
 import '../../../../../app/constants/app_colors.dart';
-import '../../../utils/file_type_helper.dart';
+import '../../../../../core/utils/haptics_helper.dart';
 import '../../../models/chat_message.dart';
-import 'code_block_builder.dart';
+import '../../../utils/file_type_helper.dart';
 import '../indicators/sources_pill.dart';
 import '../indicators/thinking_pill.dart';
 import '../sheets/search_results_sheet.dart';
 import '../sheets/thinking_details_sheet.dart';
+import 'code_block_builder.dart';
 
-class ChatMessageBubble extends StatefulWidget {
+class ChatMessageBubble extends ConsumerStatefulWidget {
   final ChatMessage? message;
   final bool isShimmer;
   final VoidCallback? onEdit;
@@ -30,15 +33,16 @@ class ChatMessageBubble extends StatefulWidget {
   });
 
   @override
-  State<ChatMessageBubble> createState() => _ChatMessageBubbleState();
+  ConsumerState<ChatMessageBubble> createState() => _ChatMessageBubbleState();
 }
 
-class _ChatMessageBubbleState extends State<ChatMessageBubble> {
+class _ChatMessageBubbleState extends ConsumerState<ChatMessageBubble> {
   bool _copiedAll = false;
   bool _showOptions = false;
   final Map<String, bool> _copiedCode = {};
 
   void _copyToClipboard(String text, {String? codeKey}) async {
+    ref.read(hapticsHelperProvider).triggerHaptics();
     await Clipboard.setData(ClipboardData(text: text));
     setState(() {
       if (codeKey != null) {
@@ -314,7 +318,7 @@ class _ChatMessageBubbleState extends State<ChatMessageBubble> {
                   children: [
                     Icon(
                       LucideIcons.check,
-                      size: 14,
+                      size: 16,
                       color: _copiedAll
                           ? AppColors.accent
                           : AppColors.secondary,
@@ -346,13 +350,16 @@ class _ChatMessageBubbleState extends State<ChatMessageBubble> {
     required VoidCallback onTap,
   }) {
     return InkWell(
-      onTap: onTap,
+      onTap: () {
+        ref.read(hapticsHelperProvider).triggerHaptics();
+        onTap();
+      },
       borderRadius: BorderRadius.circular(12),
       child: Padding(
         padding: const EdgeInsets.all(6),
         child: Icon(
           icon,
-          size: 14,
+          size: 18,
           color: AppColors.secondary.withValues(alpha: 0.7),
         ),
       ),

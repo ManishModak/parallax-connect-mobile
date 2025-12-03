@@ -54,6 +54,7 @@ class WebSearchModeSelector extends ConsumerWidget {
         FocusScope.of(context).unfocus();
       },
       onOpened: () {
+        ref.read(hapticsHelperProvider).triggerHaptics();
         // Dismiss keyboard when menu opens
         FocusScope.of(context).unfocus();
       },

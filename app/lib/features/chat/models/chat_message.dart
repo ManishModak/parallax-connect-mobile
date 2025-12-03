@@ -34,7 +34,9 @@ class ChatMessage {
       timestamp: DateTime.parse(map['timestamp']),
       attachmentPaths: List<String>.from(map['attachmentPaths'] ?? []),
       thinkingContent: map['thinkingContent'],
-      searchMetadata: map['searchMetadata'],
+      searchMetadata: map['searchMetadata'] != null
+          ? Map<String, dynamic>.from(map['searchMetadata'])
+          : null,
     );
   }
 
