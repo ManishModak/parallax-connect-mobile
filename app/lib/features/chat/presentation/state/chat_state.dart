@@ -45,6 +45,7 @@ class ChatState {
     List<ChatMessage>? messages,
     bool? isLoading,
     String? error,
+    bool clearError = false,
     bool? isPrivateMode,
     String? currentSessionId,
     bool? isStreaming,
@@ -57,12 +58,14 @@ class ChatState {
     String? searchStatusMessage,
     String? webSearchMode,
     ChatMessage? editingMessage,
+    bool clearEditingMessage = false,
     Map<String, dynamic>? lastSearchMetadata,
+    bool clearLastSearchMetadata = false,
   }) {
     return ChatState(
       messages: messages ?? this.messages,
       isLoading: isLoading ?? this.isLoading,
-      error: error, // Allow null to clear error
+      error: clearError ? null : (error ?? this.error),
       isPrivateMode: isPrivateMode ?? this.isPrivateMode,
       currentSessionId: currentSessionId ?? this.currentSessionId,
       isStreaming: isStreaming ?? this.isStreaming,
@@ -74,8 +77,12 @@ class ChatState {
       currentSearchQuery: currentSearchQuery ?? this.currentSearchQuery,
       searchStatusMessage: searchStatusMessage ?? this.searchStatusMessage,
       webSearchMode: webSearchMode ?? this.webSearchMode,
-      editingMessage: editingMessage, // Allow null to clear editing state
-      lastSearchMetadata: lastSearchMetadata,
+      editingMessage: clearEditingMessage
+          ? null
+          : (editingMessage ?? this.editingMessage),
+      lastSearchMetadata: clearLastSearchMetadata
+          ? null
+          : (lastSearchMetadata ?? this.lastSearchMetadata),
     );
   }
 }

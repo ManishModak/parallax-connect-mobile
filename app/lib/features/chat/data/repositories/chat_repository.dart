@@ -214,10 +214,18 @@ class ChatRepository {
           return;
         }
 
-        // Parse SSE stream
+        // Parse SSE stream with buffering for incomplete lines
+        String buffer = '';
         await for (final chunk in response.stream.transform(utf8.decoder)) {
-          final lines = chunk.split('\n');
-          for (final line in lines) {
+          buffer += chunk;
+          final lines = buffer.split('\n');
+
+          // Keep the last potentially incomplete line in the buffer
+          buffer = lines.last;
+
+          // Process complete lines
+          for (int i = 0; i < lines.length - 1; i++) {
+            final line = lines[i];
             if (line.startsWith('data: ')) {
               final jsonStr = line.substring(6).trim();
               if (jsonStr.isEmpty || jsonStr == '[DONE]') continue;
@@ -226,7 +234,10 @@ class ChatRepository {
                 final json = jsonDecode(jsonStr) as Map<String, dynamic>;
                 yield StreamEvent.fromJson(json);
               } catch (e) {
-                logger.w('Failed to parse SSE event: $jsonStr');
+                logger.w('Failed to parse SSE event: ${e.runtimeType} - $e');
+                logger.d(
+                  'Event preview: ${jsonStr.substring(0, jsonStr.length > 200 ? 200 : jsonStr.length)}...',
+                );
               }
             }
           }

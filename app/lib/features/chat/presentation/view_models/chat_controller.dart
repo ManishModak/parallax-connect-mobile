@@ -49,7 +49,7 @@ class ChatController extends Notifier<ChatState> {
   void startNewChat() {
     state = state.copyWith(
       messages: [],
-      error: null,
+      clearError: true,
       currentSessionId: null,
       isPrivateMode: false,
       webSearchMode: 'deep',
@@ -84,7 +84,7 @@ class ChatController extends Notifier<ChatState> {
   }
 
   void cancelEditing() {
-    state = state.copyWith(editingMessage: null);
+    state = state.copyWith(clearEditingMessage: true);
   }
 
   Future<void> submitEdit(String newText) async {
@@ -92,7 +92,7 @@ class ChatController extends Notifier<ChatState> {
     if (message == null) return;
 
     // Clear editing state
-    state = state.copyWith(editingMessage: null);
+    state = state.copyWith(clearEditingMessage: true);
 
     // Remove the message and all subsequent messages
     final index = state.messages.indexOf(message);
@@ -126,7 +126,7 @@ class ChatController extends Notifier<ChatState> {
     state = state.copyWith(
       messages: [...state.messages, userMessage],
       isLoading: true,
-      error: null,
+      clearError: true,
     );
 
     // Only save to history if not in private mode
@@ -211,7 +211,16 @@ class ChatController extends Notifier<ChatState> {
                       'Found ${searchResult.results.length} results',
                   lastSearchMetadata: {
                     'query': searchResult.searchQuery,
-                    'results': searchResult.results,
+                    'results': searchResult.results
+                        .map(
+                          (r) => {
+                            'title': r.title,
+                            'url': r.url,
+                            'snippet': r.snippet,
+                            'content': r.content,
+                          },
+                        )
+                        .toList(),
                     'summary': searchResult.summary,
                   },
                 );
@@ -270,7 +279,11 @@ class ChatController extends Notifier<ChatState> {
       } else if (isStreamingEnabled) {
         // Use streaming for text-only chat
         // Step 3: Generation (Snippet Thinking -> Content)
-        await _sendStreamingMessage(contextText);
+        final executionMode = _settingsStorage.getWebSearchExecutionMode();
+        await _sendStreamingMessage(
+          contextText,
+          disableWebSearch: executionMode == 'mobile',
+        );
       } else {
         // Use non-streaming for text-only chat
         await _sendNonStreamingMessage(contextText, attachmentPaths);
@@ -286,7 +299,10 @@ class ChatController extends Notifier<ChatState> {
     }
   }
 
-  Future<void> _sendStreamingMessage(String contextText) async {
+  Future<void> _sendStreamingMessage(
+    String contextText, {
+    bool disableWebSearch = false,
+  }) async {
     final systemPrompt = _settingsStorage.getSystemPrompt();
     final history = state.messages.length > 1
         ? state.messages.sublist(0, state.messages.length - 1)
@@ -307,14 +323,26 @@ class ChatController extends Notifier<ChatState> {
           contextText,
           systemPrompt: systemPrompt,
           history: history,
-          webSearchEnabled: state.webSearchMode != 'off',
+          webSearchEnabled: !disableWebSearch && state.webSearchMode != 'off',
           webSearchDepth: state.webSearchMode,
         )
         .listen(
           (event) {
             if (event.isThinking) {
               final content = event.content ?? '';
-              final thinkingContent = state.thinkingContent + content;
+              var thinkingContent = state.thinkingContent + content;
+
+              // Filter out search results context if it leaked into thinking
+              // This handles cases where the model echoes the context or it leaks from the server
+              thinkingContent = thinkingContent
+                  .replaceAll(
+                    RegExp(
+                      r'\[WEB SEARCH RESULTS\].*?\[END WEB SEARCH RESULTS\]',
+                      dotAll: true,
+                    ),
+                    '',
+                  )
+                  .trim();
 
               // Heuristic to trigger Premium Search UI from Middleware stream
               bool isAnalyzing = state.isAnalyzingIntent;
@@ -352,14 +380,20 @@ class ChatController extends Notifier<ChatState> {
             } else if (event.isSearchResults) {
               // Handle structured search results from middleware
               final results = event.metadata?['results'] ?? [];
+
               if (results is List && results.isNotEmpty) {
                 state = state.copyWith(
                   lastSearchMetadata: {
                     'query': event.metadata?['query'] ?? 'Search Query',
-                    'results': results,
+                    'results':
+                        results, // This is already a List<dynamic> (Maps) from JSON
                   },
                   searchStatusMessage: 'Found ${results.length} results',
                   isSearchingWeb: false, // Stop spinner
+                );
+              } else {
+                Log.w(
+                  'Received search_results but list is empty or invalid: $results',
                 );
               }
             } else if (event.isContent) {
@@ -424,7 +458,7 @@ class ChatController extends Notifier<ChatState> {
       streamingContent: '',
       thinkingContent: '',
       isThinking: false,
-      lastSearchMetadata: null, // Clear search metadata after using it
+      clearLastSearchMetadata: true, // Clear search metadata after using it
     );
 
     _saveAiMessage(aiMessage);
@@ -461,7 +495,7 @@ class ChatController extends Notifier<ChatState> {
     state = state.copyWith(
       messages: [...state.messages, aiMessage],
       isLoading: false,
-      lastSearchMetadata: null, // Clear search metadata after using it
+      clearLastSearchMetadata: true, // Clear search metadata after using it
     );
 
     await _saveAiMessage(aiMessage);

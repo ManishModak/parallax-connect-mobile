@@ -531,6 +531,9 @@ async def _mock_stream(request: ChatRequest):
                     {"count": count, "duration": search_duration},
                 )
 
+                # Emit structured search results for UI
+                yield f"data: {json.dumps({'type': 'search_results', 'metadata': {'results': search_results['results'], 'query': search_query}})}\n\n"
+
                 yield f"data: {json.dumps({'type': 'thinking', 'content': f'Found {count} results.'})}\n\n"
                 await asyncio.sleep(1.0)
 
@@ -670,9 +673,7 @@ async def _stream_from_parallax(request: ChatRequest, request_id: str):
             "POST",
             PARALLAX_SERVICE_URL,
             json=payload,
-            timeout=httpx.Timeout(
-                TIMEOUT_STREAM_CHUNK, connect=TIMEOUT_STREAM_CONNECT
-            ),
+            timeout=httpx.Timeout(TIMEOUT_STREAM_CHUNK, connect=TIMEOUT_STREAM_CONNECT),
         ) as response:
             if response.status_code != 200:
                 error_text = await response.aread()

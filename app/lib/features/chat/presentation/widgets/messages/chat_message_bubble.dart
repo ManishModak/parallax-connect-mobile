@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+
 import 'package:shimmer/shimmer.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:lucide_icons/lucide_icons.dart';
@@ -67,7 +68,12 @@ class _ChatMessageBubbleState extends State<ChatMessageBubble> {
       return _buildShimmerBubble();
     }
 
-    final isUser = widget.message!.isUser;
+    final message = widget.message;
+    if (message == null) {
+      return const SizedBox.shrink();
+    }
+
+    final isUser = message.isUser;
     final screenWidth = MediaQuery.of(context).size.width;
 
     return Padding(
@@ -77,7 +83,7 @@ class _ChatMessageBubbleState extends State<ChatMessageBubble> {
             ? CrossAxisAlignment.end
             : CrossAxisAlignment.start,
         children: [
-          if (widget.message!.text.isNotEmpty)
+          if (message.text.isNotEmpty)
             Container(
               // User messages: constrained width with bubble styling
               // Bot messages: full width (code blocks extend, text wraps naturally)
@@ -102,7 +108,7 @@ class _ChatMessageBubbleState extends State<ChatMessageBubble> {
                       }
                     : null,
                 child: MarkdownBody(
-                  data: widget.message!.text,
+                  data: message.text,
                   selectable:
                       !isUser, // Only selectable if not user (user taps to toggle options)
                   builders: {
@@ -163,12 +169,12 @@ class _ChatMessageBubbleState extends State<ChatMessageBubble> {
                 ),
               ),
             ),
-          if (widget.message!.attachmentPaths.isNotEmpty) ...[
+          if (message.attachmentPaths.isNotEmpty) ...[
             const SizedBox(height: 8),
             Wrap(
               spacing: 8,
               runSpacing: 8,
-              children: widget.message!.attachmentPaths.map((path) {
+              children: message.attachmentPaths.map((path) {
                 final isImage = FileTypeHelper.isImageFile(path);
 
                 return Container(
@@ -233,48 +239,59 @@ class _ChatMessageBubbleState extends State<ChatMessageBubble> {
             ),
 
           // Bot Message Extras (Thinking & Search)
-          if (!isUser) ...[
-            if (widget.message!.thinkingContent != null &&
-                widget.message!.thinkingContent!.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              ThinkingPill(
-                onTap: () {
-                  showModalBottomSheet(
-                    context: context,
-                    isScrollControlled: true,
-                    backgroundColor: Colors.transparent,
-                    builder: (context) => ThinkingDetailsSheet(
-                      thinkingContent: widget.message!.thinkingContent!,
-                    ),
-                  );
-                },
-              ),
-            ],
-            if (widget.message!.searchMetadata != null &&
-                widget.message!.searchMetadata!['results'] != null) ...[
-              const SizedBox(height: 8),
-              SourcesPill(
-                sourceCount:
-                    (widget.message!.searchMetadata!['results'] as List).length,
-                onTap: () {
-                  showModalBottomSheet(
-                    context: context,
-                    isScrollControlled: true,
-                    backgroundColor: Colors.transparent,
-                    builder: (context) => SearchResultsSheet(
-                      results:
-                          widget.message!.searchMetadata!['results'] as List,
-                    ),
-                  );
-                },
-              ),
-            ],
+          if (!isUser &&
+              ((message.thinkingContent != null &&
+                      message.thinkingContent!.isNotEmpty) ||
+                  (message.searchMetadata != null &&
+                      message.searchMetadata!['results'] != null))) ...[
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                if (message.thinkingContent != null &&
+                    message.thinkingContent!.isNotEmpty)
+                  ThinkingPill(
+                    onTap: () {
+                      showModalBottomSheet(
+                        context: context,
+                        isScrollControlled: true,
+                        backgroundColor: Colors.transparent,
+                        builder: (context) => ThinkingDetailsSheet(
+                          thinkingContent: message.thinkingContent!,
+                        ),
+                      );
+                    },
+                  ),
+                if (message.searchMetadata != null &&
+                    message.searchMetadata!['results'] != null)
+                  Builder(
+                    builder: (context) {
+                      final results =
+                          message.searchMetadata!['results'] as List;
+                      return SourcesPill(
+                        sourceCount: results.length,
+                        onTap: () {
+                          showModalBottomSheet(
+                            context: context,
+                            isScrollControlled: true,
+                            backgroundColor: Colors.transparent,
+                            builder: (context) =>
+                                SearchResultsSheet(results: results),
+                          );
+                        },
+                      );
+                    },
+                  ),
+              ],
+            ),
           ],
           // Copy All button for bot messages
-          if (!isUser && widget.message!.text.isNotEmpty) ...[
+          if (!isUser && message.text.isNotEmpty) ...[
             const SizedBox(height: 12),
             InkWell(
-              onTap: () => _copyToClipboard(widget.message!.text),
+              onTap: () => _copyToClipboard(message.text),
               borderRadius: BorderRadius.circular(8),
               child: Container(
                 padding: const EdgeInsets.symmetric(
