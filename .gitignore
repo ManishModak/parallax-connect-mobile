@@ -108,3 +108,8 @@ app/web/manifest.json
 # Environment files
 .env
 *.env.local
+applogs/applog1.txt
+applogs/mobile_acesstes.txt
+applogs/mobilelog.txt
+applogs/server_webui_acess_log.txt
+applogs/serverlog.txt

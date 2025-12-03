@@ -25,10 +25,20 @@ class StreamEvent {
   });
 
   factory StreamEvent.fromJson(Map<String, dynamic> json) {
+    // Safely cast metadata - it might be deeply nested JSON
+    Map<String, dynamic>? metadata;
+    if (json['metadata'] != null) {
+      if (json['metadata'] is Map<String, dynamic>) {
+        metadata = json['metadata'] as Map<String, dynamic>;
+      } else if (json['metadata'] is Map) {
+        metadata = Map<String, dynamic>.from(json['metadata'] as Map);
+      }
+    }
+
     return StreamEvent(
       type: json['type'] as String,
       content: json['content'] as String?,
-      metadata: json['metadata'] as Map<String, dynamic>?,
+      metadata: metadata,
       errorMessage: json['message'] as String?,
     );
   }

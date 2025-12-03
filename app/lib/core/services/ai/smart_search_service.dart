@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 import 'package:html/parser.dart' as html_parser;
 import '../../../features/settings/data/settings_storage.dart';
+import '../storage/config_storage.dart';
 import '../../utils/logger.dart';
 
 /// Result from Smart Search
@@ -288,9 +289,7 @@ class SmartSearchService {
 
 final smartSearchServiceProvider = Provider<SmartSearchService>((ref) {
   final settings = ref.watch(settingsStorageProvider);
-  // We need the base URL. Usually in a config provider.
-  // For now hardcode or get from env if available in Dart?
-  // We'll assume localhost for dev or use a config provider.
-  // Let's use a placeholder and fix it in the next step when we see where URL is stored.
-  return SmartSearchService(settings, 'http://localhost:8000');
+  final configStorage = ref.watch(configStorageProvider);
+  final baseUrl = configStorage.getBaseUrl() ?? 'http://localhost:8000';
+  return SmartSearchService(settings, baseUrl);
 });
