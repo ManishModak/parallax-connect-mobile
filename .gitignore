@@ -101,8 +101,6 @@ app/web/favicon.png
 app/web/manifest.json
 
 # Project Specific
-parallax-main-repo/
-applogs/
 *.hive
 *.lock
 !pubspec.lock

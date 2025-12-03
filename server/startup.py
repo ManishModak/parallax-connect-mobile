@@ -43,7 +43,9 @@ async def _test_parallax_connection():
     logger.info(f"Testing connection to Parallax at {PARALLAX_SERVICE_URL}...")
     try:
         client = await get_async_http_client()
-        resp = await client.get("http://localhost:3001/model/list", timeout=TIMEOUT_FAST)
+        resp = await client.get(
+            "http://localhost:3001/model/list", timeout=TIMEOUT_FAST
+        )
         if resp.status_code == 200:
             logger.info(
                 "✅ Parallax connection successful",
