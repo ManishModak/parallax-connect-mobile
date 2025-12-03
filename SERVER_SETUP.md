@@ -28,7 +28,60 @@ If you haven't already, download this project folder to your computer.
 1. Open the folder `parallax-connect`.
 2. Right-click in the empty space and select **"Open in Terminal"** (or "Open PowerShell window here").
 
-### Step 3: Install Dependencies
+### Step 3: Create a Virtual Environment (Recommended)
+
+A virtual environment keeps your project dependencies isolated from your system Python.
+
+**Creating the virtual environment:**
+
+**Windows:**
+
+```bash
+python -m venv venv
+```
+
+**macOS/Linux:**
+
+```bash
+python3 -m venv venv
+```
+
+**Then activate it:**
+
+**Windows PowerShell:**
+
+```powershell
+.\venv\Scripts\Activate.ps1
+```
+
+**Windows CMD:**
+
+```cmd
+venv\Scripts\activate.bat
+```
+
+**macOS/Linux:**
+
+```bash
+source venv/bin/activate
+```
+
+*You should see `(venv)` appear at the start of your terminal prompt.*
+
+**Already have a venv folder?** Skip the creation command and just activate:
+* **Windows PowerShell**: `.\venv\Scripts\Activate.ps1`
+* **Windows CMD**: `venv\Scripts\activate.bat`
+* **macOS/Linux**: `source venv/bin/activate`
+
+**Troubleshooting Windows Activation:**
+* **If the script opens in Notepad**: You're likely in CMD instead of PowerShell. Use `venv\Scripts\activate.bat` instead.
+* **If you get "scripts is disabled" error**: Run this command in PowerShell as Administrator:
+
+  ```powershell
+  Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+  ```
+
+### Step 4: Install Dependencies
 
 Run this command to install the necessary software libraries:
 
@@ -38,7 +91,7 @@ pip install -r requirements.txt
 
 *If you see a warning about "pip version", you can ignore it.*
 
-### Step 4: Start the Server
+### Step 5: Start the Server
 
 Run the interactive launcher:
 
@@ -63,7 +116,7 @@ Enter choice [1]:
 * **Press Enter** to select Normal mode.
 * You may be asked to set a **Password**. This is optional but recommended if you plan to share the connection.
 
-### Step 5: Connect
+### Step 6: Connect
 
 Once the server starts, you will see a big **QR Code** in the terminal.
 

@@ -78,7 +78,7 @@ class ParallaxClient:
         try:
             client = await get_async_http_client()
             resp = await client.get(f"{self.base_url}/model/list", timeout=TIMEOUT_FAST)
-                return resp.status_code == 200
+            return resp.status_code == 200
         except Exception:
             return False
 
@@ -102,52 +102,46 @@ class ParallaxClient:
             client = await get_async_http_client()
             # Get supported models list
             resp = await client.get(f"{self.base_url}/model/list", timeout=TIMEOUT_FAST)
-                if resp.status_code == 200:
-                    response_data = resp.json()
+            if resp.status_code == 200:
+                response_data = resp.json()
 
+                if DEBUG_MODE:
+                    logger.debug(
+                        "Received model list response",
+                        extra={
+                            "extra_data": {
+                                "raw_response_keys": list(response_data.keys())
+                                if isinstance(response_data, dict)
+                                else "list"
+                            }
+                        },
+                    )
+
+                raw_models = response_data.get("data", [])
+                if not raw_models and isinstance(response_data, list):
+                    raw_models = response_data
+                if raw_models and "id" in raw_models[0] and "name" not in raw_models[0]:
+                    raw_models = [{"name": m.get("id"), **m} for m in raw_models]
                     if DEBUG_MODE:
-                        logger.debug(
-                            "Received model list response",
-                            extra={
-                                "extra_data": {
-                                    "raw_response_keys": list(response_data.keys())
-                                    if isinstance(response_data, dict)
-                                    else "list"
-                                }
-                            },
-                        )
+                        logger.debug("Transformed model IDs to names")
 
-                    raw_models = response_data.get("data", [])
-                    if not raw_models and isinstance(response_data, list):
-                        raw_models = response_data
-                    if (
-                        raw_models
-                        and "id" in raw_models[0]
-                        and "name" not in raw_models[0]
-                    ):
-                        raw_models = [{"name": m.get("id"), **m} for m in raw_models]
-                        if DEBUG_MODE:
-                            logger.debug("Transformed model IDs to names")
+                models = [
+                    {
+                        "id": m.get("name", "unknown"),
+                        "name": m.get("name", "Unknown Model"),
+                        "context_length": 32768,
+                        "vram_gb": m.get("vram_gb", 0),
+                    }
+                    for m in raw_models
+                ]
 
-                    models = [
-                        {
-                            "id": m.get("name", "unknown"),
-                            "name": m.get("name", "Unknown Model"),
-                            "context_length": 32768,
-                            "vram_gb": m.get("vram_gb", 0),
-                        }
-                        for m in raw_models
-                    ]
-
-                    if DEBUG_MODE:
-                        logger.debug(
-                            f"Parsed {len(models)} models",
-                            extra={
-                                "extra_data": {
-                                    "model_names": [m["name"] for m in models]
-                                }
-                            },
-                        )
+                if DEBUG_MODE:
+                    logger.debug(
+                        f"Parsed {len(models)} models",
+                        extra={
+                            "extra_data": {"model_names": [m["name"] for m in models]}
+                        },
+                    )
 
                 # Get active model from cluster status
                 if DEBUG_MODE:
@@ -230,21 +224,21 @@ class ParallaxClient:
         try:
             client = await get_async_http_client()
             resp = await client.get(f"{self.base_url}/model/list", timeout=TIMEOUT_FAST)
-                if resp.status_code == 200:
-                    model_data = resp.json()
-                    models = model_data.get("data", [])
-                    if not models and isinstance(model_data, list):
-                        models = model_data
-                    if models and isinstance(models[0], dict):
-                        if "id" in models[0] and "name" not in models[0]:
-                            models = [{"name": m.get("id"), **m} for m in models]
+            if resp.status_code == 200:
+                model_data = resp.json()
+                models = model_data.get("data", [])
+                if not models and isinstance(model_data, list):
+                    models = model_data
+                if models and isinstance(models[0], dict):
+                    if "id" in models[0] and "name" not in models[0]:
+                        models = [{"name": m.get("id"), **m} for m in models]
 
-                    if models:
-                        max_vram = max((m.get("vram_gb", 0) for m in models), default=0)
-                        capabilities["vram_gb"] = max_vram if max_vram > 0 else 8
-                        capabilities["document_processing"] = True
-                        capabilities["max_context_window"] = 32768
-                        active_models = [m.get("name", "unknown") for m in models[:5]]
+                if models:
+                    max_vram = max((m.get("vram_gb", 0) for m in models), default=0)
+                    capabilities["vram_gb"] = max_vram if max_vram > 0 else 8
+                    capabilities["document_processing"] = True
+                    capabilities["max_context_window"] = 32768
+                    active_models = [m.get("name", "unknown") for m in models[:5]]
 
         except Exception as e:
             logger.error(f"❌ Failed to fetch capabilities: {e}")
