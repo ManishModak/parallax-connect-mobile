@@ -28,13 +28,13 @@ async def ui_index(_: bool = Depends(check_password)):
         client = await get_async_http_client()
         resp = await client.get(f"{PARALLAX_UI_URL}/", timeout=10.0)
 
-            content = resp.text
-            content = content.replace('href="/', 'href="/ui/')
-            content = content.replace("href='/", "href='/ui/")
-            content = content.replace('src="/', 'src="/ui/')
-            content = content.replace("src='/", "src='/ui/")
+        content = resp.text
+        content = content.replace('href="/', 'href="/ui/')
+        content = content.replace("href='/", "href='/ui/")
+        content = content.replace('src="/', 'src="/ui/')
+        content = content.replace("src='/", "src='/ui/")
 
-            return HTMLResponse(content=content, status_code=resp.status_code)
+        return HTMLResponse(content=content, status_code=resp.status_code)
     except Exception as e:
         logger.error(f"❌ UI proxy error: {e}")
         return HTMLResponse(
@@ -55,19 +55,19 @@ async def ui_proxy(path: str, request: Request, _: bool = Depends(check_password
         resp = await client.get(target_url, timeout=30.0)
         content_type = resp.headers.get("content-type", "application/octet-stream")
 
-            if "text/html" in content_type:
-                content = resp.text
-                content = content.replace('href="/', 'href="/ui/')
-                content = content.replace("href='/", "href='/ui/")
-                content = content.replace('src="/', 'src="/ui/')
-                content = content.replace("src='/", "src='/ui/")
-                return HTMLResponse(content=content, status_code=resp.status_code)
+        if "text/html" in content_type:
+            content = resp.text
+            content = content.replace('href="/', 'href="/ui/')
+            content = content.replace("href='/", "href='/ui/")
+            content = content.replace('src="/', 'src="/ui/')
+            content = content.replace("src='/", "src='/ui/")
+            return HTMLResponse(content=content, status_code=resp.status_code)
 
-            return Response(
-                content=resp.content,
-                status_code=resp.status_code,
-                media_type=content_type,
-            )
+        return Response(
+            content=resp.content,
+            status_code=resp.status_code,
+            media_type=content_type,
+        )
     except Exception as e:
         logger.error(f"❌ UI proxy error for {path}: {e}")
         return Response(content=str(e), status_code=503)
@@ -99,7 +99,11 @@ async def ui_api_proxy(path: str, request: Request, _: bool = Depends(check_pass
         content_type = resp.headers.get("content-type", "application/json")
 
         # Handle SSE streams
-        if "text/event-stream" in content_type or "application/x-ndjson" in content_type:
+        if (
+            "text/event-stream" in content_type
+            or "application/x-ndjson" in content_type
+        ):
+
             async def stream_response():
                 stream_client = await get_async_http_client()
                 async with stream_client.stream(
