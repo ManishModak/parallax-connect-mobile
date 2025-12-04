@@ -17,6 +17,7 @@ import '../widgets/chat_input_area.dart';
 import '../widgets/messages/streaming_message_bubble.dart';
 import '../widgets/indicators/collapsible_thinking_indicator.dart';
 import '../widgets/indicators/searching_indicator.dart';
+import '../widgets/app_bar_model_selector.dart';
 
 class ChatScreen extends ConsumerStatefulWidget {
   const ChatScreen({super.key});
@@ -27,28 +28,12 @@ class ChatScreen extends ConsumerStatefulWidget {
 
 class _ChatScreenState extends ConsumerState<ChatScreen> {
   final ScrollController _scrollController = ScrollController();
+  double _dragStartX = 0.0;
+  double _dragCurrentX = 0.0;
 
   @override
   void initState() {
     super.initState();
-
-    // Auto-scroll to bottom when new messages arrive or streaming content
-    // updates. Placing this listener in initState avoids re-registering it
-    // on every rebuild.
-    ref.listen<ChatState>(chatControllerProvider, (previous, next) {
-      final hasNewMessage =
-          next.messages.length > (previous?.messages.length ?? 0);
-      final isStreaming = next.isStreaming;
-      final contentChanged =
-          next.streamingContent != (previous?.streamingContent ?? '');
-      final thinkingChanged =
-          next.thinkingContent != (previous?.thinkingContent ?? '');
-
-      if (hasNewMessage ||
-          (isStreaming && (contentChanged || thinkingChanged))) {
-        Future.delayed(const Duration(milliseconds: 100), _scrollToBottom);
-      }
-    });
   }
 
   @override
@@ -69,6 +54,23 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Auto-scroll to bottom when new messages arrive or streaming content updates.
+    // Must be in build() because ref is not available in initState for ConsumerStatefulWidget.
+    ref.listen<ChatState>(chatControllerProvider, (previous, next) {
+      final hasNewMessage =
+          next.messages.length > (previous?.messages.length ?? 0);
+      final isStreaming = next.isStreaming;
+      final contentChanged =
+          next.streamingContent != (previous?.streamingContent ?? '');
+      final thinkingChanged =
+          next.thinkingContent != (previous?.thinkingContent ?? '');
+
+      if (hasNewMessage ||
+          (isStreaming && (contentChanged || thinkingChanged))) {
+        Future.delayed(const Duration(milliseconds: 100), _scrollToBottom);
+      }
+    });
+
     final chatState = ref.watch(chatControllerProvider);
     final chatController = ref.read(chatControllerProvider.notifier);
 
@@ -88,9 +90,17 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             context.push(AppRoutes.history);
           },
         ),
-        title: Text(
-          'Parallax Connect',
-          style: GoogleFonts.inter(color: AppColors.primary, fontSize: 16),
+        title: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Text(
+              'Parallax Connect',
+              style: GoogleFonts.inter(color: AppColors.primary, fontSize: 16),
+            ),
+            const SizedBox(height: 2),
+            const AppBarModelSelector(),
+          ],
         ),
         centerTitle: true,
         actions: [
@@ -130,14 +140,23 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         ],
       ),
       body: GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        onHorizontalDragStart: (details) {
+          _dragStartX = details.localPosition.dx;
+          _dragCurrentX = _dragStartX;
+        },
+        onHorizontalDragUpdate: (details) {
+          _dragCurrentX = details.localPosition.dx;
+        },
         onHorizontalDragEnd: (details) {
-          // Sensitivity threshold
-          if (details.primaryVelocity == null) return;
+          final velocity = details.primaryVelocity ?? 0.0;
+          final distance = _dragCurrentX - _dragStartX;
+          final screenWidth = MediaQuery.of(context).size.width;
+          final distanceThreshold = screenWidth * 0.15;
+          const velocityThreshold = 200.0;
 
-          const double sensitivity = 300.0;
-
-          // Swipe Right (Velocity > 0) -> Open History OR Exit Private Mode
-          if (details.primaryVelocity! > sensitivity) {
+          // Swipe Right (Velocity > 0 OR Distance > Threshold) -> Open History OR Exit Private Mode
+          if (velocity > velocityThreshold || distance > distanceThreshold) {
             ref.read(hapticsHelperProvider).triggerHaptics();
             if (chatState.isPrivateMode) {
               // Exit private mode first
@@ -147,8 +166,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               context.push(AppRoutes.history);
             }
           }
-          // Swipe Left (Velocity < 0) -> Enable Private Mode
-          else if (details.primaryVelocity! < -sensitivity) {
+          // Swipe Left (Velocity < 0 OR Distance < -Threshold) -> Enable Private Mode
+          else if (velocity < -velocityThreshold ||
+              distance < -distanceThreshold) {
             if (!chatState.isPrivateMode) {
               ref.read(hapticsHelperProvider).triggerHaptics();
               chatController.togglePrivateMode();
@@ -167,8 +187,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                             // Private chat empty state
                             SvgPicture.asset(
                               'assets/icons/private_chat.svg',
-                              width: 48,
-                              height: 48,
+                              width: 64,
+                              height: 64,
                               colorFilter: ColorFilter.mode(
                                 AppColors.secondary,
                                 BlendMode.srcIn,
@@ -200,16 +220,31 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                           ] else ...[
                             // Normal empty state
                             const Icon(
-                              LucideIcons.messageSquare,
-                              size: 48,
+                              LucideIcons.command,
+                              size: 64,
                               color: AppColors.secondary,
                             ),
                             const SizedBox(height: 16),
                             Text(
-                              'Start a conversation',
+                              'Normal Chat',
                               style: GoogleFonts.inter(
-                                color: AppColors.secondary,
-                                fontSize: 16,
+                                color: AppColors.primaryMildVariant,
+                                fontSize: 18,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 40,
+                              ),
+                              child: Text(
+                                'Conversations are automatically saved to your history',
+                                style: GoogleFonts.inter(
+                                  color: AppColors.secondary,
+                                  fontSize: 14,
+                                ),
+                                textAlign: TextAlign.center,
                               ),
                             ),
                           ],
@@ -316,7 +351,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             ),
             if (chatState.error != null)
               Container(
-                padding: const EdgeInsets.all(8),
+                padding: const EdgeInsets.all(4),
                 color: AppColors.error.withValues(alpha: 0.1),
                 child: Row(
                   children: [

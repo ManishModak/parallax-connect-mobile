@@ -169,7 +169,7 @@ class SettingsStorage implements HapticsSettings {
 
   String getWebSearchExecutionMode() {
     return _prefs.getString(_keyWebSearchExecutionMode) ??
-        'mobile'; // mobile, middleware, parallax
+        'middleware'; // mobile, middleware, parallax
   }
 
   // Clear all settings (reset to defaults)

@@ -7,14 +7,14 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:parallax_connect/app/constants/app_colors.dart';
 import 'package:parallax_connect/core/utils/haptics_helper.dart';
 
-class HistoryItemTile extends ConsumerWidget {
+class HistoryItemTile extends ConsumerStatefulWidget {
   final String title;
   final String time;
   final bool isActive;
   final bool isImportant;
   final VoidCallback? onTap;
   final VoidCallback? onDelete;
-  final VoidCallback? onRename;
+  final Function(String newTitle)? onRename;
   final VoidCallback? onExport;
   final VoidCallback? onToggleImportant;
 
@@ -30,6 +30,64 @@ class HistoryItemTile extends ConsumerWidget {
     this.onExport,
     this.onToggleImportant,
   });
+
+  @override
+  ConsumerState<HistoryItemTile> createState() => _HistoryItemTileState();
+}
+
+class _HistoryItemTileState extends ConsumerState<HistoryItemTile> {
+  bool _isRenaming = false;
+  late TextEditingController _textController;
+  final FocusNode _focusNode = FocusNode();
+
+  @override
+  void initState() {
+    super.initState();
+    _textController = TextEditingController(text: widget.title);
+    _focusNode.addListener(_onFocusChange);
+  }
+
+  @override
+  void didUpdateWidget(covariant HistoryItemTile oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.title != oldWidget.title && !_isRenaming) {
+      _textController.text = widget.title;
+    }
+  }
+
+  @override
+  void dispose() {
+    _textController.dispose();
+    _focusNode.removeListener(_onFocusChange);
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  void _onFocusChange() {
+    if (!_focusNode.hasFocus && _isRenaming) {
+      _submitRename();
+    }
+  }
+
+  void _startRenaming() {
+    setState(() {
+      _isRenaming = true;
+    });
+    _focusNode.requestFocus();
+  }
+
+  void _submitRename() {
+    if (_textController.text.trim().isNotEmpty &&
+        _textController.text != widget.title) {
+      widget.onRename?.call(_textController.text.trim());
+    } else {
+      // Revert if empty or unchanged
+      _textController.text = widget.title;
+    }
+    setState(() {
+      _isRenaming = false;
+    });
+  }
 
   void _showSnackBar(BuildContext context, String message) {
     ScaffoldMessenger.of(context).showSnackBar(
@@ -49,13 +107,13 @@ class HistoryItemTile extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
-        color: isActive ? AppColors.surfaceLight : AppColors.surface,
+        color: widget.isActive ? AppColors.surfaceLight : AppColors.surface,
         borderRadius: BorderRadius.circular(12),
-        border: isActive
+        border: widget.isActive
             ? Border.all(
                 color: AppColors.primary.withValues(alpha: 0.2),
                 width: 1,
@@ -66,9 +124,13 @@ class HistoryItemTile extends ConsumerWidget {
         color: Colors.transparent,
         child: InkWell(
           onTap: () {
+            if (_isRenaming) {
+              _submitRename();
+              return;
+            }
             ref.read(hapticsHelperProvider).triggerHaptics();
-            onTap?.call();
-            if (onTap == null) {
+            widget.onTap?.call();
+            if (widget.onTap == null) {
               context.pop();
             }
           },
@@ -77,7 +139,7 @@ class HistoryItemTile extends ConsumerWidget {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             child: Row(
               children: [
-                if (isActive)
+                if (widget.isActive)
                   Container(
                     width: 4,
                     height: 4,
@@ -91,20 +153,40 @@ class HistoryItemTile extends ConsumerWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        title,
-                        style: GoogleFonts.inter(
-                          color: AppColors.primary,
-                          fontSize: 14,
-                          fontWeight:
-                              isActive ? FontWeight.w600 : FontWeight.w500,
+                      if (_isRenaming)
+                        TextField(
+                          controller: _textController,
+                          focusNode: _focusNode,
+                          style: GoogleFonts.inter(
+                            color: AppColors.primary,
+                            fontSize: 14,
+                            fontWeight: widget.isActive
+                                ? FontWeight.w600
+                                : FontWeight.w500,
+                          ),
+                          decoration: const InputDecoration(
+                            isDense: true,
+                            contentPadding: EdgeInsets.zero,
+                            border: InputBorder.none,
+                          ),
+                          onSubmitted: (_) => _submitRename(),
+                        )
+                      else
+                        Text(
+                          widget.title,
+                          style: GoogleFonts.inter(
+                            color: AppColors.primary,
+                            fontSize: 14,
+                            fontWeight: widget.isActive
+                                ? FontWeight.w600
+                                : FontWeight.w500,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
                       const SizedBox(height: 4),
                       Text(
-                        time,
+                        widget.time,
                         style: GoogleFonts.inter(
                           color: AppColors.secondary,
                           fontSize: 12,
@@ -117,7 +199,7 @@ class HistoryItemTile extends ConsumerWidget {
                 PopupMenuButton<String>(
                   icon: Icon(
                     LucideIcons.moreVertical,
-                    size: 16,
+                    size: 20,
                     color: AppColors.secondary,
                   ),
                   color: AppColors.surface,
@@ -191,39 +273,33 @@ class HistoryItemTile extends ConsumerWidget {
                   ],
                   onSelected: (value) {
                     if (value == 'delete') {
-                      if (onDelete != null) {
-                        onDelete!();
+                      if (widget.onDelete != null) {
+                        widget.onDelete!();
                       } else {
                         _showSnackBar(context, 'Delete feature coming soon');
                       }
                     } else if (value == 'rename') {
-                      if (onRename != null) {
-                        onRename!();
-                      } else {
-                        _showSnackBar(context, 'Rename feature coming soon');
-                      }
+                      _startRenaming();
                     } else if (value == 'export') {
-                      if (onExport != null) {
-                        onExport!();
+                      if (widget.onExport != null) {
+                        widget.onExport!();
                       } else {
                         _showSnackBar(context, 'Export feature coming soon');
                       }
                     }
                   },
                 ),
-                const SizedBox(width: 8),
                 IconButton(
                   icon: Icon(
-                    isImportant ? LucideIcons.star : LucideIcons.star,
-                    size: 18,
-                    color: isImportant
+                    widget.isImportant ? Icons.star : LucideIcons.star,
+                    size: 20,
+                    color: widget.isImportant
                         ? Colors.amber
                         : AppColors.secondary.withValues(alpha: 0.5),
-                    fill: isImportant ? 1.0 : 0.0,
                   ),
                   onPressed: () {
                     ref.read(hapticsHelperProvider).triggerHaptics();
-                    onToggleImportant?.call();
+                    widget.onToggleImportant?.call();
                   },
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(),

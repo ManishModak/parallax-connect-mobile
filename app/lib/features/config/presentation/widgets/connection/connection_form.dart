@@ -49,14 +49,6 @@ class ConnectionForm extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Choose Connection Mode',
-            style: GoogleFonts.inter(
-              color: AppColors.secondary,
-              fontSize: 14,
-            ),
-          ),
-          const SizedBox(height: 8),
           ConnectionModeToggle(
             isLocal: isLocal,
             onModeChanged: onModeChanged,
@@ -129,11 +121,11 @@ class ConnectionForm extends StatelessWidget {
       style: GoogleFonts.sourceCodePro(color: AppColors.primary),
       decoration: ConnectionValidator.buildUrlDecoration(isLocal: isLocal)
           .copyWith(
-        prefixIcon: Icon(
-          isLocal ? LucideIcons.wifi : LucideIcons.globe,
-          color: AppColors.secondary,
-        ),
-      ),
+            prefixIcon: Icon(
+              isLocal ? LucideIcons.wifi : LucideIcons.globe,
+              color: AppColors.secondary,
+            ),
+          ),
       validator: ConnectionValidator.validateUrl,
     );
   }
@@ -169,15 +161,10 @@ class ConnectionForm extends StatelessWidget {
           borderRadius: BorderRadius.circular(12),
           borderSide: const BorderSide(color: AppColors.secondary),
         ),
-        prefixIcon: const Icon(
-          LucideIcons.lock,
-          color: AppColors.secondary,
-        ),
+        prefixIcon: const Icon(LucideIcons.lock, color: AppColors.secondary),
         suffixIcon: IconButton(
           tooltip: isPasswordVisible ? 'Hide password' : 'Show password',
-          icon: Icon(
-            isPasswordVisible ? LucideIcons.eyeOff : LucideIcons.eye,
-          ),
+          icon: Icon(isPasswordVisible ? LucideIcons.eyeOff : LucideIcons.eye),
           color: AppColors.secondary,
           onPressed: () {
             hapticsHelper.triggerHaptics();
@@ -242,5 +229,3 @@ class ConnectionForm extends StatelessWidget {
     );
   }
 }
-
-

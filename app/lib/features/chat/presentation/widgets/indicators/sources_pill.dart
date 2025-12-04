@@ -25,10 +25,10 @@ class SourcesPill extends ConsumerWidget {
       },
       borderRadius: BorderRadius.circular(20),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
         decoration: BoxDecoration(
           color: AppColors.surfaceLight.withValues(alpha: 0.5),
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(12),
           border: Border.all(color: AppColors.surfaceLight, width: 1),
         ),
         child: Row(
@@ -89,13 +89,16 @@ class SourcesPill extends ConsumerWidget {
                 ],
               ),
             ),
-            const SizedBox(width: 8),
-            Text(
-              '$sourceCount Sources',
-              style: GoogleFonts.inter(
-                color: AppColors.primary,
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
+            const SizedBox(width: 6),
+            Flexible(
+              child: Text(
+                '$sourceCount Sources',
+                style: GoogleFonts.inter(
+                  color: AppColors.primary,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                ),
+                overflow: TextOverflow.ellipsis,
               ),
             ),
             const SizedBox(width: 4),

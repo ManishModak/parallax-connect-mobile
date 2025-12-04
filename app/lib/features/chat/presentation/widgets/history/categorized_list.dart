@@ -14,7 +14,7 @@ class HistoryCategorizedList extends StatelessWidget {
   final String? currentSessionId;
   final SessionCallback onSessionTap;
   final SessionCallback onDelete;
-  final SessionCallback onRename;
+  final void Function(ChatSession session, String newTitle) onRename;
   final SessionCallback onExport;
   final SessionCallback onToggleImportant;
 
@@ -69,7 +69,7 @@ class HistoryCategorizedList extends StatelessWidget {
                         isImportant: session.isImportant,
                         onTap: () => onSessionTap(session),
                         onDelete: () => onDelete(session),
-                        onRename: () => onRename(session),
+                        onRename: (newTitle) => onRename(session, newTitle),
                         onExport: () => onExport(session),
                         onToggleImportant: () => onToggleImportant(session),
                       ),

@@ -217,7 +217,7 @@ class _ChatMessageBubbleState extends ConsumerState<ChatMessageBubble> {
               curve: Curves.easeInOut,
               child: _showOptions
                   ? Padding(
-                      padding: const EdgeInsets.only(top: 4),
+                      padding: const EdgeInsets.only(top: 4, right: 4),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
@@ -245,13 +245,12 @@ class _ChatMessageBubbleState extends ConsumerState<ChatMessageBubble> {
                   (message.searchMetadata != null &&
                       message.searchMetadata!['results'] != null))) ...[
             const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              crossAxisAlignment: WrapCrossAlignment.center,
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 if (message.thinkingContent != null &&
-                    message.thinkingContent!.isNotEmpty)
+                    message.thinkingContent!.isNotEmpty) ...[
                   ThinkingPill(
                     onTap: () {
                       showModalBottomSheet(
@@ -264,6 +263,8 @@ class _ChatMessageBubbleState extends ConsumerState<ChatMessageBubble> {
                       );
                     },
                   ),
+                  const SizedBox(width: 6),
+                ],
                 if (message.searchMetadata != null &&
                     message.searchMetadata!['results'] != null)
                   Builder(

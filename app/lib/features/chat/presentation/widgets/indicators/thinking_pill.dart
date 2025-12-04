@@ -20,27 +20,34 @@ class ThinkingPill extends ConsumerWidget {
       },
       borderRadius: BorderRadius.circular(20),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
         decoration: BoxDecoration(
           color: AppColors.surfaceLight.withValues(alpha: 0.5),
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(12),
           border: Border.all(color: AppColors.surfaceLight, width: 1),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(
-              LucideIcons.brainCircuit,
-              size: 16,
-              color: AppColors.secondary,
+            SizedBox(
+              height: 24,
+              width: 24,
+              child: const Icon(
+                LucideIcons.brainCircuit,
+                size: 16,
+                color: AppColors.secondary,
+              ),
             ),
-            const SizedBox(width: 8),
-            Text(
-              'Thought Process',
-              style: GoogleFonts.inter(
-                color: AppColors.primary,
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
+            const SizedBox(width: 6),
+            Flexible(
+              child: Text(
+                'Thought Process',
+                style: GoogleFonts.inter(
+                  color: AppColors.primary,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                ),
+                overflow: TextOverflow.ellipsis,
               ),
             ),
             const SizedBox(width: 4),

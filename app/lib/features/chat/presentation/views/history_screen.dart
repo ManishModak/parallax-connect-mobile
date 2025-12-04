@@ -14,7 +14,7 @@ import '../../../../core/utils/feature_snackbar.dart';
 import '../../../../core/utils/haptics_helper.dart';
 import '../view_models/chat_controller.dart';
 import '../widgets/dialogs/delete_confirmation_dialog.dart';
-import '../widgets/dialogs/rename_dialog.dart';
+
 import '../widgets/history/categorized_list.dart';
 import '../widgets/history/search_bar.dart';
 import '../widgets/history/search_results.dart';
@@ -33,6 +33,8 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
   Timer? _debounceTimer;
   List<ChatSession> _sessions = [];
   Map<String, List<ChatSession>> _categorizedSessions = {};
+  double _dragStartX = 0.0;
+  double _dragCurrentX = 0.0;
 
   @override
   void initState() {
@@ -174,28 +176,17 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
     );
   }
 
-  Future<void> _handleRename(ChatSession session) async {
-    showDialog(
-      context: context,
-      builder: (dialogContext) => RenameDialog(
-        currentTitle: session.title,
-        onRename: (newTitle) async {
-          try {
-            await ref
-                .read(chatArchiveStorageProvider)
-                .renameSession(session.id, newTitle);
-            _loadSessions();
-          } catch (e) {
-            if (mounted) {
-              FeatureSnackbar.showError(
-                context,
-                message: 'Failed to rename chat',
-              );
-            }
-          }
-        },
-      ),
-    );
+  Future<void> _handleRename(ChatSession session, String newTitle) async {
+    try {
+      await ref
+          .read(chatArchiveStorageProvider)
+          .renameSession(session.id, newTitle);
+      _loadSessions();
+    } catch (e) {
+      if (mounted) {
+        FeatureSnackbar.showError(context, message: 'Failed to rename chat');
+      }
+    }
   }
 
   Future<void> _handleExport(ChatSession session) async {
@@ -229,10 +220,43 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       body: GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        onHorizontalDragStart: (details) {
+          _dragStartX = details.localPosition.dx;
+          _dragCurrentX = _dragStartX;
+        },
+        onHorizontalDragUpdate: (details) {
+          _dragCurrentX = details.localPosition.dx;
+        },
         onHorizontalDragEnd: (details) {
-          // Swipe Left (Velocity < 0) -> Go back to Chat
-          if (details.primaryVelocity != null &&
-              details.primaryVelocity! < -300.0) {
+          final velocity = details.primaryVelocity ?? 0.0;
+          final distance = _dragCurrentX - _dragStartX;
+          final screenWidth = MediaQuery.of(context).size.width;
+          final distanceThreshold = screenWidth * 0.15;
+          const velocityThreshold = 200.0;
+
+          // Swipe Right (Velocity > 0 OR Distance > Threshold) -> Go back to Chat
+          // Note: History screen is to the LEFT of Chat, so we swipe RIGHT to go back to Chat (which is on the right? No wait)
+          // Chat is main. History is pushed.
+          // Usually History is on the LEFT. So we swipe LEFT to close it?
+          // Let's check the router.
+          // AppRoutes.history uses _buildSlideTransition (Slide from left).
+          // So History comes from LEFT.
+          // To close it, we should swipe LEFT (push it back to left) OR swipe RIGHT (if it's a drawer).
+          // Wait, _buildSlideTransition: begin = Offset(-1.0, 0.0). It slides IN from LEFT.
+          // So it covers the screen.
+          // To dismiss it (go back to Chat), we should swipe LEFT (to push it back where it came from)?
+          // OR swipe RIGHT (to reveal Chat)?
+          // Standard iOS back gesture is Swipe Right (Left-to-Right edge swipe).
+          // But here History is a full screen page that slid in from Left.
+          // So it's like a Drawer.
+          // To close a Drawer on the left, you swipe LEFT.
+          // Let's check the original logic:
+          // if (details.primaryVelocity! < -300.0) { context.pop(); }
+          // Negative velocity is Right-to-Left (Swipe Left).
+          // So yes, Swipe Left to close History.
+
+          if (velocity < -velocityThreshold || distance < -distanceThreshold) {
             ref.read(hapticsHelperProvider).triggerHaptics();
             context.pop();
           }

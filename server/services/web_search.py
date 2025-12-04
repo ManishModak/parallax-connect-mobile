@@ -172,77 +172,70 @@ class WebSearchService:
 
     async def _deep_search(self, query: str) -> Dict[str, Any]:
         """
-        Deep: 3 Full Visits (Parallel), skipping blocked domains.
+        Deep: Multi-phase search (Standard Intensity).
+        Equivalent to the old 'Deeper' mode.
         """
-        results = await self._search_ddg(query, max_results=5)  # Get extra in case some are blocked
-
-        logger.info(
-            f"🔎 [AUDIT] Raw DDG Results (Deep) for '{query}':",
-            extra={
-                "extra_data": {
-                    "count": len(results),
-                    "urls": [r.get("href") for r in results],
-                    "titles": [r.get("title") for r in results],
-                }
+        if DEBUG_MODE:
+            logger.debug("Using DEEP search strategy (Standard Multi-phase)")
+            
+        return await self._multi_phase_search(
+            query,
+            config={
+                "broad_results": 6,
+                "news_results": 3,
+                "targeted_queries": ["analysis details"],
+                "scrape_limit_broad": 4,
+                "scrape_limit_news": 2,
+                "scrape_limit_targeted": 2,
+                "max_words": 1500,
             },
+            depth_name="deep"
         )
-
-        if not results:
-            return {"results": [], "summary": "No results found."}
-
-        # Filter out blocked domains and limit to 3
-        scrapeable = [r for r in results if not self._is_blocked_domain(r["href"])][:3]
-        blocked = [r for r in results if self._is_blocked_domain(r["href"])]
-
-        tasks = [self._scrape_url(r["href"], max_words=1500) for r in scrapeable]
-        contents = await asyncio.gather(*tasks)
-
-        processed_results = []
-        for i, r in enumerate(scrapeable):
-            processed_results.append(
-                {
-                    "title": r["title"],
-                    "url": r["href"],
-                    "snippet": r["body"],
-                    "content": contents[i] if contents[i] else r["body"],
-                    "is_full_content": bool(contents[i]),
-                }
-            )
-
-        # Add blocked domains as snippets only
-        for r in blocked[:2]:
-            processed_results.append(
-                {
-                    "title": r["title"],
-                    "url": r["href"],
-                    "snippet": r["body"],
-                    "is_full_content": False,
-                }
-            )
-
-        return {"results": processed_results, "depth": "deep"}
 
     async def _deeper_search(self, query: str) -> Dict[str, Any]:
         """
-        Deeper: Combines web + news search, with smart scraping.
-        Phase 1: Broad web search (4 results)
-        Phase 2: News search for recent content (2 results)
-        Phase 3: Targeted follow-up search (2 results)
+        Deeper: Ultra-intensive Multi-phase search.
+        Significantly increased breadth and depth.
+        """
+        if DEBUG_MODE:
+            logger.debug("Using DEEPER search strategy (Ultra Multi-phase)")
+
+        return await self._multi_phase_search(
+            query,
+            config={
+                "broad_results": 10,
+                "news_results": 5,
+                "targeted_queries": [
+                    "comprehensive analysis", 
+                    "future outlook implications",
+                    "expert opinions",
+                    "statistics and data"
+                ],
+                "scrape_limit_broad": 6,
+                "scrape_limit_news": 4,
+                "scrape_limit_targeted": 4,
+                "max_words": 3000,
+            },
+            depth_name="deeper"
+        )
+
+    async def _multi_phase_search(self, query: str, config: Dict[str, Any], depth_name: str) -> Dict[str, Any]:
+        """
+        Executes a configurable multi-phase search strategy.
         """
         # Phase 1: Broad Web Search + News Search in parallel
-        broad_task = self._search_ddg(query, max_results=6)
-        news_task = self._search_ddg_news(query, max_results=3)
+        broad_task = self._search_ddg(query, max_results=config["broad_results"])
+        news_task = self._search_ddg_news(query, max_results=config["news_results"])
         
         broad_results, news_results = await asyncio.gather(broad_task, news_task)
 
         logger.info(
-            f"🔎 [AUDIT] Raw DDG Results (Deeper - Broad) for '{query}':",
+            f"🔎 [AUDIT] Raw DDG Results ({depth_name} - Broad) for '{query}':",
             extra={
                 "extra_data": {
                     "web_count": len(broad_results),
                     "news_count": len(news_results),
                     "urls": [r.get("href") for r in broad_results],
-                    "titles": [r.get("title") for r in broad_results],
                 }
             },
         )
@@ -253,12 +246,12 @@ class WebSearchService:
         processed_results = []
         existing_urls = set()
 
-        # Process broad results - scrape non-blocked domains
-        scrapeable_broad = [r for r in broad_results if not self._is_blocked_domain(r["href"])][:4]
+        # Process broad results
+        scrapeable_broad = [r for r in broad_results if not self._is_blocked_domain(r["href"])][:config["scrape_limit_broad"]]
         blocked_broad = [r for r in broad_results if self._is_blocked_domain(r["href"])]
 
         if scrapeable_broad:
-            tasks = [self._scrape_url(r["href"], max_words=2000) for r in scrapeable_broad]
+            tasks = [self._scrape_url(r["href"], max_words=config["max_words"]) for r in scrapeable_broad]
             broad_contents = await asyncio.gather(*tasks)
 
             for i, r in enumerate(scrapeable_broad):
@@ -288,10 +281,10 @@ class WebSearchService:
                     }
                 )
 
-        # Process news results (usually have good snippets, scrape if possible)
-        unique_news = [r for r in news_results if r.get("url") and r["url"] not in existing_urls][:2]
+        # Process news results
+        unique_news = [r for r in news_results if r.get("url") and r["url"] not in existing_urls][:config["scrape_limit_news"]]
         if unique_news:
-            news_tasks = [self._scrape_url(r["url"], max_words=1500) for r in unique_news 
+            news_tasks = [self._scrape_url(r["url"], max_words=config["max_words"]) for r in unique_news 
                          if not self._is_blocked_domain(r["url"])]
             news_contents = await asyncio.gather(*news_tasks) if news_tasks else []
             
@@ -315,27 +308,23 @@ class WebSearchService:
                     }
                 )
 
-        # Phase 3: Targeted Search for additional context
-        targeted_query = f"{query} analysis details"
-        targeted_results = await self._search_ddg(targeted_query, max_results=3)
-
-        logger.info(
-            f"🔎 [AUDIT] Raw DDG Results (Deeper - Targeted) for '{targeted_query}':",
-            extra={
-                "extra_data": {
-                    "count": len(targeted_results),
-                    "urls": [r.get("href") for r in targeted_results],
-                }
-            },
-        )
-
-        unique_targeted = [r for r in targeted_results if r["href"] not in existing_urls][:2]
+        # Phase 3: Targeted Search
+        targeted_queries = [f"{query} {suffix}" for suffix in config["targeted_queries"]]
+        
+        # Execute targeted searches in parallel
+        targeted_tasks = [self._search_ddg(q, max_results=3) for q in targeted_queries]
+        targeted_results_lists = await asyncio.gather(*targeted_tasks)
+        
+        # Flatten results
+        all_targeted = [item for sublist in targeted_results_lists for item in sublist]
+        
+        unique_targeted = [r for r in all_targeted if r["href"] not in existing_urls][:config["scrape_limit_targeted"]]
 
         if unique_targeted:
             scrapeable_targeted = [r for r in unique_targeted if not self._is_blocked_domain(r["href"])]
             
             if scrapeable_targeted:
-                t_tasks = [self._scrape_url(r["href"], max_words=1500) for r in scrapeable_targeted]
+                t_tasks = [self._scrape_url(r["href"], max_words=config["max_words"]) for r in scrapeable_targeted]
                 t_contents = await asyncio.gather(*t_tasks)
 
                 for i, r in enumerate(scrapeable_targeted):
@@ -350,7 +339,7 @@ class WebSearchService:
                         }
                     )
 
-        return {"results": processed_results, "depth": "deeper"}
+        return {"results": processed_results, "depth": depth_name}
 
     async def _scrape_url(self, url: str, max_words: int = 1000) -> str:
         """

@@ -65,7 +65,7 @@ class WebSearchModeSelector extends ConsumerWidget {
         _buildMenuItem(
           'deep',
           'Deep Search',
-          'Comprehensive (Default)',
+          'Multi-phase analysis',
           LucideIcons.globe,
         ),
         _buildMenuItem(
@@ -77,7 +77,7 @@ class WebSearchModeSelector extends ConsumerWidget {
         _buildMenuItem(
           'deeper',
           'Deeper Search',
-          'Thorough reading',
+          'Ultra-intensive research',
           LucideIcons.layers,
         ),
         const PopupMenuDivider(),

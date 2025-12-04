@@ -241,7 +241,7 @@ class _ConfigScreenState extends ConsumerState<ConfigScreen> {
         centerTitle: true,
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24.0),
+        padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 12.0),
         child: ConnectionForm(
           formKey: _formKey,
           urlController: _urlController,

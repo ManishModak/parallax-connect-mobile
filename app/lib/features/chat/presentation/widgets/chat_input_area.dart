@@ -11,7 +11,7 @@ import '../../../../core/utils/feature_snackbar.dart';
 import '../../../../core/utils/haptics_helper.dart';
 import 'chat_input/attachment_menu_handler.dart';
 import 'chat_input/attachment_preview.dart';
-import 'chat_input/model_selector.dart';
+
 import 'chat_input/web_search_mode_selector.dart';
 import '../view_models/chat_controller.dart';
 import '../state/chat_state.dart';
@@ -47,24 +47,6 @@ class _ChatInputAreaState extends ConsumerState<ChatInputArea> {
   @override
   void initState() {
     super.initState();
-
-    // Keep the input field in sync with the currently edited message without
-    // re-registering this listener on every rebuild.
-    ref.listen<ChatState>(chatControllerProvider, (previous, next) {
-      if (previous?.editingMessage != next.editingMessage) {
-        if (next.editingMessage != null) {
-          _controller.text = next.editingMessage!.text;
-          // Move cursor to end
-          _controller.selection = TextSelection.fromPosition(
-            TextPosition(offset: _controller.text.length),
-          );
-        } else if (previous?.editingMessage != null) {
-          // Editing was cleared externally, reset the field.
-          _controller.clear();
-          _focusNode.unfocus();
-        }
-      }
-    });
   }
 
   @override
@@ -200,6 +182,24 @@ class _ChatInputAreaState extends ConsumerState<ChatInputArea> {
 
   @override
   Widget build(BuildContext context) {
+    // Keep the input field in sync with the currently edited message.
+    // Must be in build() because ref is not available in initState for ConsumerStatefulWidget.
+    ref.listen<ChatState>(chatControllerProvider, (previous, next) {
+      if (previous?.editingMessage != next.editingMessage) {
+        if (next.editingMessage != null) {
+          _controller.text = next.editingMessage!.text;
+          // Move cursor to end
+          _controller.selection = TextSelection.fromPosition(
+            TextPosition(offset: _controller.text.length),
+          );
+        } else if (previous?.editingMessage != null) {
+          // Editing was cleared externally, reset the field.
+          _controller.clear();
+          _focusNode.unfocus();
+        }
+      }
+    });
+
     final isEditing = ref.watch(
       chatControllerProvider.select((state) => state.editingMessage != null),
     );
@@ -215,7 +215,7 @@ class _ChatInputAreaState extends ConsumerState<ChatInputArea> {
         }
       },
       child: Padding(
-        padding: const EdgeInsets.all(8.0),
+        padding: const EdgeInsets.all(4.0),
         child: Container(
           decoration: BoxDecoration(
             color: AppColors.chatInputBackground,
@@ -274,9 +274,6 @@ class _ChatInputAreaState extends ConsumerState<ChatInputArea> {
                         children: [
                           // Web Search Mode Selector
                           const WebSearchModeSelector(),
-                          const SizedBox(width: 8),
-                          // Model Selector
-                          const ModelSelector(),
                         ],
                       ),
                     ),
