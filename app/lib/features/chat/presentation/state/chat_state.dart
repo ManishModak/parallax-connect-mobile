@@ -16,7 +16,6 @@ class ChatState {
   // Smart Search Status
   final bool isAnalyzingIntent;
   final bool isSearchingWeb;
-  final String currentSearchQuery;
   final String searchStatusMessage;
   final String webSearchMode; // 'off', 'normal', 'deep', 'deeper'
   final ChatMessage? editingMessage;
@@ -34,7 +33,6 @@ class ChatState {
     this.isThinking = false,
     this.isAnalyzingIntent = false,
     this.isSearchingWeb = false,
-    this.currentSearchQuery = '',
     this.searchStatusMessage = '',
     this.webSearchMode = 'deep',
     this.editingMessage,
@@ -54,7 +52,6 @@ class ChatState {
     bool? isThinking,
     bool? isAnalyzingIntent,
     bool? isSearchingWeb,
-    String? currentSearchQuery,
     String? searchStatusMessage,
     String? webSearchMode,
     ChatMessage? editingMessage,
@@ -74,7 +71,6 @@ class ChatState {
       isThinking: isThinking ?? this.isThinking,
       isAnalyzingIntent: isAnalyzingIntent ?? this.isAnalyzingIntent,
       isSearchingWeb: isSearchingWeb ?? this.isSearchingWeb,
-      currentSearchQuery: currentSearchQuery ?? this.currentSearchQuery,
       searchStatusMessage: searchStatusMessage ?? this.searchStatusMessage,
       webSearchMode: webSearchMode ?? this.webSearchMode,
       editingMessage: clearEditingMessage

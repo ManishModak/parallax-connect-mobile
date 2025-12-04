@@ -53,6 +53,11 @@ class ChatController extends Notifier<ChatState> {
       smartSearchService: _smartSearchService,
     );
 
+    // Properly dispose stream subscription when controller is disposed
+    ref.onDispose(() {
+      _streamSubscription?.cancel();
+    });
+
     final messages = _historyStorage.getHistory();
     return ChatState(
       messages: messages.map((m) => ChatMessage.fromMap(m)).toList(),

@@ -136,19 +136,23 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
           const double sensitivity = 300.0;
 
-          // Swipe Right (Velocity > 0) -> Toggle Private Mode
+          // Swipe Right (Velocity > 0) -> Open History OR Exit Private Mode
           if (details.primaryVelocity! > sensitivity) {
             ref.read(hapticsHelperProvider).triggerHaptics();
             if (chatState.isPrivateMode) {
+              // Exit private mode first
               chatController.disablePrivateMode();
             } else {
-              chatController.togglePrivateMode();
+              // Open history screen
+              context.push(AppRoutes.history);
             }
           }
-          // Swipe Left (Velocity < 0) -> Open History
+          // Swipe Left (Velocity < 0) -> Enable Private Mode
           else if (details.primaryVelocity! < -sensitivity) {
-            ref.read(hapticsHelperProvider).triggerHaptics();
-            context.push(AppRoutes.history);
+            if (!chatState.isPrivateMode) {
+              ref.read(hapticsHelperProvider).triggerHaptics();
+              chatController.togglePrivateMode();
+            }
           }
         },
         child: Column(

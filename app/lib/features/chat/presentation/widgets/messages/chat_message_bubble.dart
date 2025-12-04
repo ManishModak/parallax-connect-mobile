@@ -41,6 +41,46 @@ class _ChatMessageBubbleState extends ConsumerState<ChatMessageBubble> {
   bool _showOptions = false;
   final Map<String, bool> _copiedCode = {};
 
+  // Cached MarkdownStyleSheet to avoid recreating TextStyles on every rebuild
+  static final MarkdownStyleSheet _markdownStyleSheet = MarkdownStyleSheet(
+    p: GoogleFonts.inter(color: AppColors.primary, fontSize: 16, height: 1.5),
+    strong: GoogleFonts.inter(
+      color: AppColors.primary,
+      fontWeight: FontWeight.bold,
+    ),
+    em: GoogleFonts.inter(
+      color: AppColors.primary,
+      fontStyle: FontStyle.italic,
+    ),
+    h1: GoogleFonts.inter(
+      color: AppColors.primary,
+      fontSize: 24,
+      fontWeight: FontWeight.bold,
+    ),
+    h2: GoogleFonts.inter(
+      color: AppColors.primary,
+      fontSize: 20,
+      fontWeight: FontWeight.bold,
+    ),
+    h3: GoogleFonts.inter(
+      color: AppColors.primary,
+      fontSize: 18,
+      fontWeight: FontWeight.bold,
+    ),
+    code: GoogleFonts.firaCode(
+      color: AppColors.primary,
+      backgroundColor: AppColors.codeBlockBorder,
+      fontSize: 14,
+    ),
+    blockquote: GoogleFonts.inter(
+      color: AppColors.secondary,
+      fontStyle: FontStyle.italic,
+    ),
+    blockquoteDecoration: BoxDecoration(
+      border: Border(left: BorderSide(color: AppColors.accent, width: 4)),
+    ),
+  );
+
   void _copyToClipboard(String text, {String? codeKey}) async {
     ref.read(hapticsHelperProvider).triggerHaptics();
     await Clipboard.setData(ClipboardData(text: text));
@@ -125,51 +165,7 @@ class _ChatMessageBubbleState extends ConsumerState<ChatMessageBubble> {
                           _copiedCode[code.hashCode.toString()] ?? false,
                     ),
                   },
-                  styleSheet: MarkdownStyleSheet(
-                    p: GoogleFonts.inter(
-                      color: AppColors.primary,
-                      fontSize: 16,
-                      height: 1.5,
-                    ),
-                    strong: GoogleFonts.inter(
-                      color: AppColors.primary,
-                      fontWeight: FontWeight.bold,
-                    ),
-                    em: GoogleFonts.inter(
-                      color: AppColors.primary,
-                      fontStyle: FontStyle.italic,
-                    ),
-                    h1: GoogleFonts.inter(
-                      color: AppColors.primary,
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                    ),
-                    h2: GoogleFonts.inter(
-                      color: AppColors.primary,
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
-                    h3: GoogleFonts.inter(
-                      color: AppColors.primary,
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                    code: GoogleFonts.firaCode(
-                      color: AppColors.primary,
-                      backgroundColor: AppColors.codeBlockBorder,
-                      fontSize: 14,
-                    ),
-                    // Removed codeblockDecoration - using custom code builder
-                    blockquote: GoogleFonts.inter(
-                      color: AppColors.secondary,
-                      fontStyle: FontStyle.italic,
-                    ),
-                    blockquoteDecoration: BoxDecoration(
-                      border: Border(
-                        left: BorderSide(color: AppColors.accent, width: 4),
-                      ),
-                    ),
-                  ),
+                  styleSheet: _markdownStyleSheet,
                 ),
               ),
             ),

@@ -228,168 +228,184 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      body: SafeArea(
-        child: Column(
-          children: [
-            HistorySearchBar(
-              controller: _searchController,
-              isSearching: _isSearching,
-              debounceTimer: _debounceTimer,
-              onChangedWithDebounce: (value, _) => _onSearchChanged(value),
-              onClear: () {
-                ref.read(hapticsHelperProvider).triggerHaptics();
-                _clearSearch();
-              },
-              onClose: () {
-                ref.read(hapticsHelperProvider).triggerHaptics();
-                context.pop();
-              },
-            ),
+      body: GestureDetector(
+        onHorizontalDragEnd: (details) {
+          // Swipe Left (Velocity < 0) -> Go back to Chat
+          if (details.primaryVelocity != null &&
+              details.primaryVelocity! < -300.0) {
+            ref.read(hapticsHelperProvider).triggerHaptics();
+            context.pop();
+          }
+        },
+        child: SafeArea(
+          child: Column(
+            children: [
+              HistorySearchBar(
+                controller: _searchController,
+                isSearching: _isSearching,
+                debounceTimer: _debounceTimer,
+                onChangedWithDebounce: (value, _) => _onSearchChanged(value),
+                onClear: () {
+                  ref.read(hapticsHelperProvider).triggerHaptics();
+                  _clearSearch();
+                },
+                onClose: () {
+                  ref.read(hapticsHelperProvider).triggerHaptics();
+                  context.pop();
+                },
+              ),
 
-            // Content
-            Expanded(
-              child: _isSearching
-                  ? Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const CircularProgressIndicator(),
-                          const SizedBox(height: 16),
-                          Text(
-                            'Searching...',
-                            style: GoogleFonts.inter(
-                              color: AppColors.secondary,
-                              fontSize: 14,
+              // Content
+              Expanded(
+                child: _isSearching
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const CircularProgressIndicator(),
+                            const SizedBox(height: 16),
+                            Text(
+                              'Searching...',
+                              style: GoogleFonts.inter(
+                                color: AppColors.secondary,
+                                fontSize: 14,
+                              ),
                             ),
-                          ),
+                          ],
+                        ),
+                      )
+                    : CustomScrollView(
+                        slivers: [
+                          if (_searchQuery.isEmpty)
+                            HistoryCategorizedList(
+                              categorizedSessions: _categorizedSessions,
+                              currentSessionId: ref
+                                  .read(chatControllerProvider)
+                                  .currentSessionId,
+                              onSessionTap: (session) {
+                                ref
+                                    .read(chatControllerProvider.notifier)
+                                    .loadArchivedSession(session.id);
+                                context.pop();
+                              },
+                              onDelete: _handleDelete,
+                              onRename: _handleRename,
+                              onExport: _handleExport,
+                              onToggleImportant: _handleToggleImportant,
+                            )
+                          else
+                            HistorySearchResults(
+                              sessions: _sessions,
+                              currentSessionId: ref
+                                  .read(chatControllerProvider)
+                                  .currentSessionId,
+                              onSessionTap: (session) {
+                                ref
+                                    .read(chatControllerProvider.notifier)
+                                    .loadArchivedSession(session.id);
+                                context.pop();
+                              },
+                              onDelete: _handleDelete,
+                              onRename: _handleRename,
+                              onExport: _handleExport,
+                              onToggleImportant: _handleToggleImportant,
+                            ),
                         ],
                       ),
-                    )
-                  : CustomScrollView(
-                      slivers: [
-                        if (_searchQuery.isEmpty)
-                          HistoryCategorizedList(
-                            categorizedSessions: _categorizedSessions,
-                            currentSessionId: ref
-                                .read(chatControllerProvider)
-                                .currentSessionId,
-                            onSessionTap: (session) {
-                              ref
-                                  .read(chatControllerProvider.notifier)
-                                  .loadArchivedSession(session.id);
-                              context.pop();
-                            },
-                            onDelete: _handleDelete,
-                            onRename: _handleRename,
-                            onExport: _handleExport,
-                            onToggleImportant: _handleToggleImportant,
-                          )
-                        else
-                          HistorySearchResults(
-                            sessions: _sessions,
-                            currentSessionId: ref
-                                .read(chatControllerProvider)
-                                .currentSessionId,
-                            onSessionTap: (session) {
-                              ref
-                                  .read(chatControllerProvider.notifier)
-                                  .loadArchivedSession(session.id);
-                              context.pop();
-                            },
-                            onDelete: _handleDelete,
-                            onRename: _handleRename,
-                            onExport: _handleExport,
-                            onToggleImportant: _handleToggleImportant,
+              ),
+
+              // New Chat Button
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      ref.read(hapticsHelperProvider).triggerHaptics();
+                      ref.read(chatControllerProvider.notifier).startNewChat();
+                      context.pop();
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: AppColors.background,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      elevation: 0,
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(LucideIcons.plus, size: 20),
+                        const SizedBox(width: 8),
+                        Text(
+                          'New Chat',
+                          style: GoogleFonts.inter(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 15,
                           ),
+                        ),
                       ],
                     ),
-            ),
-
-            // New Chat Button
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () {
-                    ref.read(hapticsHelperProvider).triggerHaptics();
-                    ref.read(chatControllerProvider.notifier).startNewChat();
-                    context.pop();
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: AppColors.background,
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    elevation: 0,
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(LucideIcons.plus, size: 20),
-                      const SizedBox(width: 8),
-                      Text(
-                        'New Chat',
-                        style: GoogleFonts.inter(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 15,
-                        ),
-                      ),
-                    ],
                   ),
                 ),
               ),
-            ),
 
-            // Footer
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  Image.asset(
-                    'assets/images/logov1.png',
-                    width: 28,
-                    height: 28,
-                  ),
-                  const SizedBox(width: 12),
-                  Text(
-                    'Parallax Connect v1.0',
-                    style: GoogleFonts.inter(
-                      color: AppColors.secondary,
-                      fontSize: 11,
-                      letterSpacing: 0.5,
+              // Footer
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 10,
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    Image.asset(
+                      'assets/images/logov1.png',
+                      width: 28,
+                      height: 28,
                     ),
-                  ),
-                  const SizedBox(width: 40),
-                  IconButton(
-                    icon: const Icon(
-                      LucideIcons.settings,
-                      color: AppColors.secondary,
+                    const SizedBox(width: 12),
+                    Text(
+                      'Parallax Connect v1.0',
+                      style: GoogleFonts.inter(
+                        color: AppColors.secondary,
+                        fontSize: 11,
+                        letterSpacing: 0.5,
+                      ),
                     ),
-                    tooltip: 'Open settings',
-                    onPressed: () {
-                      ref.read(hapticsHelperProvider).triggerHaptics();
-                      context.push(AppRoutes.settings);
-                    },
-                  ),
-                  IconButton(
-                    icon: const Icon(
-                      LucideIcons.monitorSmartphone,
-                      color: AppColors.secondary,
+                    const SizedBox(width: 40),
+                    IconButton(
+                      icon: const Icon(
+                        LucideIcons.settings,
+                        color: AppColors.secondary,
+                      ),
+                      tooltip: 'Open settings',
+                      onPressed: () {
+                        ref.read(hapticsHelperProvider).triggerHaptics();
+                        context.push(AppRoutes.settings);
+                      },
                     ),
-                    tooltip: 'Open Connection Setup',
-                    onPressed: () {
-                      ref.read(hapticsHelperProvider).triggerHaptics();
-                      context.push(AppRoutes.config);
-                    },
-                  ),
-                ],
+                    IconButton(
+                      icon: const Icon(
+                        LucideIcons.monitorSmartphone,
+                        color: AppColors.secondary,
+                      ),
+                      tooltip: 'Open Connection Setup',
+                      onPressed: () {
+                        ref.read(hapticsHelperProvider).triggerHaptics();
+                        context.push(AppRoutes.config);
+                      },
+                    ),
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

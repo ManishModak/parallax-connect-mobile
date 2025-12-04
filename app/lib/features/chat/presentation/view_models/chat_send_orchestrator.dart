@@ -30,28 +30,25 @@ class ChatSendOrchestrator {
     required ConnectivityService connectivityService,
     required DocumentService documentService,
     required SmartSearchService smartSearchService,
-  })  : _settingsStorage = settingsStorage,
-        _configStorage = configStorage,
-        _visionService = visionService,
-        _connectivityService = connectivityService,
-        _documentService = documentService,
-        _smartSearchService = smartSearchService;
+  }) : _settingsStorage = settingsStorage,
+       _configStorage = configStorage,
+       _visionService = visionService,
+       _connectivityService = connectivityService,
+       _documentService = documentService,
+       _smartSearchService = smartSearchService;
 
   Future<void> send({
     required String text,
     required List<String> attachmentPaths,
     required ChatState initialState,
     required void Function(ChatState) setState,
-    required Future<void> Function(
-      String contextText, {
-      bool disableWebSearch,
-    })
-        sendStreaming,
+    required Future<void> Function(String contextText, {bool disableWebSearch})
+    sendStreaming,
     required Future<void> Function(
       String contextText,
       List<String> attachmentPaths,
     )
-        sendNonStreaming,
+    sendNonStreaming,
     required Future<void> Function(String response) finalizeMessage,
   }) async {
     // Local copy of state so we can keep using the latest snapshot after
@@ -80,7 +77,9 @@ class ChatSendOrchestrator {
 
     String contextText = text;
     if (docAttachments.isNotEmpty) {
-      final docContent = await _documentService.extractText(docAttachments.first);
+      final docContent = await _documentService.extractText(
+        docAttachments.first,
+      );
       contextText = 'Document content:\n$docContent\n\nUser question: $text';
     }
 
@@ -107,7 +106,7 @@ class ChatSendOrchestrator {
               .where((m) => !m.isUser)
               .take(4)
               .map(
-                (m) => {
+                (m) => <String, String>{
                   'role': m.isUser ? 'user' : 'assistant',
                   'content': m.text,
                 },
@@ -126,7 +125,6 @@ class ChatSendOrchestrator {
               (s) => s.copyWith(
                 isAnalyzingIntent: false,
                 isSearchingWeb: true,
-                currentSearchQuery: searchResult.searchQuery,
                 searchStatusMessage:
                     'Searching for "${searchResult.searchQuery}"...',
               ),
@@ -145,7 +143,7 @@ class ChatSendOrchestrator {
                     'query': searchResult.searchQuery,
                     'results': searchResult.results
                         .map(
-                          (r) => {
+                          (r) => <String, dynamic>{
                             'title': r.title,
                             'url': r.url,
                             'snippet': r.snippet,
@@ -159,9 +157,7 @@ class ChatSendOrchestrator {
               );
             } else {
               updateState(
-                (s) => s.copyWith(
-                  searchStatusMessage: 'No results found',
-                ),
+                (s) => s.copyWith(searchStatusMessage: 'No results found'),
               );
             }
           } else {
@@ -178,10 +174,7 @@ class ChatSendOrchestrator {
         } finally {
           // Clear search flags before generation starts
           updateState(
-            (s) => s.copyWith(
-              isAnalyzingIntent: false,
-              isSearchingWeb: false,
-            ),
+            (s) => s.copyWith(isAnalyzingIntent: false, isSearchingWeb: false),
           );
         }
       } else {
@@ -237,5 +230,3 @@ class ChatSendOrchestrator {
     }
   }
 }
-
-
