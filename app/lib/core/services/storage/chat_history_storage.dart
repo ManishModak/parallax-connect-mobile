@@ -2,22 +2,26 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
 import '../../utils/logger.dart';
+import 'storage_service_interface.dart';
 
 /// Storage service for chat history
-class ChatHistoryStorage {
+class ChatHistoryStorage
+    implements StorageServiceInterface<Map<String, dynamic>> {
   static const String boxName = 'chat_history';
 
   final Box _box;
 
   ChatHistoryStorage(this._box);
 
+  @override
   static Future<void> init() async {
     await Hive.initFlutter();
     await Hive.openBox(boxName);
     Log.storage('History storage initialized');
   }
 
-  Future<void> saveMessage(Map<String, dynamic> message) async {
+  @override
+  Future<void> saveItem(Map<String, dynamic> message) async {
     try {
       if (!_isValidMessage(message)) {
         Log.w('Invalid message format');
@@ -30,7 +34,12 @@ class ChatHistoryStorage {
     }
   }
 
-  List<Map<String, dynamic>> getHistory() {
+  @override
+  Future<void> saveMessage(Map<String, dynamic> message) async =>
+      saveItem(message);
+
+  @override
+  List<Map<String, dynamic>> getAllItems() {
     try {
       return _box.values
           .map((item) => Map<String, dynamic>.from(item as Map))
@@ -40,6 +49,9 @@ class ChatHistoryStorage {
       return [];
     }
   }
+
+  @override
+  List<Map<String, dynamic>> getHistory() => getAllItems();
 
   List<Map<String, dynamic>> searchMessages(String query) {
     try {
@@ -75,7 +87,8 @@ class ChatHistoryStorage {
     }
   }
 
-  Future<void> clearHistory() async {
+  @override
+  Future<void> clearAll() async {
     try {
       await _box.clear();
       Log.storage('History cleared');
@@ -85,10 +98,17 @@ class ChatHistoryStorage {
     }
   }
 
+  @override
+  Future<void> clearHistory() async => clearAll();
+
+  @override
   /// Get count of messages
-  int getMessageCount() {
+  int getItemCount() {
     return _box.length;
   }
+
+  @override
+  int getMessageCount() => getItemCount();
 
   /// Validate message structure
   bool _isValidMessage(Map<String, dynamic> message) {

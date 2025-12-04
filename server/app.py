@@ -2,7 +2,7 @@
 
 from fastapi import FastAPI
 
-from .apis import health_router, chat_router, models_router, ui_router
+from .apis import health_router, chat_router, models_router, ui_router, logs_router
 from .startup import on_startup
 from .logging_setup import setup_logging
 from .middleware.log_middleware import LogMiddleware
@@ -36,6 +36,7 @@ def create_app() -> FastAPI:
     app.include_router(chat_router)
     app.include_router(models_router)
     app.include_router(ui_router)
+    app.include_router(logs_router)
     from .apis.search import router as search_router
 
     app.include_router(search_router)

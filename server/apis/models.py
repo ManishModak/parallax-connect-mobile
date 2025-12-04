@@ -23,14 +23,26 @@ async def models_endpoint(request: Request, _: bool = Depends(check_password)):
         return {
             "models": [
                 {
-                    "id": "mock-model",
-                    "name": "Mock Model",
-                    "context_length": 4096,
+                    "id": "qwen-32b",
+                    "name": "Qwen 32B",
+                    "context_length": 32768,
+                    "vram_gb": 24,
+                },
+                {
+                    "id": "llama-70b",
+                    "name": "Llama 70B",
+                    "context_length": 8192,
+                    "vram_gb": 48,
+                },
+                {
+                    "id": "mistral-7b",
+                    "name": "Mistral 7B",
+                    "context_length": 32768,
                     "vram_gb": 8,
-                }
+                },
             ],
-            "active": "mock-model",
-            "default": "mock-model",
+            "active": "qwen-32b",
+            "default": "qwen-32b",
         }
 
     try:

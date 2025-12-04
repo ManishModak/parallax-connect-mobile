@@ -16,13 +16,11 @@ class ConfigStorage {
   // Deterministic encryption key derived from fixed seed
   static const _encryptionSeed = 'parallax_connect_password_seed';
   static final encrypt.Key _encryptionKey = encrypt.Key(
-    Uint8List.fromList(
-      sha256.convert(utf8.encode(_encryptionSeed)).bytes,
-    ),
+    Uint8List.fromList(sha256.convert(utf8.encode(_encryptionSeed)).bytes),
   );
-  static final encrypt.Encrypter _encrypter =
-      encrypt.Encrypter(encrypt.AES(_encryptionKey));
-  static final encrypt.IV _iv = encrypt.IV.fromLength(16);
+  static final encrypt.Encrypter _encrypter = encrypt.Encrypter(
+    encrypt.AES(_encryptionKey),
+  );
 
   final SharedPreferences _prefs;
 
@@ -45,9 +43,12 @@ class ConfigStorage {
       await _prefs.setBool(StorageKeys.isLocal, isLocal);
 
       if (password != null && password.isNotEmpty) {
-        // Encrypt password before storing
-        final encrypted = _encrypter.encrypt(password, iv: _iv);
-        await _prefs.setString(StorageKeys.password, encrypted.base64);
+        // Generate random IV for each encryption (more secure)
+        final iv = encrypt.IV.fromSecureRandom(16);
+        final encrypted = _encrypter.encrypt(password, iv: iv);
+        // Store as "iv:ciphertext" format
+        final stored = '${iv.base64}:${encrypted.base64}';
+        await _prefs.setString(StorageKeys.password, stored);
       } else {
         await _prefs.remove(StorageKeys.password);
       }
@@ -79,11 +80,20 @@ class ConfigStorage {
 
   String? getPassword() {
     try {
-      final encryptedPassword = _prefs.getString(StorageKeys.password);
-      if (encryptedPassword == null) return null;
+      final stored = _prefs.getString(StorageKeys.password);
+      if (stored == null) return null;
 
-      final encrypted = encrypt.Encrypted.fromBase64(encryptedPassword);
-      return _encrypter.decrypt(encrypted, iv: _iv);
+      // Parse "iv:ciphertext" format
+      final parts = stored.split(':');
+      if (parts.length != 2) {
+        Log.w('Invalid password format, clearing');
+        _prefs.remove(StorageKeys.password);
+        return null;
+      }
+
+      final iv = encrypt.IV.fromBase64(parts[0]);
+      final encrypted = encrypt.Encrypted.fromBase64(parts[1]);
+      return _encrypter.decrypt(encrypted, iv: iv);
     } catch (e) {
       Log.e('Failed to get password', e);
       return null;

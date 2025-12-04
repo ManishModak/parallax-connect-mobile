@@ -1,9 +1,10 @@
 import 'dart:convert';
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:http/http.dart' as http;
 import 'package:html/parser.dart' as html_parser;
 import '../../../features/settings/data/settings_storage.dart';
 import '../storage/config_storage.dart';
+import '../../network/dio_provider.dart';
 import '../../utils/logger.dart';
 
 /// Result from Smart Search
@@ -41,8 +42,9 @@ class SearchResultItem {
 class SmartSearchService {
   final SettingsStorage _settings;
   final String _baseUrl; // Parallax API URL
+  final Dio _dio;
 
-  SmartSearchService(this._settings, this._baseUrl);
+  SmartSearchService(this._settings, this._baseUrl, this._dio);
 
   /// Main entry point: Analyze intent and search if needed
   Future<SmartSearchResult> smartSearch(
@@ -111,20 +113,19 @@ class SmartSearchService {
         {'role': 'user', 'content': query},
       ];
 
-      final response = await http.post(
-        Uri.parse('$_baseUrl/v1/chat/completions'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
+      final response = await _dio.post(
+        '$_baseUrl/v1/chat/completions',
+        data: {
           'model': 'default',
           'messages': messages,
           'stream': false,
           'max_tokens': 150,
           'temperature': 0.0,
-        }),
+        },
       );
 
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
+        final data = response.data as Map<String, dynamic>;
         String content = data['choices'][0]['message']['content'];
         content = content
             .replaceAll('```json', '')
@@ -155,15 +156,13 @@ class SmartSearchService {
     String depth,
   ) async {
     try {
-      // final depth = _settings.getWebSearchDepth(); // Removed
-      final response = await http.post(
-        Uri.parse('$_baseUrl/search'), // Custom endpoint we created
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'query': query, 'depth': depth}),
+      final response = await _dio.post(
+        '$_baseUrl/search',
+        data: {'query': query, 'depth': depth},
       );
 
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
+        final data = response.data as Map<String, dynamic>;
         final list = data['results'] as List;
         return list
             .map(
@@ -188,13 +187,16 @@ class SmartSearchService {
     String depth,
   ) async {
     try {
-      // 1. Get Links (Lite)
-      final url = Uri.parse('https://html.duckduckgo.com/html/');
-      final response = await http.post(url, body: {'q': query});
+      // 1. Get Links (DuckDuckGo HTML)
+      final response = await _dio.post(
+        'https://html.duckduckgo.com/html/',
+        data: {'q': query},
+        options: Options(contentType: 'application/x-www-form-urlencoded'),
+      );
 
       if (response.statusCode != 200) return [];
 
-      final document = html_parser.parse(response.body);
+      final document = html_parser.parse(response.data as String);
       final results = document.querySelectorAll('.result:not(.result--ad)');
 
       List<SearchResultItem> items = [];
@@ -248,19 +250,23 @@ class SmartSearchService {
 
   Future<void> _fetchPageContent(SearchResultItem item) async {
     try {
-      final response = await http
-          .get(Uri.parse(item.url))
-          .timeout(const Duration(seconds: 4));
+      final response = await _dio.get(
+        item.url,
+        options: Options(
+          responseType: ResponseType.plain,
+          receiveTimeout: const Duration(seconds: 4),
+        ),
+      );
       if (response.statusCode == 200) {
-        final doc = html_parser.parse(response.body);
+        final doc = html_parser.parse(response.data as String);
         doc
             .querySelectorAll('script, style, nav, footer, header')
             .forEach((e) => e.remove());
         // Simple text extraction
         String text =
             doc.body?.text.trim().replaceAll(RegExp(r'\s+'), ' ') ?? '';
-        if (text.length > 1000) text = text.substring(0, 1000) + '...';
-        item.content = text; // Update content
+        if (text.length > 1000) text = '${text.substring(0, 1000)}...';
+        item.content = text;
       }
     } catch (e) {
       // Ignore
@@ -290,6 +296,7 @@ class SmartSearchService {
 final smartSearchServiceProvider = Provider<SmartSearchService>((ref) {
   final settings = ref.watch(settingsStorageProvider);
   final configStorage = ref.watch(configStorageProvider);
+  final dio = ref.watch(dioProvider);
   final baseUrl = configStorage.getBaseUrl() ?? 'http://localhost:8000';
-  return SmartSearchService(settings, baseUrl);
+  return SmartSearchService(settings, baseUrl, dio);
 });

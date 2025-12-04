@@ -46,7 +46,7 @@ async def status_endpoint(request: Request, _: bool = Depends(check_password)):
         "timestamp": datetime.now().isoformat(),
     }
 
-    if SERVER_MODE == "PROXY":
+    if SERVER_MODE != "MOCK":
         parallax = service_manager.get_parallax_client()
         connected = await parallax.check_connection()
 

@@ -157,6 +157,19 @@ class ModelSelectionNotifier extends Notifier<ModelSelectionState> {
 
   /// Select a model
   Future<void> selectModel(String modelId) async {
+    // Validate model ID
+    if (modelId.isEmpty) {
+      throw ArgumentError('Model ID cannot be empty');
+    }
+
+    // Check if model exists in available models
+    final modelExists = state.availableModels.any(
+      (model) => model.id == modelId,
+    );
+    if (!modelExists && state.availableModels.isNotEmpty) {
+      throw ArgumentError('Model $modelId is not available');
+    }
+
     state = state.copyWith(selectedModelId: modelId);
     final prefs = ref.read(sharedPreferencesProvider);
     await prefs.setString(StorageKeys.selectedModel, modelId);

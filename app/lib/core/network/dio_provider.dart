@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:math';
+
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -16,6 +19,7 @@ final dioProvider = Provider<Dio>((ref) {
 
   dio.interceptors.add(_RetryInterceptor(dio));
   dio.interceptors.add(_ErrorHandlerInterceptor());
+  dio.interceptors.add(_CancellationInterceptor());
 
   // Minimal API logging in debug mode
   if (kDebugMode) {
@@ -29,7 +33,8 @@ final dioProvider = Provider<Dio>((ref) {
 class _RetryInterceptor extends Interceptor {
   final Dio dio;
   final int maxRetries = 3;
-  final Duration retryDelay = const Duration(milliseconds: 1000);
+  final Duration initialRetryDelay = const Duration(milliseconds: 500);
+  final double backoffFactor = 2.0;
 
   _RetryInterceptor(this.dio);
 
@@ -60,8 +65,19 @@ class _RetryInterceptor extends Interceptor {
     extra['retryCount'] = retryCount + 1;
     Log.network('Retry ${retryCount + 1}/$maxRetries');
 
+    // Calculate exponential backoff delay
+    final delay = initialRetryDelay * pow(backoffFactor, retryCount);
+    final jitter = Duration(
+      milliseconds: Random().nextInt(200),
+    ); // Add jitter to prevent thundering herd
+    final totalDelay = delay + jitter;
+
+    Log.network(
+      'Retrying in ${totalDelay.inMilliseconds}ms (exponential backoff)',
+    );
+
     // Wait before retrying
-    await Future.delayed(retryDelay);
+    await Future.delayed(totalDelay);
 
     try {
       final opts = err.requestOptions;
@@ -118,22 +134,85 @@ class _ErrorHandlerInterceptor extends Interceptor {
   }
 }
 
-/// Minimal single-line API logging
-class _MinimalLogInterceptor extends Interceptor {
-  final Stopwatch _stopwatch = Stopwatch();
+/// Interceptor for request cancellation support
+class _CancellationInterceptor extends Interceptor {
+  final Map<String, CancelToken> _cancelTokens = {};
 
   @override
   void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
-    _stopwatch.reset();
-    _stopwatch.start();
+    // Create a unique key for this request
+    final requestKey = '${options.method}_${options.path}';
+
+    // Create or reuse cancel token
+    final cancelToken = CancelToken();
+    _cancelTokens[requestKey] = cancelToken;
+
+    // Add cancel token to request options
+    options.cancelToken = cancelToken;
+
+    Log.network('Request started with cancellation support: $requestKey');
+    handler.next(options);
+  }
+
+  @override
+  void onResponse(Response response, ResponseInterceptorHandler handler) {
+    // Clean up cancel token when request completes
+    final requestKey =
+        '${response.requestOptions.method}_${response.requestOptions.path}';
+    _cancelTokens.remove(requestKey);
+    handler.next(response);
+  }
+
+  @override
+  void onError(DioException err, ErrorInterceptorHandler handler) {
+    // Clean up cancel token when request fails
+    final requestKey =
+        '${err.requestOptions.method}_${err.requestOptions.path}';
+    _cancelTokens.remove(requestKey);
+    handler.next(err);
+  }
+
+  /// Cancel all pending requests
+  void cancelAllRequests() {
+    Log.network('Cancelling all pending requests');
+    for (final token in _cancelTokens.values) {
+      if (!token.isCancelled) {
+        token.cancel('All requests cancelled');
+      }
+    }
+    _cancelTokens.clear();
+  }
+
+  /// Cancel specific request by method and path
+  void cancelRequest(String method, String path) {
+    final requestKey = '${method}_$path';
+    final token = _cancelTokens[requestKey];
+    if (token != null && !token.isCancelled) {
+      Log.network('Cancelling request: $requestKey');
+      token.cancel('Request cancelled');
+      _cancelTokens.remove(requestKey);
+    }
+  }
+}
+
+/// Minimal single-line API logging
+/// Uses per-request timing stored in extras to avoid race conditions
+class _MinimalLogInterceptor extends Interceptor {
+  static const _startTimeKey = '_requestStartTime';
+
+  @override
+  void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
+    options.extra[_startTimeKey] = DateTime.now().millisecondsSinceEpoch;
     Log.api(options.method, options.uri.toString());
     handler.next(options);
   }
 
   @override
   void onResponse(Response response, ResponseInterceptorHandler handler) {
-    _stopwatch.stop();
-    final ms = _stopwatch.elapsedMilliseconds;
+    final startTime = response.requestOptions.extra[_startTimeKey] as int?;
+    final ms = startTime != null
+        ? DateTime.now().millisecondsSinceEpoch - startTime
+        : 0;
     Log.api(
       response.requestOptions.method,
       response.requestOptions.uri.toString(),
@@ -143,4 +222,3 @@ class _MinimalLogInterceptor extends Interceptor {
     handler.next(response);
   }
 }
-

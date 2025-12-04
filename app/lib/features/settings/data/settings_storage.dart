@@ -1,9 +1,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../core/interfaces/haptics_settings.dart';
 import '../../../global/providers.dart';
 
-class SettingsStorage {
+class SettingsStorage implements HapticsSettings {
   static const _keyHapticsLevel = 'settings_haptics_level';
   static const _keyVisionPipelineMode = 'settings_vision_pipeline_mode';
   static const _keySmartContextEnabled = 'settings_smart_context_enabled';
@@ -26,6 +27,7 @@ class SettingsStorage {
     await _prefs.setString(_keyHapticsLevel, level);
   }
 
+  @override
   String getHapticsLevel() {
     return _prefs.getString(_keyHapticsLevel) ??
         'max'; // Default to max for best UX

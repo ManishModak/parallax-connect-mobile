@@ -8,6 +8,7 @@ import '../../../../app/constants/app_colors.dart';
 import '../../../../core/utils/haptics_helper.dart';
 import '../../../../core/services/storage/chat_archive_storage.dart';
 import '../../../../core/services/server/feature_flags_service.dart';
+import '../../../../core/services/utilities/log_upload_service.dart';
 import '../../../chat/presentation/view_models/chat_controller.dart';
 import '../sections/media_documents_section.dart';
 import '../sections/web_search_section.dart';
@@ -28,6 +29,7 @@ class SettingsScreen extends ConsumerStatefulWidget {
 
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   late TextEditingController _systemPromptController;
+  bool _isUploadingLogs = false;
 
   @override
   void initState() {
@@ -270,6 +272,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ),
           const SizedBox(height: 16),
           _buildClearHistoryTile(),
+          const SizedBox(height: 12),
+          _buildSendLogsTile(),
           const SizedBox(height: 32),
 
           // About Section
@@ -398,6 +402,106 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       const SizedBox(height: 4),
                       Text(
                         'Delete all archived chat sessions',
+                        style: GoogleFonts.inter(
+                          color: AppColors.secondary,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(
+                  LucideIcons.chevronRight,
+                  color: AppColors.secondary.withValues(alpha: 0.5),
+                  size: 20,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSendLogsTile() {
+    final hapticsHelper = ref.read(hapticsHelperProvider);
+
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.secondary.withValues(alpha: 0.1)),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: _isUploadingLogs
+              ? null
+              : () async {
+                  hapticsHelper.triggerHaptics();
+                  setState(() => _isUploadingLogs = true);
+
+                  final messenger = ScaffoldMessenger.of(context);
+                  final logService = ref.read(logUploadServiceProvider);
+
+                  final (success, message) = await logService.uploadLogs();
+
+                  setState(() => _isUploadingLogs = false);
+
+                  messenger.showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        message,
+                        style: GoogleFonts.inter(
+                          color: success ? AppColors.primary : AppColors.error,
+                        ),
+                      ),
+                      backgroundColor: AppColors.surface,
+                    ),
+                  );
+                },
+          borderRadius: BorderRadius.circular(16),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppColors.accent.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: _isUploadingLogs
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: AppColors.accent,
+                          ),
+                        )
+                      : Icon(
+                          LucideIcons.upload,
+                          color: AppColors.accent,
+                          size: 20,
+                        ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Send Logs to Server',
+                        style: GoogleFonts.inter(
+                          color: AppColors.primary,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Upload debug logs for troubleshooting',
                         style: GoogleFonts.inter(
                           color: AppColors.secondary,
                           fontSize: 13,

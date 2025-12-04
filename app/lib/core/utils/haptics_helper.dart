@@ -1,36 +1,40 @@
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../features/settings/data/settings_storage.dart';
+import '../interfaces/haptics_settings.dart';
+
+/// Provider that must be overridden at app startup with a concrete
+/// HapticsSettings implementation (e.g., SettingsStorage).
+final hapticsSettingsProvider = Provider<HapticsSettings>((ref) {
+  throw UnimplementedError(
+    'hapticsSettingsProvider must be overridden in ProviderScope',
+  );
+});
 
 /// Helper class to trigger haptic feedback based on user settings
 class HapticsHelper {
-  final SettingsStorage _settingsStorage;
+  final HapticsSettings _settings;
 
   // Throttle streaming haptics to avoid overwhelming the haptic engine
   DateTime? _lastStreamingHaptic;
-  // Increased interval for smoother feel (was 50ms)
   static const _streamingHapticInterval = Duration(milliseconds: 80);
 
-  HapticsHelper(this._settingsStorage);
+  HapticsHelper(this._settings);
 
   /// Trigger haptic feedback based on current settings level
   /// - 'none': No haptic feedback
   /// - 'min': Light haptic feedback on button/icon clicks
   /// - 'max': min + streaming text haptics (typing feel)
   Future<void> triggerHaptics() async {
-    final level = _settingsStorage.getHapticsLevel();
+    final level = _settings.getHapticsLevel();
 
     switch (level) {
       case 'none':
-        // No haptic feedback
         break;
       case 'min':
-        // Light haptic feedback for button/icon clicks
         await HapticFeedback.lightImpact();
         break;
       case 'max':
-        // Stronger haptic feedback for critical interactions
         await HapticFeedback.mediumImpact();
         break;
     }
@@ -40,12 +44,10 @@ class HapticsHelper {
   /// Only triggers when haptics level is 'max'
   /// Throttled to avoid overwhelming the haptic engine
   Future<void> triggerStreamingHaptic() async {
-    final level = _settingsStorage.getHapticsLevel();
+    final level = _settings.getHapticsLevel();
 
-    // Only trigger for 'max' haptics level
     if (level != 'max') return;
 
-    // Throttle haptics to avoid overwhelming the device
     final now = DateTime.now();
     if (_lastStreamingHaptic != null &&
         now.difference(_lastStreamingHaptic!) < _streamingHapticInterval) {
@@ -53,19 +55,17 @@ class HapticsHelper {
     }
     _lastStreamingHaptic = now;
 
-    // Use selection click for a subtle typing feel
-    // selectionClick is the lightest available feedback on most platforms
     await HapticFeedback.selectionClick();
   }
 
   /// Check if streaming haptics are enabled (max level)
   bool get isStreamingHapticsEnabled {
-    return _settingsStorage.getHapticsLevel() == 'max';
+    return _settings.getHapticsLevel() == 'max';
   }
 }
 
 /// Provider for HapticsHelper
 final hapticsHelperProvider = Provider<HapticsHelper>((ref) {
-  final settingsStorage = ref.watch(settingsStorageProvider);
-  return HapticsHelper(settingsStorage);
+  final settings = ref.watch(hapticsSettingsProvider);
+  return HapticsHelper(settings);
 });

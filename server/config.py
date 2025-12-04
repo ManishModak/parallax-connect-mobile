@@ -4,7 +4,7 @@ import os
 from typing import Optional
 
 # Server Mode: "MOCK" or "PROXY"
-SERVER_MODE = os.getenv("SERVER_MODE", "PROXY").upper()
+SERVER_MODE = os.getenv("SERVER_MODE", "NORMAL").upper()
 
 # Parallax Service URLs
 PARALLAX_SERVICE_URL = os.getenv(

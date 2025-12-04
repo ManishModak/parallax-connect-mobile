@@ -1,0 +1,232 @@
+"""Chat API endpoints."""
+
+import re
+import time
+from datetime import datetime
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, Request
+from fastapi.responses import StreamingResponse
+
+from ...auth import check_password
+from ...config import SERVER_MODE, PARALLAX_SERVICE_URL, DEBUG_MODE, TIMEOUT_DEFAULT
+from ...models import ChatRequest
+from ...logging_setup import get_logger
+from ...services.http_client import get_async_http_client
+from ...utils.error_handler import handle_service_error, log_debug
+from ...utils.request_validator import validate_chat_request
+from .helpers import perform_smart_search, build_messages, build_payload
+from .mock_handlers import handle_mock_chat, mock_stream
+from .proxy_handlers import stream_from_parallax
+
+router = APIRouter()
+logger = get_logger(__name__)
+
+
+@router.post("/chat")
+async def chat_endpoint(
+    request: Request, chat_request: ChatRequest, _: bool = Depends(check_password)
+):
+    """Synchronous chat endpoint."""
+    request_id = getattr(
+        request.state, "request_id", datetime.now().strftime("%Y%m%d%H%M%S%f")
+    )
+    start_time = time.time()
+
+    logger.info(
+        f"📝 [{request_id}] Chat request: {chat_request.model}",
+        extra={
+            "request_id": request_id,
+            "extra_data": {
+                "model": chat_request.model,
+                "max_tokens": chat_request.max_tokens,
+                "stream": False,
+                "prompt_length": len(chat_request.prompt),
+                "web_search": chat_request.web_search_enabled,
+            },
+        },
+    )
+
+    log_debug("Full chat request payload", request_id, chat_request.model_dump())
+
+    validate_chat_request(
+        prompt=chat_request.prompt,
+        system_prompt=chat_request.system_prompt,
+        messages=chat_request.messages,
+        request_id=request_id,
+    )
+
+    if SERVER_MODE == "MOCK":
+        return await handle_mock_chat(chat_request, request_id)
+
+    # Smart Search
+    search_context = ""
+    if chat_request.web_search_enabled:
+        search_context = await perform_smart_search(chat_request, request_id)
+
+    # PROXY mode
+    try:
+        logger.info(
+            f"🔄 [{request_id}] Forwarding to Parallax at {PARALLAX_SERVICE_URL}"
+        )
+
+        client = await get_async_http_client()
+        modified_request = chat_request.model_copy()
+        if search_context:
+            if modified_request.system_prompt:
+                modified_request.system_prompt += search_context
+            else:
+                modified_request.system_prompt = (
+                    "You are a helpful AI assistant.\n" + search_context
+                )
+
+        messages = build_messages(modified_request)
+        payload = build_payload(modified_request, messages, stream=False)
+
+        log_debug(
+            "Proxy payload prepared", request_id, {"payload_keys": list(payload.keys())}
+        )
+
+        if DEBUG_MODE:
+            logger.debug(
+                f"[{request_id}] Full Parallax request payload",
+                extra={
+                    "request_id": request_id,
+                    "extra_data": {
+                        "model": payload.get("model"),
+                        "message_count": len(payload.get("messages", [])),
+                        "max_tokens": payload.get("max_tokens"),
+                        "sampling_params": payload.get("sampling_params"),
+                        "stream": payload.get("stream"),
+                        "first_message": payload.get("messages", [{}])[0]
+                        if payload.get("messages")
+                        else None,
+                        "last_message": payload.get("messages", [{}])[-1]
+                        if payload.get("messages")
+                        else None,
+                    },
+                },
+            )
+
+        resp = await client.post(
+            PARALLAX_SERVICE_URL, json=payload, timeout=TIMEOUT_DEFAULT
+        )
+
+        if resp.status_code != 200:
+            raise HTTPException(
+                status_code=resp.status_code, detail=f"Parallax Error: {resp.text}"
+            )
+
+        data = resp.json()
+        choice = data["choices"][0]
+        raw_content = (
+            choice.get("messages", {}).get("content")
+            or choice.get("message", {}).get("content")
+            or ""
+        )
+
+        content = re.sub(
+            r"<think>.*?</think>", "", raw_content, flags=re.DOTALL
+        ).strip()
+        if not content:
+            content = raw_content
+
+        usage = data.get("usage", {})
+        elapsed = time.time() - start_time
+
+        logger.info(
+            f"✅ [{request_id}] Response received ({elapsed:.2f}s)",
+            extra={
+                "request_id": request_id,
+                "extra_data": {
+                    "duration_seconds": elapsed,
+                    "prompt_tokens": usage.get("prompt_tokens", 0),
+                    "completion_tokens": usage.get("completion_tokens", 0),
+                    "total_tokens": usage.get("total_tokens", 0),
+                    "model": data.get("model", "default"),
+                },
+            },
+        )
+
+        return {
+            "response": content,
+            "metadata": {
+                "usage": {
+                    "prompt_tokens": usage.get("prompt_tokens", 0),
+                    "completion_tokens": usage.get("completion_tokens", 0),
+                    "total_tokens": usage.get("total_tokens", 0),
+                },
+                "timing": {
+                    "duration_ms": int(elapsed * 1000),
+                    "duration_seconds": round(elapsed, 2),
+                },
+                "model": data.get("model", "default"),
+            },
+        }
+
+    except Exception as e:
+        return handle_service_error(e, "Chat Endpoint", request_id)
+
+
+@router.post("/chat/stream")
+async def chat_stream_endpoint(
+    request: Request, chat_request: ChatRequest, _: bool = Depends(check_password)
+):
+    """Streaming chat endpoint that returns Server-Sent Events (SSE)."""
+    request_id = getattr(
+        request.state, "request_id", datetime.now().strftime("%Y%m%d%H%M%S%f")
+    )
+
+    logger.info(
+        f"🌊 [{request_id}] Streaming request: {chat_request.model}",
+        extra={
+            "request_id": request_id,
+            "extra_data": {
+                "model": chat_request.model,
+                "stream": True,
+                "prompt_length": len(chat_request.prompt),
+                "web_search": chat_request.web_search_enabled,
+            },
+        },
+    )
+
+    log_debug("Full stream request payload", request_id, chat_request.model_dump())
+
+    validate_chat_request(
+        prompt=chat_request.prompt,
+        system_prompt=chat_request.system_prompt,
+        messages=chat_request.messages,
+        request_id=request_id,
+    )
+
+    if SERVER_MODE == "MOCK":
+        return StreamingResponse(
+            mock_stream(chat_request), media_type="text/event-stream"
+        )
+
+    return StreamingResponse(
+        stream_from_parallax(chat_request, request_id),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
+@router.post("/vision")
+async def vision_endpoint(
+    image: UploadFile = File(...),
+    prompt: str = Form(...),
+    _: bool = Depends(check_password),
+):
+    """Vision endpoint (not yet implemented in Parallax)."""
+    request_id = datetime.now().strftime("%Y%m%d%H%M%S%f")
+    logger.info(f"📸 [{request_id}] Vision request: {prompt[:50]}...")
+
+    if SERVER_MODE == "MOCK":
+        return {
+            "response": f"[MOCK] Vision Analysis: I see a simulated image. Prompt: {prompt}"
+        }
+
+    logger.warning(f"⚠️ [{request_id}] Vision proxy not yet implemented")
+    return {"response": "[PROXY] Vision not yet implemented in Parallax API wrapper."}
