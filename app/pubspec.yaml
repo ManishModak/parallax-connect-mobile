@@ -58,6 +58,7 @@ flutter:
   assets:
     - assets/images/
     - assets/icons/
+    - assets/fonts/
 
 # App Icon Configuration
 flutter_launcher_icons:

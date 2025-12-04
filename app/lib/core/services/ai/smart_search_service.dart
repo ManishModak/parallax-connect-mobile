@@ -137,12 +137,49 @@ class SmartSearchService {
       Log.e('Router failed', e);
     }
 
-    // Fallback Heuristic
+    // Fallback Heuristics - comprehensive trigger detection
     final lower = query.toLowerCase();
-    final needsSearch =
-        lower.contains('price') ||
-        lower.contains('news') ||
-        lower.contains('search');
+
+    // Core triggers
+    final coreTriggers = [
+      'price',
+      'cost',
+      'worth',
+      'news',
+      'latest',
+      'recent',
+      'update',
+      'today',
+      'yesterday',
+      'current',
+      'now',
+      'weather',
+      'forecast',
+      'search',
+      'find',
+      'look up',
+      'who is',
+      'what is',
+      'where is',
+    ];
+
+    // Temporal and comparison triggers
+    final otherTriggers = [
+      '2024',
+      '2025',
+      'this year',
+      'vs',
+      'versus',
+      'compared to',
+      'better than',
+      'how much',
+      'how many',
+      'how to',
+    ];
+
+    final allTriggers = [...coreTriggers, ...otherTriggers];
+    final needsSearch = allTriggers.any((t) => lower.contains(t));
+
     return {
       'needs_search': needsSearch,
       'search_query': query,
@@ -254,22 +291,70 @@ class SmartSearchService {
         item.url,
         options: Options(
           responseType: ResponseType.plain,
-          receiveTimeout: const Duration(seconds: 4),
+          receiveTimeout: const Duration(seconds: 5),
         ),
       );
       if (response.statusCode == 200) {
         final doc = html_parser.parse(response.data as String);
+
+        // Extended noise removal (matching server-side)
         doc
-            .querySelectorAll('script, style, nav, footer, header')
+            .querySelectorAll(
+              'script, style, nav, footer, header, aside, iframe, form, '
+              'noscript, svg, button, input, select, textarea, menu',
+            )
             .forEach((e) => e.remove());
-        // Simple text extraction
+
+        // Remove elements with ad/sidebar/comment-related classes
+        doc
+            .querySelectorAll('[class]')
+            .where((el) {
+              final classes = el.className.toLowerCase();
+              final noisePatterns = [
+                'ad',
+                'sidebar',
+                'comment',
+                'share',
+                'social',
+                'related',
+                'newsletter',
+                'popup',
+                'cookie',
+              ];
+              return noisePatterns.any((p) => classes.contains(p));
+            })
+            .forEach((e) => e.remove());
+
+        // Prioritize article content
+        var content =
+            doc.querySelector('article') ??
+            doc.querySelector('main') ??
+            doc.querySelector('[role="main"]') ??
+            doc.querySelector(
+              '.article-content, .post-content, .entry-content',
+            );
+
+        // Fallback to body
+        content ??= doc.body;
+
         String text =
-            doc.body?.text.trim().replaceAll(RegExp(r'\s+'), ' ') ?? '';
-        if (text.length > 1000) text = '${text.substring(0, 1000)}...';
+            content?.text.trim().replaceAll(RegExp(r'\s+'), ' ') ?? '';
+
+        // Increased limit for better context
+        if (text.length > 2000) {
+          // Try to truncate at sentence boundary
+          final truncated = text.substring(0, 2000);
+          final lastPeriod = truncated.lastIndexOf('. ');
+          if (lastPeriod > 1400) {
+            text = '${truncated.substring(0, lastPeriod + 1)}';
+          } else {
+            text = '$truncated...';
+          }
+        }
         item.content = text;
       }
     } catch (e) {
-      // Ignore
+      // Ignore - content will remain empty
     }
   }
 

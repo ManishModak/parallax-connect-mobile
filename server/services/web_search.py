@@ -37,8 +37,13 @@ class WebSearchService:
         }
         # Domains that commonly block scraping - use snippets only
         self.blocked_domains = {
-            "mit.edu", "nytimes.com", "wsj.com", "bloomberg.com",
-            "ft.com", "economist.com", "washingtonpost.com"
+            "mit.edu",
+            "nytimes.com",
+            "wsj.com",
+            "bloomberg.com",
+            "ft.com",
+            "economist.com",
+            "washingtonpost.com",
         }
         logger.info("🌐 Web Search Service initialized")
 
@@ -116,117 +121,153 @@ class WebSearchService:
 
     async def _normal_search(self, query: str) -> Dict[str, Any]:
         """
-        Normal: 1 Full Visit (Top Result) + 3 Snippets.
+        Normal: 2 Full Visits + 2 Snippets + 1 News.
+        Balanced speed vs quality.
         """
-        results = await self._search_ddg(query, max_results=4)
+        # Parallel fetch: web + news
+        web_task = self._search_ddg(query, max_results=5)
+        news_task = self._search_ddg_news(query, max_results=2)
+
+        results, news_results = await asyncio.gather(web_task, news_task)
 
         logger.info(
             f"🔎 [AUDIT] Raw DDG Results for '{query}':",
             extra={
                 "extra_data": {
-                    "count": len(results),
+                    "web_count": len(results),
+                    "news_count": len(news_results),
                     "urls": [r.get("href") for r in results],
-                    "titles": [r.get("title") for r in results],
                 }
             },
         )
 
-        if not results:
+        if not results and not news_results:
             return {"results": [], "summary": "No results found."}
 
-        # Result #1: Full Visit (skip if blocked domain)
-        top_result = results[0]
-        full_content = ""
-        
-        if not self._is_blocked_domain(top_result["href"]):
-            logger.info(f"⬇️ [AUDIT] Scraping Top Result: {top_result['href']}")
-            full_content = await self._scrape_url(top_result["href"], max_words=750)
-        else:
-            logger.info(f"⏭️ Skipping blocked domain: {top_result['href']}")
-
         processed_results = []
+        existing_urls = set()
 
-        # Add top result with full content (or snippet if scrape failed)
-        processed_results.append(
-            {
-                "title": top_result["title"],
-                "url": top_result["href"],
-                "snippet": top_result["body"],
-                "content": full_content if full_content else top_result["body"],
-                "is_full_content": bool(full_content),
-            }
-        )
+        # Scrape top 2 results in parallel
+        scrapeable = [r for r in results[:4] if not self._is_blocked_domain(r["href"])][
+            :2
+        ]
 
-        # Add others as snippets
-        for r in results[1:]:
-            processed_results.append(
-                {
-                    "title": r["title"],
-                    "url": r["href"],
-                    "snippet": r["body"],
-                    "is_full_content": False,
-                }
-            )
+        if scrapeable:
+            scrape_tasks = [
+                self._scrape_url(r["href"], max_words=1000) for r in scrapeable
+            ]
+            contents = await asyncio.gather(*scrape_tasks)
+
+            for i, r in enumerate(scrapeable):
+                existing_urls.add(r["href"])
+                processed_results.append(
+                    {
+                        "title": r["title"],
+                        "url": r["href"],
+                        "snippet": r["body"],
+                        "content": contents[i] if contents[i] else r["body"],
+                        "is_full_content": bool(contents[i]),
+                        "phase": "primary",
+                    }
+                )
+
+        # Add 2 more as snippets
+        snippet_count = 0
+        for r in results:
+            if r["href"] not in existing_urls and snippet_count < 2:
+                existing_urls.add(r["href"])
+                processed_results.append(
+                    {
+                        "title": r["title"],
+                        "url": r["href"],
+                        "snippet": r["body"],
+                        "is_full_content": False,
+                        "phase": "snippet",
+                    }
+                )
+                snippet_count += 1
+
+        # Add 1 news result if available
+        for news in news_results[:1]:
+            if news.get("url") and news["url"] not in existing_urls:
+                processed_results.append(
+                    {
+                        "title": news.get("title", ""),
+                        "url": news["url"],
+                        "snippet": news.get("body", news.get("excerpt", "")),
+                        "is_full_content": False,
+                        "phase": "news",
+                        "date": news.get("date", ""),
+                    }
+                )
 
         return {"results": processed_results, "depth": "normal"}
 
     async def _deep_search(self, query: str) -> Dict[str, Any]:
         """
-        Deep: Multi-phase search (Standard Intensity).
-        Equivalent to the old 'Deeper' mode.
+        Deep: Multi-phase search with dynamic targeted queries.
+        Good balance of breadth and depth.
         """
         if DEBUG_MODE:
-            logger.debug("Using DEEP search strategy (Standard Multi-phase)")
-            
+            logger.debug("Using DEEP search strategy (Enhanced Multi-phase)")
+
         return await self._multi_phase_search(
             query,
             config={
-                "broad_results": 6,
-                "news_results": 3,
-                "targeted_queries": ["analysis details"],
-                "scrape_limit_broad": 4,
-                "scrape_limit_news": 2,
-                "scrape_limit_targeted": 2,
-                "max_words": 1500,
+                "broad_results": 8,
+                "news_results": 4,
+                "targeted_queries": [
+                    "detailed analysis",
+                    "explained",
+                    "latest updates",
+                ],
+                "scrape_limit_broad": 5,
+                "scrape_limit_news": 3,
+                "scrape_limit_targeted": 3,
+                "max_words": 2000,
             },
-            depth_name="deep"
+            depth_name="deep",
         )
 
     async def _deeper_search(self, query: str) -> Dict[str, Any]:
         """
         Deeper: Ultra-intensive Multi-phase search.
-        Significantly increased breadth and depth.
+        Maximum breadth and depth for comprehensive research.
         """
         if DEBUG_MODE:
-            logger.debug("Using DEEPER search strategy (Ultra Multi-phase)")
+            logger.debug("Using DEEPER search strategy (Maximum Intensity)")
 
         return await self._multi_phase_search(
             query,
             config={
-                "broad_results": 10,
-                "news_results": 5,
+                "broad_results": 12,
+                "news_results": 6,
                 "targeted_queries": [
-                    "comprehensive analysis", 
-                    "future outlook implications",
+                    "comprehensive analysis",
                     "expert opinions",
-                    "statistics and data"
+                    "statistics data facts",
+                    "comparison pros cons",
+                    "future predictions outlook",
+                    "recent developments",
                 ],
-                "scrape_limit_broad": 6,
-                "scrape_limit_news": 4,
-                "scrape_limit_targeted": 4,
-                "max_words": 3000,
+                "scrape_limit_broad": 8,
+                "scrape_limit_news": 5,
+                "scrape_limit_targeted": 6,
+                "max_words": 3500,
             },
-            depth_name="deeper"
+            depth_name="deeper",
         )
 
-    async def _multi_phase_search(self, query: str, config: Dict[str, Any], depth_name: str) -> Dict[str, Any]:
+    async def _multi_phase_search(
+        self, query: str, config: Dict[str, Any], depth_name: str
+    ) -> Dict[str, Any]:
         """
         Executes a configurable multi-phase search strategy.
         """
         # Phase 1: Broad Web Search + News Search in parallel
         broad_task = self._search_ddg(query, max_results=config["broad_results"])
         news_task = self._search_ddg_news(query, max_results=config["news_results"])
-        
+
         broad_results, news_results = await asyncio.gather(broad_task, news_task)
 
         logger.info(
@@ -247,11 +288,16 @@ class WebSearchService:
         existing_urls = set()
 
         # Process broad results
-        scrapeable_broad = [r for r in broad_results if not self._is_blocked_domain(r["href"])][:config["scrape_limit_broad"]]
+        scrapeable_broad = [
+            r for r in broad_results if not self._is_blocked_domain(r["href"])
+        ][: config["scrape_limit_broad"]]
         blocked_broad = [r for r in broad_results if self._is_blocked_domain(r["href"])]
 
         if scrapeable_broad:
-            tasks = [self._scrape_url(r["href"], max_words=config["max_words"]) for r in scrapeable_broad]
+            tasks = [
+                self._scrape_url(r["href"], max_words=config["max_words"])
+                for r in scrapeable_broad
+            ]
             broad_contents = await asyncio.gather(*tasks)
 
             for i, r in enumerate(scrapeable_broad):
@@ -261,7 +307,9 @@ class WebSearchService:
                         "title": r["title"],
                         "url": r["href"],
                         "snippet": r["body"],
-                        "content": broad_contents[i] if broad_contents[i] else r["body"],
+                        "content": broad_contents[i]
+                        if broad_contents[i]
+                        else r["body"],
                         "is_full_content": bool(broad_contents[i]),
                         "phase": "broad",
                     }
@@ -282,20 +330,27 @@ class WebSearchService:
                 )
 
         # Process news results
-        unique_news = [r for r in news_results if r.get("url") and r["url"] not in existing_urls][:config["scrape_limit_news"]]
+        unique_news = [
+            r for r in news_results if r.get("url") and r["url"] not in existing_urls
+        ][: config["scrape_limit_news"]]
         if unique_news:
-            news_tasks = [self._scrape_url(r["url"], max_words=config["max_words"]) for r in unique_news 
-                         if not self._is_blocked_domain(r["url"])]
+            news_tasks = [
+                self._scrape_url(r["url"], max_words=config["max_words"])
+                for r in unique_news
+                if not self._is_blocked_domain(r["url"])
+            ]
             news_contents = await asyncio.gather(*news_tasks) if news_tasks else []
-            
+
             content_idx = 0
             for r in unique_news:
                 existing_urls.add(r["url"])
                 content = ""
-                if not self._is_blocked_domain(r["url"]) and content_idx < len(news_contents):
+                if not self._is_blocked_domain(r["url"]) and content_idx < len(
+                    news_contents
+                ):
                     content = news_contents[content_idx]
                     content_idx += 1
-                
+
                 processed_results.append(
                     {
                         "title": r.get("title", ""),
@@ -309,22 +364,31 @@ class WebSearchService:
                 )
 
         # Phase 3: Targeted Search
-        targeted_queries = [f"{query} {suffix}" for suffix in config["targeted_queries"]]
-        
+        targeted_queries = [
+            f"{query} {suffix}" for suffix in config["targeted_queries"]
+        ]
+
         # Execute targeted searches in parallel
         targeted_tasks = [self._search_ddg(q, max_results=3) for q in targeted_queries]
         targeted_results_lists = await asyncio.gather(*targeted_tasks)
-        
+
         # Flatten results
         all_targeted = [item for sublist in targeted_results_lists for item in sublist]
-        
-        unique_targeted = [r for r in all_targeted if r["href"] not in existing_urls][:config["scrape_limit_targeted"]]
+
+        unique_targeted = [r for r in all_targeted if r["href"] not in existing_urls][
+            : config["scrape_limit_targeted"]
+        ]
 
         if unique_targeted:
-            scrapeable_targeted = [r for r in unique_targeted if not self._is_blocked_domain(r["href"])]
-            
+            scrapeable_targeted = [
+                r for r in unique_targeted if not self._is_blocked_domain(r["href"])
+            ]
+
             if scrapeable_targeted:
-                t_tasks = [self._scrape_url(r["href"], max_words=config["max_words"]) for r in scrapeable_targeted]
+                t_tasks = [
+                    self._scrape_url(r["href"], max_words=config["max_words"])
+                    for r in scrapeable_targeted
+                ]
                 t_contents = await asyncio.gather(*t_tasks)
 
                 for i, r in enumerate(scrapeable_targeted):
@@ -343,7 +407,11 @@ class WebSearchService:
 
     async def _scrape_url(self, url: str, max_words: int = 1000) -> str:
         """
-        Scrapes text from a URL, stripping HTML.
+        Scrapes text from a URL with intelligent content extraction.
+        - Prioritizes article/main content
+        - Removes noise elements (ads, sidebars, comments)
+        - Truncates at sentence boundaries
+        - Extracts metadata when available
         """
         scrape_start = time.time()
         if DEBUG_MODE:
@@ -371,31 +439,141 @@ class WebSearchService:
 
             soup = BeautifulSoup(resp.text, "lxml")
 
-            # Remove noise
-            for tag in soup(
-                [
-                    "script",
-                    "style",
-                    "nav",
-                    "footer",
-                    "header",
-                    "aside",
-                    "iframe",
-                    "form",
-                ]
-            ):
+            # Extract metadata before cleaning
+            metadata_parts = []
+
+            # Try to get publish date
+            time_el = soup.find("time")
+            if time_el and time_el.get("datetime"):
+                metadata_parts.append(f"Published: {time_el['datetime'][:10]}")
+            else:
+                meta_date = soup.find("meta", property="article:published_time")
+                if meta_date and meta_date.get("content"):
+                    metadata_parts.append(f"Published: {meta_date['content'][:10]}")
+
+            # Try to get author
+            meta_author = soup.find("meta", attrs={"name": "author"})
+            if meta_author and meta_author.get("content"):
+                metadata_parts.append(f"Author: {meta_author['content']}")
+
+            # Extended noise tag removal
+            noise_tags = [
+                "script",
+                "style",
+                "nav",
+                "footer",
+                "header",
+                "aside",
+                "iframe",
+                "form",
+                "noscript",
+                "svg",
+                "button",
+                "input",
+                "select",
+                "textarea",
+                "label",
+                "menu",
+                "menuitem",
+                "dialog",
+                "template",
+                "canvas",
+                "video",
+                "audio",
+                "source",
+                "picture",
+            ]
+            for tag in soup(noise_tags):
                 tag.decompose()
 
-            text = soup.get_text(separator=" ", strip=True)
+            # Remove elements by class patterns (ads, sidebars, comments, etc.)
+            noise_class_patterns = [
+                "ad",
+                "ads",
+                "advert",
+                "advertisement",
+                "banner",
+                "sidebar",
+                "side-bar",
+                "side_bar",
+                "comment",
+                "comments",
+                "discussion",
+                "share",
+                "sharing",
+                "social",
+                "related",
+                "recommended",
+                "suggestions",
+                "newsletter",
+                "subscribe",
+                "signup",
+                "popup",
+                "modal",
+                "overlay",
+                "cookie",
+                "gdpr",
+                "consent",
+                "navigation",
+                "breadcrumb",
+                "menu",
+            ]
+            for el in soup.find_all(class_=True):
+                classes = " ".join(el.get("class", [])).lower()
+                if any(pattern in classes for pattern in noise_class_patterns):
+                    el.decompose()
 
-            # Truncate
+            # Prioritize article content containers
+            content = None
+            content_selectors = [
+                "article",
+                "main",
+                "[role='main']",
+                ".article-content",
+                ".article-body",
+                ".post-content",
+                ".entry-content",
+                ".content-body",
+                "#article-body",
+                "#content",
+                ".story-body",
+            ]
+
+            for selector in content_selectors:
+                content = soup.select_one(selector)
+                if content and len(content.get_text(strip=True)) > 200:
+                    break
+                content = None
+
+            # Fallback to body if no article container found
+            if not content:
+                content = soup.body if soup.body else soup
+
+            text = content.get_text(separator=" ", strip=True)
+
+            # Intelligent truncation at sentence boundaries
             words = text.split()
-            truncated = len(words) > max_words
+            if len(words) > max_words:
+                # Find a sentence boundary near max_words
+                truncated_text = " ".join(words[:max_words])
 
-            if truncated:
-                final_text = " ".join(words[:max_words]) + "..."
+                # Try to end at a sentence boundary
+                sentence_end = max(
+                    truncated_text.rfind(". "),
+                    truncated_text.rfind("! "),
+                    truncated_text.rfind("? "),
+                )
+
+                if sentence_end > len(truncated_text) * 0.7:  # Only if not too far back
+                    final_text = truncated_text[: sentence_end + 1]
+                else:
+                    final_text = truncated_text + "..."
             else:
                 final_text = text
+
+            # Prepend metadata if available
+            if metadata_parts:
+                final_text = f"[{' | '.join(metadata_parts)}]\n\n{final_text}"
 
             if DEBUG_MODE:
                 logger.debug(
@@ -404,9 +582,10 @@ class WebSearchService:
                         "extra_data": {
                             "url": url,
                             "word_count": len(words),
-                            "truncated": truncated,
-                            "final_word_count": min(len(words), max_words),
+                            "truncated": len(words) > max_words,
+                            "final_word_count": len(final_text.split()),
                             "duration_seconds": time.time() - scrape_start,
+                            "has_metadata": bool(metadata_parts),
                             "preview": final_text[:200] + "..."
                             if final_text
                             else "No content",

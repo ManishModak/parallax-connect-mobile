@@ -1,7 +1,7 @@
 """Chat request/response models."""
 
 from typing import List, Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
 
 
 class ChatRequest(BaseModel):
@@ -15,12 +15,19 @@ class ChatRequest(BaseModel):
     """
 
     # Required
-    prompt: str
+    # Required (one of prompt or messages)
+    prompt: Optional[str] = None
     system_prompt: Optional[str] = None
     model: Optional[str] = None
 
     # Conversation history for multi-turn chat
     messages: Optional[List[dict]] = None
+
+    @model_validator(mode="after")
+    def check_prompt_or_messages(self):
+        if not self.prompt and not self.messages:
+            raise ValueError("Either prompt or messages must be provided")
+        return self
 
     # Basic parameters (supported)
     max_tokens: int = 8192

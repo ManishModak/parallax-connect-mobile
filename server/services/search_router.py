@@ -56,7 +56,9 @@ class _BoundedTTLCache:
         """Remove all expired entries. Returns count removed."""
         with self._lock:
             now = time.time()
-            expired = [k for k, v in self._cache.items() if now - v.timestamp > self._ttl]
+            expired = [
+                k for k, v in self._cache.items() if now - v.timestamp > self._ttl
+            ]
             for k in expired:
                 del self._cache[k]
             return len(expired)
@@ -171,9 +173,7 @@ class SearchRouter:
 
                     elapsed = time.time() - start_time
                     if DEBUG_MODE:
-                        logger.debug(
-                            f"Intent classified in {elapsed:.3f}s: {result}"
-                        )
+                        logger.debug(f"Intent classified in {elapsed:.3f}s: {result}")
                     else:
                         logger.info(
                             f"🧭 Intent classified: {result.get('needs_search')} ({result.get('reason')})"
@@ -194,20 +194,79 @@ class SearchRouter:
             return self._heuristic_fallback(query)
 
     def _heuristic_fallback(self, query: str) -> Dict[str, Any]:
-        """Fallback if LLM fails."""
+        """Fallback heuristics if LLM fails - comprehensive trigger detection."""
         q_lower = query.lower()
-        triggers = [
+
+        # Core search triggers
+        core_triggers = [
             "price",
+            "cost",
+            "worth",
             "news",
             "latest",
+            "recent",
+            "update",
             "today",
+            "yesterday",
+            "this week",
+            "this month",
             "current",
+            "now",
+            "live",
             "weather",
+            "forecast",
             "search",
             "find",
+            "look up",
+            "google",
             "who is",
+            "what is",
+            "where is",
+            "when is",
         ]
-        needs_search = any(t in q_lower for t in triggers)
+
+        # Temporal indicators suggest need for fresh info
+        temporal_triggers = [
+            "2024",
+            "2025",
+            "this year",
+            "last year",
+            "recently",
+            "just",
+            "new",
+            "upcoming",
+        ]
+
+        # Comparison queries often need research
+        comparison_triggers = [
+            "vs",
+            "versus",
+            "compared to",
+            "better than",
+            "difference between",
+            "which is better",
+            "pros and cons",
+            "review",
+        ]
+
+        # Question words that suggest factual lookup
+        question_triggers = [
+            "how much",
+            "how many",
+            "how to",
+            "what are",
+            "what does",
+            "what happened",
+            "why did",
+            "why is",
+            "why are",
+        ]
+
+        all_triggers = (
+            core_triggers + temporal_triggers + comparison_triggers + question_triggers
+        )
+        needs_search = any(t in q_lower for t in all_triggers)
+
         return {
             "needs_search": needs_search,
             "search_query": query,
