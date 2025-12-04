@@ -182,6 +182,9 @@ class ChatController extends Notifier<ChatState> {
         ? state.messages.sublist(0, state.messages.length - 1)
         : <ChatMessage>[];
 
+    // Trigger haptic to signal streaming is starting
+    _hapticsHelper.triggerStreamingStart();
+
     state = state.copyWith(
       isLoading: false,
       isStreaming: true,
@@ -248,6 +251,11 @@ class ChatController extends Notifier<ChatState> {
                 isSearching = false;
               }
 
+              // Trigger subtle haptic for thinking phase transitions
+              if (!state.isThinking) {
+                _hapticsHelper.triggerThinkingPulse();
+              }
+
               state = state.copyWith(
                 isThinking: true,
                 thinkingContent: thinkingContent,
@@ -276,7 +284,8 @@ class ChatController extends Notifier<ChatState> {
               }
             } else if (event.isContent) {
               // Trigger haptic feedback for streaming content (typing feel)
-              _hapticsHelper.triggerStreamingHaptic();
+              // Pass content for punctuation-aware haptics
+              _hapticsHelper.triggerStreamingHaptic(content: event.content);
 
               state = state.copyWith(
                 isThinking: false,
@@ -287,6 +296,8 @@ class ChatController extends Notifier<ChatState> {
                     state.streamingContent + (event.content ?? ''),
               );
             } else if (event.isDone) {
+              // Trigger completion haptic for satisfying "done" feel
+              _hapticsHelper.triggerStreamingComplete();
               _finalizeStreamingMessage();
               completer.complete();
             } else if (event.isError) {

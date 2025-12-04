@@ -540,14 +540,22 @@ class WebSearchService:
             ]
 
             for selector in content_selectors:
-                content = soup.select_one(selector)
-                if content and len(content.get_text(strip=True)) > 200:
-                    break
+                try:
+                    content = soup.select_one(selector)
+                    if content and len(content.get_text(strip=True)) > 200:
+                        break
+                except Exception:
+                    pass
                 content = None
 
             # Fallback to body if no article container found
             if not content:
                 content = soup.body if soup.body else soup
+
+            # Final safety check
+            if content is None:
+                logger.warning(f"⚠️ No parseable content in {url}")
+                return ""
 
             text = content.get_text(separator=" ", strip=True)
 

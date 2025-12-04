@@ -103,11 +103,13 @@ class _StreamingCursorState extends State<_StreamingCursor>
   void initState() {
     super.initState();
     _controller = AnimationController(
-      duration: const Duration(milliseconds: 500),
+      duration: const Duration(milliseconds: 600),
       vsync: this,
     )..repeat(reverse: true);
 
-    _animation = Tween<double>(begin: 0.0, end: 1.0).animate(_controller);
+    _animation = Tween<double>(begin: 0.3, end: 1.0).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOutSine),
+    );
   }
 
   @override
@@ -127,6 +129,15 @@ class _StreamingCursorState extends State<_StreamingCursor>
           decoration: BoxDecoration(
             color: AppColors.accent.withValues(alpha: _animation.value),
             borderRadius: BorderRadius.circular(2),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.accent.withValues(
+                  alpha: _animation.value * 0.5,
+                ),
+                blurRadius: 8 * _animation.value,
+                spreadRadius: 2 * _animation.value,
+              ),
+            ],
           ),
         );
       },

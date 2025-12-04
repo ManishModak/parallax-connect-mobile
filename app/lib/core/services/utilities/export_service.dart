@@ -42,7 +42,8 @@ class ExportService {
       _boldFont = PdfTrueTypeFont(fontBytes, 11); // TODO: Load bold variant
       _italicFont = PdfTrueTypeFont(fontBytes, 11); // TODO: Load italic variant
       _headingFont = PdfTrueTypeFont(fontBytes, 16);
-      _codeFont = PdfStandardFont(PdfFontFamily.courier, 10);
+      // Use TrueType for code to support Unicode characters (emojis, etc.)
+      _codeFont = PdfTrueTypeFont(fontBytes, 10);
       _fontsLoaded = true;
       Log.i('Loaded TrueType fonts for PDF export');
     } catch (e) {
@@ -68,6 +69,17 @@ class ExportService {
     }
   }
 
+  /// Sanitizes text to remove characters that may not be supported by some fonts.
+  /// This strips emoji surrogate pairs and other problematic Unicode characters.
+  String _sanitizeText(String text) {
+    // Remove emoji and other high Unicode characters that may cause issues
+    // Surrogate pairs range: 0xD800-0xDFFF
+    // Also removes some control characters
+    return text
+        .replaceAll(RegExp(r'[\uD800-\uDFFF]'), '')
+        .replaceAll(RegExp(r'[\u0000-\u0008\u000B\u000C\u000E-\u001F]'), '');
+  }
+
   Future<void> exportSessionToPdf(ChatSession session) async {
     await _loadFonts();
 
@@ -83,12 +95,15 @@ class ExportService {
       // --- Draw Header ---
       y = _drawHeader(page, session, pageSize, y);
 
-      // --- Draw Messages ---
       for (final messageMap in session.messages) {
         final isUser = messageMap['isUser'] as bool? ?? false;
-        final text = messageMap['text'] as String? ?? '';
+        final rawText = messageMap['text'] as String? ?? '';
+        final text = _sanitizeText(rawText);
 
-        // Check if we need a new page
+        // Skip empty messages
+        if (text.trim().isEmpty) continue;
+
+        // Check if we need a new page before starting a message
         if (y > pageSize.height - 80) {
           _drawFooter(page, pageSize, pageNumber);
           pageNumber++;
@@ -96,15 +111,21 @@ class ExportService {
           y = 0;
         }
 
-        y = _drawMessageBlock(
+        // Draw message and get the updated page and y position
+        final result = _drawMessageBlock(
           document: document,
-          page: page,
+          currentPage: page,
           text: text,
           isUser: isUser,
-          y: y,
+          startY: y,
           pageSize: pageSize,
           pageNumber: pageNumber,
         );
+
+        // Update references from the tuple
+        page = result.$1;
+        y = result.$2;
+        pageNumber = result.$3;
       }
 
       // Draw footer on the last page
@@ -127,8 +148,8 @@ class ExportService {
       );
 
       Log.i('Exported PDF: ${file.path}');
-    } catch (e) {
-      Log.e('Failed to export session', e);
+    } catch (e, stackTrace) {
+      Log.e('Failed to export session: $e\n$stackTrace');
       rethrow;
     }
   }
@@ -141,9 +162,9 @@ class ExportService {
   ) {
     final graphics = page.graphics;
 
-    // Title
+    // Title (sanitize to remove unsupported characters)
     final titleElement = PdfTextElement(
-      text: session.title,
+      text: _sanitizeText(session.title),
       font: _headingFont!,
       brush: PdfBrushes.black,
     );
@@ -191,16 +212,20 @@ class ExportService {
     );
   }
 
-  double _drawMessageBlock({
+  /// Draws a single message block and returns (currentPage, yPosition, pageNumber).
+  /// Handles multi-page content by creating new pages as needed.
+  (PdfPage, double, int) _drawMessageBlock({
     required PdfDocument document,
-    required PdfPage page,
+    required PdfPage currentPage,
     required String text,
     required bool isUser,
-    required double y,
+    required double startY,
     required Size pageSize,
     required int pageNumber,
   }) {
-    final graphics = page.graphics;
+    PdfPage page = currentPage;
+    double y = startY;
+    int currentPageNumber = pageNumber;
 
     // Sender label
     final senderName = isUser ? 'You' : 'AI';
@@ -209,7 +234,7 @@ class ExportService {
       9,
       style: PdfFontStyle.bold,
     );
-    graphics.drawString(
+    page.graphics.drawString(
       senderName,
       senderFont,
       bounds: Rect.fromLTWH(0, y, pageSize.width, 12),
@@ -217,28 +242,61 @@ class ExportService {
     );
     y += 14;
 
-    // Parse and render Markdown
-    y = _renderMarkdownText(page, text, y, pageSize);
+    // Parse and render Markdown with pagination support
+    final result = _renderMarkdownText(
+      document: document,
+      currentPage: page,
+      text: text,
+      startY: y,
+      pageSize: pageSize,
+      pageNumber: currentPageNumber,
+    );
 
-    return y + _paragraphSpacing;
+    return (result.$1, result.$2 + _paragraphSpacing, result.$3);
   }
 
-  double _renderMarkdownText(
-    PdfPage page,
-    String text,
-    double y,
-    Size pageSize,
-  ) {
+  /// Renders markdown text with pagination support.
+  /// Returns (currentPage, yPosition, pageNumber).
+  (PdfPage, double, int) _renderMarkdownText({
+    required PdfDocument document,
+    required PdfPage currentPage,
+    required String text,
+    required double startY,
+    required Size pageSize,
+    required int pageNumber,
+  }) {
+    PdfPage page = currentPage;
+    double y = startY;
+    int currentPageNumber = pageNumber;
+
     final lines = text.split('\n');
     bool inCodeBlock = false;
     final codeBlockBuffer = StringBuffer();
 
     for (final line in lines) {
+      // Check for page overflow and add new page if needed
+      if (y > pageSize.height - 60) {
+        _drawFooter(page, pageSize, currentPageNumber);
+        currentPageNumber++;
+        page = document.pages.add();
+        y = 0;
+      }
+
       // Handle fenced code blocks
       if (line.trim().startsWith('```')) {
         if (inCodeBlock) {
           // End of code block - render it
-          y = _drawCodeBlock(page, codeBlockBuffer.toString(), y, pageSize);
+          final codeResult = _drawCodeBlock(
+            document: document,
+            currentPage: page,
+            code: codeBlockBuffer.toString(),
+            startY: y,
+            pageSize: pageSize,
+            pageNumber: currentPageNumber,
+          );
+          page = codeResult.$1;
+          y = codeResult.$2;
+          currentPageNumber = codeResult.$3;
           codeBlockBuffer.clear();
           inCodeBlock = false;
         } else {
@@ -254,15 +312,19 @@ class ExportService {
 
       // Check for headings
       if (line.startsWith('# ')) {
-        y = _drawTextLine(
-          page,
-          line.substring(2),
-          y,
-          pageSize,
-          _headingFont!,
-          PdfBrushes.black,
+        final textResult = _drawTextLine(
+          document: document,
+          currentPage: page,
+          text: line.substring(2),
+          startY: y,
+          pageSize: pageSize,
+          font: _headingFont!,
+          brush: PdfBrushes.black,
+          pageNumber: currentPageNumber,
         );
-        y += _lineSpacing * 2;
+        page = textResult.$1;
+        y = textResult.$2 + _lineSpacing * 2;
+        currentPageNumber = textResult.$3;
         continue;
       }
       if (line.startsWith('## ')) {
@@ -271,15 +333,19 @@ class ExportService {
           14,
           style: PdfFontStyle.bold,
         );
-        y = _drawTextLine(
-          page,
-          line.substring(3),
-          y,
-          pageSize,
-          headingFont,
-          PdfBrushes.black,
+        final textResult = _drawTextLine(
+          document: document,
+          currentPage: page,
+          text: line.substring(3),
+          startY: y,
+          pageSize: pageSize,
+          font: headingFont,
+          brush: PdfBrushes.black,
+          pageNumber: currentPageNumber,
         );
-        y += _lineSpacing;
+        page = textResult.$1;
+        y = textResult.$2 + _lineSpacing;
+        currentPageNumber = textResult.$3;
         continue;
       }
       if (line.startsWith('### ')) {
@@ -288,43 +354,57 @@ class ExportService {
           12,
           style: PdfFontStyle.bold,
         );
-        y = _drawTextLine(
-          page,
-          line.substring(4),
-          y,
-          pageSize,
-          headingFont,
-          PdfBrushes.black,
+        final textResult = _drawTextLine(
+          document: document,
+          currentPage: page,
+          text: line.substring(4),
+          startY: y,
+          pageSize: pageSize,
+          font: headingFont,
+          brush: PdfBrushes.black,
+          pageNumber: currentPageNumber,
         );
-        y += _lineSpacing;
+        page = textResult.$1;
+        y = textResult.$2 + _lineSpacing;
+        currentPageNumber = textResult.$3;
         continue;
       }
 
       // Check for list items
       if (line.trim().startsWith('- ') || line.trim().startsWith('* ')) {
         final bulletText = '• ${line.trim().substring(2)}';
-        y = _drawTextLine(
-          page,
-          bulletText,
-          y,
-          pageSize,
-          _bodyFont!,
-          PdfBrushes.black,
+        final textResult = _drawTextLine(
+          document: document,
+          currentPage: page,
+          text: bulletText,
+          startY: y,
+          pageSize: pageSize,
+          font: _bodyFont!,
+          brush: PdfBrushes.black,
+          pageNumber: currentPageNumber,
         );
+        page = textResult.$1;
+        y = textResult.$2;
+        currentPageNumber = textResult.$3;
         continue;
       }
 
       // Check for numbered lists
       final numberedMatch = RegExp(r'^\d+\.\s').firstMatch(line.trim());
       if (numberedMatch != null) {
-        y = _drawTextLine(
-          page,
-          line.trim(),
-          y,
-          pageSize,
-          _bodyFont!,
-          PdfBrushes.black,
+        final textResult = _drawTextLine(
+          document: document,
+          currentPage: page,
+          text: line.trim(),
+          startY: y,
+          pageSize: pageSize,
+          font: _bodyFont!,
+          brush: PdfBrushes.black,
+          pageNumber: currentPageNumber,
         );
+        page = textResult.$1;
+        y = textResult.$2;
+        currentPageNumber = textResult.$3;
         continue;
       }
 
@@ -332,43 +412,93 @@ class ExportService {
       if (line.trim().isEmpty) {
         y += _paragraphSpacing / 2;
       } else {
-        y = _drawTextLine(
-          page,
-          line,
-          y,
-          pageSize,
-          _bodyFont!,
-          PdfBrushes.black,
+        final textResult = _drawTextLine(
+          document: document,
+          currentPage: page,
+          text: line,
+          startY: y,
+          pageSize: pageSize,
+          font: _bodyFont!,
+          brush: PdfBrushes.black,
+          pageNumber: currentPageNumber,
         );
+        page = textResult.$1;
+        y = textResult.$2;
+        currentPageNumber = textResult.$3;
       }
     }
 
     // Handle unclosed code block
     if (inCodeBlock && codeBlockBuffer.isNotEmpty) {
-      y = _drawCodeBlock(page, codeBlockBuffer.toString(), y, pageSize);
+      final codeResult = _drawCodeBlock(
+        document: document,
+        currentPage: page,
+        code: codeBlockBuffer.toString(),
+        startY: y,
+        pageSize: pageSize,
+        pageNumber: currentPageNumber,
+      );
+      page = codeResult.$1;
+      y = codeResult.$2;
+      currentPageNumber = codeResult.$3;
     }
 
-    return y;
+    return (page, y, currentPageNumber);
   }
 
-  double _drawTextLine(
-    PdfPage page,
-    String text,
-    double y,
-    Size pageSize,
-    PdfFont font,
-    PdfBrush brush,
-  ) {
+  /// Draws a single text line with pagination support.
+  /// Returns (currentPage, yPosition, pageNumber).
+  (PdfPage, double, int) _drawTextLine({
+    required PdfDocument document,
+    required PdfPage currentPage,
+    required String text,
+    required double startY,
+    required Size pageSize,
+    required PdfFont font,
+    required PdfBrush brush,
+    required int pageNumber,
+  }) {
+    PdfPage page = currentPage;
+    double y = startY;
+    int currentPageNumber = pageNumber;
+
+    // Check for page overflow before drawing
+    if (y > pageSize.height - 40) {
+      _drawFooter(page, pageSize, currentPageNumber);
+      currentPageNumber++;
+      page = document.pages.add();
+      y = 0;
+    }
+
     final element = PdfTextElement(text: text, font: font, brush: brush);
     final result = element.draw(
       page: page,
       bounds: Rect.fromLTWH(0, y, pageSize.width, 0),
     );
-    return (result?.bounds.bottom ?? y + 14) + _lineSpacing;
+
+    // Handle case where text spans to a new page
+    if (result?.page != null && result!.page != page) {
+      page = result.page;
+      // Note: The result.bounds should already reflect the new page position
+    }
+
+    final newY = (result?.bounds.bottom ?? y + 14) + _lineSpacing;
+    return (page, newY, currentPageNumber);
   }
 
-  double _drawCodeBlock(PdfPage page, String code, double y, Size pageSize) {
-    final graphics = page.graphics;
+  /// Draws a code block with pagination support.
+  /// Returns (currentPage, yPosition, pageNumber).
+  (PdfPage, double, int) _drawCodeBlock({
+    required PdfDocument document,
+    required PdfPage currentPage,
+    required String code,
+    required double startY,
+    required Size pageSize,
+    required int pageNumber,
+  }) {
+    PdfPage page = currentPage;
+    double y = startY;
+    int currentPageNumber = pageNumber;
 
     // Measure code block height
     final codeSize = _codeFont!.measureString(
@@ -376,12 +506,19 @@ class ExportService {
       layoutArea: Size(pageSize.width - _codeBlockPadding * 2, 0),
     );
 
-    final blockRect = Rect.fromLTWH(
-      0,
-      y,
-      pageSize.width,
-      codeSize.height + _codeBlockPadding * 2,
-    );
+    final blockHeight = codeSize.height + _codeBlockPadding * 2;
+
+    // Check if we need a new page for this code block
+    if (y + blockHeight > pageSize.height - 40) {
+      _drawFooter(page, pageSize, currentPageNumber);
+      currentPageNumber++;
+      page = document.pages.add();
+      y = 0;
+    }
+
+    final graphics = page.graphics;
+
+    final blockRect = Rect.fromLTWH(0, y, pageSize.width, blockHeight);
 
     // Draw background
     graphics.drawRectangle(
@@ -411,7 +548,7 @@ class ExportService {
       ),
     );
 
-    return y + blockRect.height + _paragraphSpacing;
+    return (page, y + blockHeight + _paragraphSpacing, currentPageNumber);
   }
 }
 

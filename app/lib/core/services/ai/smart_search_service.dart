@@ -126,7 +126,10 @@ class SmartSearchService {
 
       if (response.statusCode == 200) {
         final data = response.data as Map<String, dynamic>;
-        String content = data['choices'][0]['message']['content'];
+        final choice = data['choices'][0] as Map<String, dynamic>;
+        // Handle both Parallax format ('messages') and OpenAI format ('message')
+        final messageData = choice['messages'] ?? choice['message'];
+        String content = messageData['content'] as String;
         content = content
             .replaceAll('```json', '')
             .replaceAll('```', '')

@@ -18,10 +18,12 @@ class SearchingIndicator extends ConsumerWidget {
   IconData _getIconForStatus(String status) {
     final s = status.toLowerCase();
     if (s.contains('searching')) return LucideIcons.search;
-    if (s.contains('browsing') || s.contains('reading'))
+    if (s.contains('browsing') || s.contains('reading')) {
       return LucideIcons.globe;
-    if (s.contains('found') || s.contains('result'))
+    }
+    if (s.contains('found') || s.contains('result')) {
       return LucideIcons.fileText;
+    }
     if (s.contains('analyzing')) return LucideIcons.brainCircuit;
     return LucideIcons.loader;
   }
@@ -75,19 +77,25 @@ class _PulsingIconState extends State<_PulsingIcon>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _opacity;
+  late Animation<double> _scale;
 
   @override
   void initState() {
     super.initState();
     _controller = AnimationController(
-      duration: const Duration(milliseconds: 1500),
+      duration: const Duration(milliseconds: 1200),
       vsync: this,
     )..repeat(reverse: true);
 
+    // Use elasticOut for spring-like feel
     _opacity = Tween<double>(
       begin: 0.5,
       end: 1.0,
     ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
+
+    _scale = Tween<double>(begin: 0.9, end: 1.1).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOutSine),
+    );
   }
 
   @override
@@ -98,9 +106,17 @@ class _PulsingIconState extends State<_PulsingIcon>
 
   @override
   Widget build(BuildContext context) {
-    return FadeTransition(
-      opacity: _opacity,
-      child: Icon(widget.icon, size: 16, color: AppColors.primary),
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        return Transform.scale(
+          scale: _scale.value,
+          child: Opacity(
+            opacity: _opacity.value,
+            child: Icon(widget.icon, size: 16, color: AppColors.primary),
+          ),
+        );
+      },
     );
   }
 }

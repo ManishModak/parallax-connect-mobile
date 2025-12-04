@@ -54,7 +54,17 @@ async def openai_chat_completion(
         lower_query = user_query.lower()
         needs_search = any(
             trigger in lower_query
-            for trigger in ["price", "news", "latest", "current", "search", "today", "weather", "who is", "what is"]
+            for trigger in [
+                "price",
+                "news",
+                "latest",
+                "current",
+                "search",
+                "today",
+                "weather",
+                "who is",
+                "what is",
+            ]
         )
 
         # Return OpenAI-compatible format
@@ -63,8 +73,9 @@ async def openai_chat_completion(
             "search_query": user_query if needs_search else "",
             "reason": "Mock heuristic match" if needs_search else "No triggers found",
         }
-        
+
         import json
+
         return {
             "id": f"chatcmpl-mock-{request_id}",
             "object": "chat.completion",
@@ -72,7 +83,7 @@ async def openai_chat_completion(
             "choices": [
                 {
                     "index": 0,
-                    "message": {
+                    "messages": {  # Note: Parallax uses 'messages' (plural) not 'message'
                         "role": "assistant",
                         "content": json.dumps(mock_intent),
                     },
