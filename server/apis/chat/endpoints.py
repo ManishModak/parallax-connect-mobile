@@ -16,8 +16,10 @@ from ...utils.request_validator import validate_chat_request
 from .helpers import perform_smart_search, build_messages, build_payload
 from .mock_handlers import handle_mock_chat, mock_stream
 from .proxy_handlers import stream_from_parallax
+from .openai_compat import router as openai_router
 
 router = APIRouter()
+router.include_router(openai_router)
 logger = get_logger(__name__)
 
 
