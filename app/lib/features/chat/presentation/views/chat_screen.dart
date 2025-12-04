@@ -11,6 +11,7 @@ import '../../../../app/routes/app_router.dart';
 import '../../../../core/utils/haptics_helper.dart';
 import '../../../settings/presentation/view_models/settings_controller.dart';
 import '../view_models/chat_controller.dart';
+import '../state/chat_state.dart';
 import '../widgets/messages/chat_message_bubble.dart';
 import '../widgets/chat_input_area.dart';
 import '../widgets/messages/streaming_message_bubble.dart';
@@ -26,6 +27,29 @@ class ChatScreen extends ConsumerStatefulWidget {
 
 class _ChatScreenState extends ConsumerState<ChatScreen> {
   final ScrollController _scrollController = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+
+    // Auto-scroll to bottom when new messages arrive or streaming content
+    // updates. Placing this listener in initState avoids re-registering it
+    // on every rebuild.
+    ref.listen<ChatState>(chatControllerProvider, (previous, next) {
+      final hasNewMessage =
+          next.messages.length > (previous?.messages.length ?? 0);
+      final isStreaming = next.isStreaming;
+      final contentChanged =
+          next.streamingContent != (previous?.streamingContent ?? '');
+      final thinkingChanged =
+          next.thinkingContent != (previous?.thinkingContent ?? '');
+
+      if (hasNewMessage ||
+          (isStreaming && (contentChanged || thinkingChanged))) {
+        Future.delayed(const Duration(milliseconds: 100), _scrollToBottom);
+      }
+    });
+  }
 
   @override
   void dispose() {
@@ -47,22 +71,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   Widget build(BuildContext context) {
     final chatState = ref.watch(chatControllerProvider);
     final chatController = ref.read(chatControllerProvider.notifier);
-
-    // Auto-scroll to bottom when new messages arrive or streaming content updates
-    ref.listen(chatControllerProvider, (previous, next) {
-      final hasNewMessage =
-          next.messages.length > (previous?.messages.length ?? 0);
-      final isStreaming = next.isStreaming;
-      final contentChanged =
-          next.streamingContent != (previous?.streamingContent ?? '');
-      final thinkingChanged =
-          next.thinkingContent != (previous?.thinkingContent ?? '');
-
-      if (hasNewMessage ||
-          (isStreaming && (contentChanged || thinkingChanged))) {
-        Future.delayed(const Duration(milliseconds: 100), _scrollToBottom);
-      }
-    });
 
     return Scaffold(
       backgroundColor: AppColors.background,

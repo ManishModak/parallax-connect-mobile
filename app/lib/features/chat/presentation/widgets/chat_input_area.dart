@@ -14,6 +14,7 @@ import 'chat_input/attachment_preview.dart';
 import 'chat_input/model_selector.dart';
 import 'chat_input/web_search_mode_selector.dart';
 import '../view_models/chat_controller.dart';
+import '../state/chat_state.dart';
 
 class ChatInputArea extends ConsumerStatefulWidget {
   final Function(String text, List<String> attachmentPaths) onSubmitted;
@@ -42,6 +43,29 @@ class _ChatInputAreaState extends ConsumerState<ChatInputArea> {
   bool _isAttachmentMenuOpen = false;
   final LayerLink _layerLink = LayerLink();
   OverlayEntry? _overlayEntry;
+
+  @override
+  void initState() {
+    super.initState();
+
+    // Keep the input field in sync with the currently edited message without
+    // re-registering this listener on every rebuild.
+    ref.listen<ChatState>(chatControllerProvider, (previous, next) {
+      if (previous?.editingMessage != next.editingMessage) {
+        if (next.editingMessage != null) {
+          _controller.text = next.editingMessage!.text;
+          // Move cursor to end
+          _controller.selection = TextSelection.fromPosition(
+            TextPosition(offset: _controller.text.length),
+          );
+        } else if (previous?.editingMessage != null) {
+          // Editing was cleared externally, reset the field.
+          _controller.clear();
+          _focusNode.unfocus();
+        }
+      }
+    });
+  }
 
   @override
   void dispose() {
@@ -176,29 +200,9 @@ class _ChatInputAreaState extends ConsumerState<ChatInputArea> {
 
   @override
   Widget build(BuildContext context) {
-    final chatState = ref.watch(chatControllerProvider);
-    final isEditing = chatState.editingMessage != null;
-
-    // Listen for editing state changes to populate text field
-    ref.listen(chatControllerProvider, (previous, next) {
-      if (previous?.editingMessage != next.editingMessage) {
-        if (next.editingMessage != null) {
-          _controller.text = next.editingMessage!.text;
-          // Move cursor to end
-          _controller.selection = TextSelection.fromPosition(
-            TextPosition(offset: _controller.text.length),
-          );
-          // Don't auto-focus - user must tap to focus
-        } else {
-          // Cleared editing, clear text if it matches the old message (optional, but good for cancel)
-          // Actually _handleCancelEdit clears it, so we might not need to do it here unless external cancel
-          if (previous?.editingMessage != null) {
-            _controller.clear();
-            _focusNode.unfocus();
-          }
-        }
-      }
-    });
+    final isEditing = ref.watch(
+      chatControllerProvider.select((state) => state.editingMessage != null),
+    );
 
     return TapRegion(
       groupId: 'attachment_menu',

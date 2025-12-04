@@ -12,8 +12,11 @@ class WebSearchModeSelector extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final chatState = ref.watch(chatControllerProvider);
-    final mode = chatState.webSearchMode;
+    // Only listen to the webSearchMode field so that other ChatState changes
+    // (streaming, messages, errors, etc.) don't cause this widget to rebuild.
+    final mode = ref.watch(
+      chatControllerProvider.select((state) => state.webSearchMode),
+    );
     final isActive = mode != 'off';
 
     String label = 'Web Search';

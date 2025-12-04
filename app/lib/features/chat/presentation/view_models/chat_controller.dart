@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../utils/file_type_helper.dart';
 import '../../../../core/services/system/connectivity_service.dart';
 import '../../../../core/services/utilities/document_service.dart';
 import '../../../../core/services/ai/smart_search_service.dart';
@@ -14,6 +13,7 @@ import '../../../../core/services/storage/config_storage.dart';
 import '../../../settings/data/settings_storage.dart';
 import '../../models/chat_message.dart';
 import '../state/chat_state.dart';
+import 'chat_send_orchestrator.dart';
 
 class ChatController extends Notifier<ChatState> {
   late final ChatRepository _repository;
@@ -26,6 +26,11 @@ class ChatController extends Notifier<ChatState> {
   late final DocumentService _documentService;
   late final HapticsHelper _hapticsHelper;
   late final SmartSearchService _smartSearchService;
+  late final ChatSendOrchestrator _sendOrchestrator;
+
+  // Tracks the active streaming subscription so we can properly cancel it when
+  // starting a new stream or when this controller is disposed.
+  StreamSubscription<StreamEvent>? _streamSubscription;
 
   @override
   ChatState build() {
@@ -39,6 +44,14 @@ class ChatController extends Notifier<ChatState> {
     _documentService = ref.read(documentServiceProvider);
     _hapticsHelper = ref.read(hapticsHelperProvider);
     _smartSearchService = ref.read(smartSearchServiceProvider);
+    _sendOrchestrator = ChatSendOrchestrator(
+      settingsStorage: _settingsStorage,
+      configStorage: _configStorage,
+      visionService: _visionService,
+      connectivityService: _connectivityService,
+      documentService: _documentService,
+      smartSearchService: _smartSearchService,
+    );
 
     final messages = _historyStorage.getHistory();
     return ChatState(
@@ -135,159 +148,15 @@ class ChatController extends Notifier<ChatState> {
     }
 
     try {
-      // Check if streaming is enabled
-      final isStreamingEnabled = _settingsStorage.getStreamingEnabled();
-
-      // Check connectivity for cloud mode (not needed for edge vision)
-      final isLocal = _configStorage.getIsLocal();
-      final visionMode = _settingsStorage.getVisionPipelineMode();
-
-      final docAttachments = attachmentPaths
-          .where(
-            (path) =>
-                FileTypeHelper.isPdfFile(path) ||
-                FileTypeHelper.isTextFile(path),
-          )
-          .toList();
-      String contextText = text;
-      if (docAttachments.isNotEmpty) {
-        final docContent = await _documentService.extractText(
-          docAttachments.first,
-        );
-        contextText = 'Document content:\n$docContent\n\nUser question: $text';
-      }
-
-      // Smart Web Search Logic
-      if (state.webSearchMode != 'off' && text.isNotEmpty) {
-        final executionMode = _settingsStorage.getWebSearchExecutionMode();
-
-        // Only Mobile mode does the 2-step flow on the client
-        if (executionMode == 'mobile') {
-          // Step 1: Intent Analysis (Generic Thinking UI)
-          state = state.copyWith(
-            isAnalyzingIntent: true,
-            isSearchingWeb: false,
-            searchStatusMessage: 'Analyzing intent...',
-            // Ensure no snippets are shown yet
-            isThinking: false,
-          );
-
-          try {
-            // Get history for context
-            final history = state.messages
-                .where((m) => !m.isUser)
-                .take(4)
-                .map(
-                  (m) => {
-                    'role': m.isUser ? 'user' : 'assistant',
-                    'content': m.text,
-                  },
-                )
-                .toList();
-
-            final searchResult = await _smartSearchService.smartSearch(
-              text,
-              history,
-              depth: state.webSearchMode,
-            );
-
-            // Step 2: Action (Search or Skip)
-            if (searchResult.needsSearch) {
-              state = state.copyWith(
-                isAnalyzingIntent: false,
-                isSearchingWeb: true,
-                currentSearchQuery: searchResult.searchQuery,
-                searchStatusMessage:
-                    'Searching for "${searchResult.searchQuery}"...',
-              );
-
-              // Wait a bit to show the UI (optional, but good for UX)
-              await Future.delayed(const Duration(milliseconds: 500));
-
-              if (searchResult.results.isNotEmpty) {
-                contextText = '${searchResult.summary}\n\nUser Question: $text';
-                state = state.copyWith(
-                  searchStatusMessage:
-                      'Found ${searchResult.results.length} results',
-                  lastSearchMetadata: {
-                    'query': searchResult.searchQuery,
-                    'results': searchResult.results
-                        .map(
-                          (r) => {
-                            'title': r.title,
-                            'url': r.url,
-                            'snippet': r.snippet,
-                            'content': r.content,
-                          },
-                        )
-                        .toList(),
-                    'summary': searchResult.summary,
-                  },
-                );
-              } else {
-                state = state.copyWith(searchStatusMessage: 'No results found');
-              }
-            } else {
-              // No search needed
-              state = state.copyWith(
-                isAnalyzingIntent: false,
-                searchStatusMessage: 'No search needed',
-              );
-            }
-          } catch (e) {
-            Log.e('Smart search failed', e);
-          } finally {
-            // Clear search flags before generation starts
-            state = state.copyWith(
-              isAnalyzingIntent: false,
-              isSearchingWeb: false,
-            );
-          }
-        } else {
-          // Middleware/Parallax Mode: Just set analyzing flag and let stream events drive UI
-          // We don't do the 2-step flow here, the server does.
-          // But we want to show "Analyzing" initially.
-          state = state.copyWith(
-            isAnalyzingIntent: true,
-            searchStatusMessage: 'Analyzing intent...',
-          );
-        }
-      }
-
-      // Check for image attachments
-      final imageAttachments = attachmentPaths
-          .where((path) => FileTypeHelper.isImageFile(path))
-          .toList();
-
-      // Only check connectivity if not local and not using edge vision
-      if (!isLocal && !(imageAttachments.isNotEmpty && visionMode == 'edge')) {
-        final hasInternet = await _connectivityService.hasInternetConnection;
-        if (!hasInternet) {
-          throw Exception(
-            'No internet connection. Cloud mode requires an active connection.',
-          );
-        }
-      }
-
-      if (imageAttachments.isNotEmpty) {
-        // Use vision service for image analysis (non-streaming)
-        final response = await _visionService.analyzeImage(
-          imageAttachments.first,
-          text.isEmpty ? 'Describe this image' : text,
-        );
-        await _finalizeMessage(response);
-      } else if (isStreamingEnabled) {
-        // Use streaming for text-only chat
-        // Step 3: Generation (Snippet Thinking -> Content)
-        final executionMode = _settingsStorage.getWebSearchExecutionMode();
-        await _sendStreamingMessage(
-          contextText,
-          disableWebSearch: executionMode == 'mobile',
-        );
-      } else {
-        // Use non-streaming for text-only chat
-        await _sendNonStreamingMessage(contextText, attachmentPaths);
-      }
+      await _sendOrchestrator.send(
+        text: text,
+        attachmentPaths: attachmentPaths,
+        initialState: state,
+        setState: (newState) => state = newState,
+        sendStreaming: _sendStreamingMessage,
+        sendNonStreaming: _sendNonStreamingMessage,
+        finalizeMessage: _finalizeMessage,
+      );
     } catch (e) {
       state = state.copyWith(
         isLoading: false,
@@ -318,7 +187,11 @@ class ChatController extends Notifier<ChatState> {
 
     final completer = Completer<void>();
 
-    _repository
+    // Cancel any existing stream before starting a new one to avoid multiple
+    // concurrent listeners updating state at the same time.
+    await _streamSubscription?.cancel();
+
+    _streamSubscription = _repository
         .generateTextStream(
           contextText,
           systemPrompt: systemPrompt,
