@@ -92,6 +92,28 @@ class SearchRouter:
 
         q_lower = query.lower()
 
+        # Fast exit for document content - NEVER send to web search
+        # Documents come prefixed with "Document content:" from the mobile app
+        if q_lower.startswith("document content:"):
+            logger.info("📄 Detected document submission - skipping web search")
+            return {
+                "needs_search": False,
+                "search_query": "",
+                "reason": "Document analysis (no search needed)",
+            }
+
+        # Fast exit for excessively long content (likely document/OCR dump)
+        # Real search queries are typically under 200 chars
+        if len(query) > 500:
+            logger.info(
+                f"📄 Detected long content ({len(query)} chars) - skipping web search"
+            )
+            return {
+                "needs_search": False,
+                "search_query": "",
+                "reason": "Long content (likely document/OCR)",
+            }
+
         # Fast exit for obvious non-search queries
         if len(query.split()) < 2 and query.lower() in ["hi", "hello", "test"]:
             return {"needs_search": False, "search_query": "", "reason": "Greeting"}

@@ -6,8 +6,58 @@ from ...models import ChatRequest
 from ...logging_setup import get_logger
 from ...services.service_manager import service_manager
 from ...utils.error_handler import log_debug
+from ...services.prompts import get_prompt
 
 logger = get_logger(__name__)
+
+# Document content detection constants
+DOCUMENT_PREFIX = "document content:"
+
+
+def detect_document_content(prompt: str) -> tuple[bool, str, str]:
+    """
+    Detect if prompt contains document content from the mobile app.
+
+    Returns:
+        (is_document, document_content, user_query)
+        - is_document: True if this is a document submission
+        - document_content: The extracted document text
+        - user_query: Any user question following the document
+    """
+    prompt_lower = prompt.lower()
+
+    if not prompt_lower.startswith(DOCUMENT_PREFIX):
+        return False, "", prompt
+
+    # Extract document content after prefix
+    content = prompt[len(DOCUMENT_PREFIX) :].strip()
+
+    # Check if there's a user query after the document
+    # The mobile app typically includes "\n\nUser question: <query>" at the end
+    user_query = ""
+    if "\n\nuser question:" in content.lower():
+        parts = content.lower().split("\n\nuser question:")
+        if len(parts) == 2:
+            # Find the actual case-sensitive split point
+            idx = content.lower().rfind("\n\nuser question:")
+            content = prompt[len(DOCUMENT_PREFIX) : len(DOCUMENT_PREFIX) + idx].strip()
+            user_query = prompt[
+                len(DOCUMENT_PREFIX) + idx + len("\n\nuser question:") :
+            ].strip()
+
+    return True, content, user_query
+
+
+def build_document_system_prompt(document_content: str, user_query: str) -> str:
+    """Build appropriate system prompt for document analysis."""
+    if user_query:
+        # User has a specific question about the document
+        return get_prompt(
+            "document_context", content=document_content, query=user_query
+        )
+    else:
+        # No user query - use document analysis prompt
+        return get_prompt("document_analysis", content=document_content)
 
 
 async def perform_smart_search(chat_request: ChatRequest, request_id: str) -> str:

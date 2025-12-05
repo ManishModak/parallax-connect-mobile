@@ -55,6 +55,31 @@ Detected content from the attached image:
 
 The user shared an image. Answer based on the detected content above.
 User's question: {query}""",
+    # Document Analysis (no user query provided)
+    "document_analysis": """[ATTACHED DOCUMENT]
+---
+{content}
+---
+[END DOCUMENT]
+
+The user has shared the above document without a specific question. Please:
+1. Provide a concise summary of the document's key points
+2. Identify the type/purpose of the document
+3. Highlight any important information, dates, or action items
+4. Ask if they have any specific questions about it""",
+    # Image Analysis (no user query provided)
+    "image_analysis": """[IMAGE ANALYSIS]
+Detected content from the attached image:
+---
+{analysis}
+---
+[END IMAGE ANALYSIS]
+
+The user shared an image without a specific question. Based on the detected content above, please:
+1. Describe what you can see/understand from the image
+2. Identify any text, objects, or key elements
+3. Provide relevant context or insights
+4. Ask if they have any specific questions about it""",
     # Default fallback system prompt
     "default": """You are a helpful AI assistant. Be concise, accurate, and helpful. If you don't know something, say so.""",
 }

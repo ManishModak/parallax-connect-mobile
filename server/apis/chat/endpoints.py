@@ -13,7 +13,13 @@ from ...logging_setup import get_logger
 from ...services.http_client import get_async_http_client
 from ...utils.error_handler import handle_service_error, log_debug
 from ...utils.request_validator import validate_chat_request
-from .helpers import perform_smart_search, build_messages, build_payload
+from .helpers import (
+    perform_smart_search,
+    build_messages,
+    build_payload,
+    detect_document_content,
+    build_document_system_prompt,
+)
 from .mock_handlers import handle_mock_chat, mock_stream
 from .proxy_handlers import stream_from_parallax
 from .openai_compat import router as openai_router
@@ -59,9 +65,25 @@ async def chat_endpoint(
     if SERVER_MODE == "MOCK":
         return await handle_mock_chat(chat_request, request_id)
 
-    # Smart Search
+    # Detect document content submissions
+    is_document, doc_content, user_query = detect_document_content(chat_request.prompt)
+
+    modified_request = chat_request.model_copy()
+
+    if is_document:
+        # Document detected - inject appropriate system prompt
+        logger.info(f"📄 [{request_id}] Document detected ({len(doc_content)} chars)")
+        doc_system_prompt = build_document_system_prompt(doc_content, user_query)
+        modified_request.system_prompt = doc_system_prompt
+        # Set prompt to user query (or empty if no query)
+        modified_request.prompt = (
+            user_query if user_query else "Please analyze this document."
+        )
+        logger.info(f"📄 [{request_id}] User query: '{user_query or '(none)'}'")
+
+    # Smart Search - only if not a document and web search enabled
     search_context = ""
-    if chat_request.web_search_enabled:
+    if not is_document and chat_request.web_search_enabled:
         search_context = await perform_smart_search(chat_request, request_id)
 
     # PROXY mode
@@ -71,7 +93,6 @@ async def chat_endpoint(
         )
 
         client = await get_async_http_client()
-        modified_request = chat_request.model_copy()
         if search_context:
             if modified_request.system_prompt:
                 modified_request.system_prompt += search_context
@@ -271,11 +292,27 @@ async def vision_endpoint(
                 "extracted_text": "",
             }
 
-        # Build context prompt for LLM
-        context_prompt = get_prompt(
-            "image_context",
-            analysis=extracted_text,
-            query=prompt if prompt else "Describe what you see in this image.",
+        # Build context prompt for LLM - use appropriate prompt based on whether user asked a question
+        user_has_query = bool(prompt and prompt.strip())
+
+        if user_has_query:
+            # User asked a specific question about the image
+            context_prompt = get_prompt(
+                "image_context",
+                analysis=extracted_text,
+                query=prompt,
+            )
+            user_message = prompt
+        else:
+            # No specific question - use analysis prompt
+            context_prompt = get_prompt(
+                "image_analysis",
+                analysis=extracted_text,
+            )
+            user_message = "Please analyze this image."
+
+        logger.info(
+            f"📸 [{request_id}] Using {'image_context' if user_has_query else 'image_analysis'} prompt"
         )
 
         # Forward to Parallax for LLM response
@@ -286,8 +323,7 @@ async def vision_endpoint(
                 {"role": "system", "content": context_prompt},
                 {
                     "role": "user",
-                    "content": prompt
-                    or "What information can you extract from this image?",
+                    "content": user_message,
                 },
             ],
             "stream": False,

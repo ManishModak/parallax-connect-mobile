@@ -70,7 +70,9 @@ class _ConfigScreenState extends ConsumerState<ConfigScreen> {
       _urlController.selection = TextSelection.fromPosition(
         TextPosition(offset: trimmed.length),
       );
-      _showSuccessSnackBar('URL scanned from QR.');
+
+      // Auto-connect in background after successful scan
+      await _autoConnectFromQr(trimmed);
     } on PlatformException {
       if (!mounted) return;
       _showErrorSnackBar(
@@ -78,6 +80,97 @@ class _ConfigScreenState extends ConsumerState<ConfigScreen> {
         LucideIcons.alertTriangle,
       );
     }
+  }
+
+  Future<void> _autoConnectFromQr(String scannedUrl) async {
+    setState(() => _isConnecting = true);
+    _showConnectingSnackBar('Connecting to server...');
+
+    // Check connectivity for cloud mode
+    if (!_isLocal) {
+      final connectivityService = ref.read(connectivityServiceProvider);
+      final hasInternet = await connectivityService.hasInternetConnection;
+
+      if (!hasInternet) {
+        setState(() => _isConnecting = false);
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        _showErrorSnackBar(
+          'No internet connection. Cloud mode requires an active internet connection.',
+          LucideIcons.wifiOff,
+        );
+        return;
+      }
+    }
+
+    // Save config temporarily for testing
+    final storage = ref.read(configStorageProvider);
+    await storage.saveConfig(
+      baseUrl: scannedUrl,
+      isLocal: _isLocal,
+      password: _passwordController.text.trim().isEmpty
+          ? null
+          : _passwordController.text.trim(),
+    );
+
+    // Test connection
+    final chatRepository = ref.read(chatRepositoryProvider);
+    final isConnected = await chatRepository.testConnection();
+
+    setState(() => _isConnecting = false);
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+
+    if (isConnected) {
+      _showSuccessSnackBar('Connected! Navigating to chat...');
+      // Fetch available models after successful connection
+      ref.read(modelSelectionProvider.notifier).fetchModels();
+
+      // Fetch server capabilities and auto-enable attachments if supported
+      final featureFlags = ref.read(featureFlagsProvider.notifier);
+      await featureFlags.refreshCapabilities();
+      final autoEnabled = await featureFlags.autoEnableIfServerSupports();
+      if (autoEnabled) {
+        developer.log(
+          'Auto-enabled attachments (server has vision/doc support)',
+        );
+      }
+
+      await Future.delayed(const Duration(milliseconds: 300));
+      if (!mounted) return;
+      context.go(AppRoutes.chat);
+    } else {
+      // Provide mode-specific troubleshooting hints
+      final errorMessage = _isLocal
+          ? 'Connection failed. Check: Same WiFi, server running, firewall.'
+          : 'Connection failed. Check: Internet, server running, URL correct.';
+
+      _showErrorSnackBar(errorMessage, LucideIcons.serverOff);
+    }
+  }
+
+  void _showConnectingSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(child: Text(message)),
+          ],
+        ),
+        backgroundColor: AppColors.surfaceLight,
+        duration: const Duration(seconds: 30),
+      ),
+    );
   }
 
   Future<void> _handlePasteFromClipboard(HapticsHelper hapticsHelper) async {
