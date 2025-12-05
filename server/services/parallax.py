@@ -181,9 +181,23 @@ class ParallaxClient:
                         )
 
         except Exception as e:
-            logger.error(f"❌ Failed to fetch models: {e}")
+            # Provide user-friendly error messages
+            error_type = type(e).__name__
+            if "ConnectError" in error_type or "connection" in str(e).lower():
+                logger.warning(
+                    f"⚠️ Parallax not reachable at {self.base_url} - is it running?"
+                )
+            else:
+                logger.error(f"❌ Failed to fetch models: {e}")
+
             if DEBUG_MODE:
-                logger.debug("Model fetch exception details", exc_info=True)
+                # Show condensed error info in debug mode (not full stacktrace)
+                import traceback
+
+                tb_lines = traceback.format_exception(type(e), e, e.__traceback__)
+                # Only show last 3 lines of traceback for brevity
+                condensed = "".join(tb_lines[-3:]).strip()
+                logger.debug(f"Error details: {condensed}")
 
         default_model = active_model or (models[0]["id"] if models else "default")
 
@@ -241,6 +255,20 @@ class ParallaxClient:
                     active_models = [m.get("name", "unknown") for m in models[:5]]
 
         except Exception as e:
-            logger.error(f"❌ Failed to fetch capabilities: {e}")
+            # Provide user-friendly error messages
+            error_type = type(e).__name__
+            if "ConnectError" in error_type or "connection" in str(e).lower():
+                logger.warning(
+                    f"⚠️ Parallax not reachable at {self.base_url} - is it running?"
+                )
+            else:
+                logger.error(f"❌ Failed to fetch capabilities: {e}")
+
+            if DEBUG_MODE:
+                import traceback
+
+                tb_lines = traceback.format_exception(type(e), e, e.__traceback__)
+                condensed = "".join(tb_lines[-3:]).strip()
+                logger.debug(f"Error details: {condensed}")
 
         return {"capabilities": capabilities, "active_models": active_models}
