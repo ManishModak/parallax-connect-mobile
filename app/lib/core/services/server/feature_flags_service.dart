@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../global/providers.dart';
+import '../../../features/settings/data/settings_storage.dart';
 import 'server_capabilities_service.dart';
 
 /// Reasons why a feature might be disabled
@@ -199,6 +200,30 @@ class FeatureFlagsNotifier extends Notifier<FeatureFlags> {
   /// Refresh capabilities from server
   Future<void> refreshCapabilities() async {
     await ref.read(serverCapabilitiesProvider.notifier).refresh();
+  }
+
+  /// Auto-enable attachments if server has vision/doc capabilities
+  /// Called after successful server connection to provide good defaults
+  /// Returns true if attachments were auto-enabled
+  Future<bool> autoEnableIfServerSupports() async {
+    final caps = ref.read(serverCapabilitiesProvider).value;
+    if (caps == null) return false;
+
+    // If server has OCR or document processing, auto-enable attachments
+    final serverHasVision = caps.serverVisionAvailable;
+    final serverHasDocs = caps.serverDocumentAvailable;
+
+    if (serverHasVision || serverHasDocs) {
+      // Enable attachments
+      await setAttachmentsEnabled(true);
+
+      // Set vision mode to 'auto' so it prefers server when available
+      final settingsStorage = ref.read(settingsStorageProvider);
+      settingsStorage.setVisionPipelineMode('auto');
+
+      return true;
+    }
+    return false;
   }
 }
 

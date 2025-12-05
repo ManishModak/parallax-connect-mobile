@@ -119,21 +119,10 @@ class SearchRouter:
                 )
             return cached
 
-        system_prompt = (
-            "You are a Search Intent Classifier. Your job is to determine if the user's "
-            "latest message requires real-time external information from the web to be answered correctly.\n"
-            "Respond ONLY with a JSON object in this format:\n"
-            "{\n"
-            '  "needs_search": true/false,\n'
-            '  "search_query": "optimized keyword query for search engine",\n'
-            '  "reason": "brief explanation"\n'
-            "}\n"
-            "Rules:\n"
-            "1. If the user asks for current events, prices, news, or specific facts not in your training data -> needs_search: true.\n"
-            "2. If the user asks for coding help, creative writing, summarization of chat, or general knowledge -> needs_search: false.\n"
-            "3. If the user explicitly asks to 'search' or 'find' -> needs_search: true.\n"
-            "4. Keep the search_query concise (2-5 keywords)."
-        )
+        # Use centralized system prompt
+        from .prompts import get_prompt
+
+        system_prompt = get_prompt("intent_classifier")
 
         messages = [{"role": "system", "content": system_prompt}]
 

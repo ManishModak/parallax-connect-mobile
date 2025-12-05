@@ -14,6 +14,7 @@ import '../../../../app/routes/app_router.dart';
 import '../../../../core/services/system/connectivity_service.dart';
 import '../../../../core/services/ai/model_selection_service.dart';
 import '../../../../core/services/storage/config_storage.dart';
+import '../../../../core/services/server/feature_flags_service.dart';
 import '../../../../core/utils/haptics_helper.dart';
 import '../../../chat/data/repositories/chat_repository.dart';
 import '../helpers/qr_scanner_handler.dart';
@@ -139,6 +140,17 @@ class _ConfigScreenState extends ConsumerState<ConfigScreen> {
         _showSuccessSnackBar('Successfully connected to server!');
         // Fetch available models after successful connection
         ref.read(modelSelectionProvider.notifier).fetchModels();
+
+        // Fetch server capabilities and auto-enable attachments if supported
+        final featureFlags = ref.read(featureFlagsProvider.notifier);
+        await featureFlags.refreshCapabilities();
+        final autoEnabled = await featureFlags.autoEnableIfServerSupports();
+        if (autoEnabled) {
+          developer.log(
+            'Auto-enabled attachments (server has vision/doc support)',
+          );
+        }
+
         await Future.delayed(const Duration(milliseconds: 500));
         if (!mounted) return;
         context.go(AppRoutes.chat);

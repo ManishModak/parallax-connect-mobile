@@ -13,7 +13,16 @@ logger = get_logger(__name__)
 
 async def on_startup():
     """Server startup event handler."""
-    from .config import DEBUG_MODE
+    from .config import (
+        DEBUG_MODE,
+        OCR_ENABLED,
+        OCR_ENGINE,
+        OCR_LANGUAGES,
+        DOC_ENABLED,
+        DOC_ENGINE,
+    )
+    from .services.ocr_service import init_ocr_service
+    from .services.document_service import init_document_service
 
     logger.info(
         "🚀 Server Starting...",
@@ -23,9 +32,25 @@ async def on_startup():
                 "mode": SERVER_MODE,
                 "parallax_url": PARALLAX_SERVICE_URL,
                 "debug_mode": DEBUG_MODE,
+                "ocr_enabled": OCR_ENABLED,
+                "doc_enabled": DOC_ENABLED,
             }
         },
     )
+
+    # Initialize OCR service
+    init_ocr_service(enabled=OCR_ENABLED, engine=OCR_ENGINE, languages=OCR_LANGUAGES)
+    if OCR_ENABLED:
+        logger.info(f"🔤 OCR: ENABLED (engine: {OCR_ENGINE})")
+    else:
+        logger.info("🔤 OCR: DISABLED")
+
+    # Initialize Document service
+    init_document_service(enabled=DOC_ENABLED, engine=DOC_ENGINE)
+    if DOC_ENABLED:
+        logger.info(f"📄 Documents: ENABLED (engine: {DOC_ENGINE})")
+    else:
+        logger.info("📄 Documents: DISABLED")
 
     # Test Parallax connection if in PROXY mode
     if SERVER_MODE == "PROXY":

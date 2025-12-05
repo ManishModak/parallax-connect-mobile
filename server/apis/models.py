@@ -74,7 +74,19 @@ async def models_endpoint(request: Request, _: bool = Depends(check_password)):
 @router.get("/info")
 async def info_endpoint(request: Request, _: bool = Depends(check_password)):
     """Returns server capabilities for dynamic feature configuration."""
+    from ..config import OCR_ENABLED, DOC_ENABLED
+    from ..services.ocr_service import get_ocr_service
+    from ..services.document_service import get_document_service
+
     request_id = getattr(request.state, "request_id", "unknown")
+
+    # Get OCR service status
+    ocr_service = get_ocr_service()
+    ocr_available = ocr_service is not None and ocr_service.is_available()
+
+    # Get Document service status
+    doc_service = get_document_service()
+    doc_available = doc_service is not None and doc_service.is_available()
 
     info = {
         "server_version": "1.0.0",
@@ -82,9 +94,13 @@ async def info_endpoint(request: Request, _: bool = Depends(check_password)):
         "capabilities": {
             "vram_gb": 0,
             "vision_supported": False,
-            "document_processing": False,
+            "document_processing": DOC_ENABLED and doc_available,
             "max_context_window": 4096,
             "multimodal_supported": False,
+            "ocr_enabled": OCR_ENABLED,
+            "ocr_available": ocr_available,
+            "doc_enabled": DOC_ENABLED,
+            "doc_available": doc_available,
         },
         "timestamp": datetime.now().isoformat(),
     }
@@ -96,6 +112,8 @@ async def info_endpoint(request: Request, _: bool = Depends(check_password)):
             "document_processing": False,
             "max_context_window": 4096,
             "multimodal_supported": False,
+            "ocr_enabled": OCR_ENABLED,
+            "ocr_available": ocr_available,
         }
         return info
 
@@ -104,6 +122,9 @@ async def info_endpoint(request: Request, _: bool = Depends(check_password)):
         result = await parallax.get_capabilities()
 
         info["capabilities"] = result["capabilities"]
+        # Add OCR info to capabilities
+        info["capabilities"]["ocr_enabled"] = OCR_ENABLED
+        info["capabilities"]["ocr_available"] = ocr_available
         info["active_models"] = result["active_models"]
 
         log_debug("Capabilities fetched", request_id, info["capabilities"])

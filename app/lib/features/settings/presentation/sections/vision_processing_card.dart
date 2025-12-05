@@ -72,16 +72,65 @@ class VisionProcessingCard extends StatelessWidget {
             ),
           ),
           const Divider(height: 1, color: AppColors.background),
+          // Auto mode - intelligently selects best option
           RadioOption(
-            title: 'Edge OCR (Recommended)',
+            title: 'Auto (Recommended)',
             description:
-                'Process images locally on your device using Google ML Kit. Works with any Parallax setup.',
-            techNote: 'Best for standard documents and quick text extraction',
+                'Automatically uses server processing when available, falls back to on-device.',
+            techNote: 'Best of both worlds with seamless fallback',
+            value: 'auto',
+            groupValue: state.visionPipelineMode,
+            onChanged: (val) {
+              hapticsHelper.triggerHaptics();
+              controller.setVisionPipelineMode(val!);
+            },
+          ),
+          const Divider(
+            height: 1,
+            indent: 16,
+            endIndent: 16,
+            color: AppColors.background,
+          ),
+          RadioOption(
+            title: 'Edge OCR',
+            description:
+                'Always process images locally on your device using Google ML Kit.',
+            techNote: 'Works offline, no server dependency',
             value: 'edge',
             groupValue: state.visionPipelineMode,
             onChanged: (val) {
               hapticsHelper.triggerHaptics();
               controller.setVisionPipelineMode(val!);
+            },
+          ),
+          // Server OCR option - always show, disable when server doesn't have OCR
+          const Divider(
+            height: 1,
+            indent: 16,
+            endIndent: 16,
+            color: AppColors.background,
+          ),
+          Builder(
+            builder: (context) {
+              final serverOcrAvailable = caps?.serverVisionAvailable ?? false;
+              return RadioOption(
+                title: 'Server OCR',
+                description: serverOcrAvailable
+                    ? 'Process images on the middleware server using EasyOCR. Offloads processing from your device.'
+                    : 'Not available: Server OCR is disabled. Enable with OCR_ENABLED=true on server.',
+                techNote: serverOcrAvailable
+                    ? 'Good for batch processing or low-power devices'
+                    : null,
+                value: 'server',
+                groupValue: state.visionPipelineMode,
+                isDisabled: !serverOcrAvailable,
+                onChanged: serverOcrAvailable
+                    ? (val) {
+                        hapticsHelper.triggerHaptics();
+                        controller.setVisionPipelineMode(val!);
+                      }
+                    : null,
+              );
             },
           ),
           const Divider(

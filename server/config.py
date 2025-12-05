@@ -26,6 +26,16 @@ ENABLE_PERFORMANCE_METRICS = (
     os.getenv("ENABLE_PERFORMANCE_METRICS", "false").lower() == "true" or DEBUG_MODE
 )
 
+# OCR Configuration
+# Set to "true" to enable server-side OCR (requires ~100MB model download on first use)
+OCR_ENABLED = os.getenv("OCR_ENABLED", "false").lower() == "true"
+OCR_ENGINE = os.getenv("OCR_ENGINE", "easyocr")  # 'paddleocr' or 'easyocr'
+OCR_LANGUAGES = os.getenv("OCR_LANGUAGES", "en").split(",")
+
+# Document Processing Configuration
+DOC_ENABLED = os.getenv("DOC_ENABLED", "false").lower() == "true"
+DOC_ENGINE = os.getenv("DOC_ENGINE", "pymupdf")  # 'pymupdf' or 'pdfplumber'
+
 # Cache Configuration
 MODEL_CACHE_TTL = int(os.getenv("MODEL_CACHE_TTL", "60"))  # seconds
 

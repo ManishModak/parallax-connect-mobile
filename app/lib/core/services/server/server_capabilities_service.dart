@@ -12,6 +12,10 @@ class ServerCapabilities {
   final bool documentProcessing;
   final int maxContextWindow;
   final bool multimodalSupported;
+  final bool ocrEnabled; // Server-side OCR is enabled
+  final bool ocrAvailable; // Server has OCR engine installed
+  final bool docEnabled; // Server-side document processing enabled
+  final bool docAvailable; // Server has PDF engine installed
   final DateTime? fetchedAt;
 
   const ServerCapabilities({
@@ -20,6 +24,10 @@ class ServerCapabilities {
     this.documentProcessing = false,
     this.maxContextWindow = 4096,
     this.multimodalSupported = false,
+    this.ocrEnabled = false,
+    this.ocrAvailable = false,
+    this.docEnabled = false,
+    this.docAvailable = false,
     this.fetchedAt,
   });
 
@@ -34,6 +42,10 @@ class ServerCapabilities {
       documentProcessing: caps['document_processing'] as bool? ?? false,
       maxContextWindow: caps['max_context_window'] as int? ?? 4096,
       multimodalSupported: caps['multimodal_supported'] as bool? ?? false,
+      ocrEnabled: caps['ocr_enabled'] as bool? ?? false,
+      ocrAvailable: caps['ocr_available'] as bool? ?? false,
+      docEnabled: caps['doc_enabled'] as bool? ?? false,
+      docAvailable: caps['doc_available'] as bool? ?? false,
       fetchedAt: DateTime.now(),
     );
   }
@@ -47,12 +59,22 @@ class ServerCapabilities {
     return DateTime.now().difference(fetchedAt!).inMinutes > 5;
   }
 
+  /// Check if server-side vision (OCR) is usable
+  bool get serverVisionAvailable => ocrEnabled && ocrAvailable;
+
+  /// Check if server-side document processing is usable
+  bool get serverDocumentAvailable => docEnabled && docAvailable;
+
   ServerCapabilities copyWith({
     int? vramGb,
     bool? visionSupported,
     bool? documentProcessing,
     int? maxContextWindow,
     bool? multimodalSupported,
+    bool? ocrEnabled,
+    bool? ocrAvailable,
+    bool? docEnabled,
+    bool? docAvailable,
     DateTime? fetchedAt,
   }) {
     return ServerCapabilities(
@@ -61,6 +83,10 @@ class ServerCapabilities {
       documentProcessing: documentProcessing ?? this.documentProcessing,
       maxContextWindow: maxContextWindow ?? this.maxContextWindow,
       multimodalSupported: multimodalSupported ?? this.multimodalSupported,
+      ocrEnabled: ocrEnabled ?? this.ocrEnabled,
+      ocrAvailable: ocrAvailable ?? this.ocrAvailable,
+      docEnabled: docEnabled ?? this.docEnabled,
+      docAvailable: docAvailable ?? this.docAvailable,
       fetchedAt: fetchedAt ?? this.fetchedAt,
     );
   }

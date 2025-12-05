@@ -18,16 +18,59 @@ class VisionService {
   VisionService(this._settingsStorage, this._chatRepository);
 
   /// Analyze an image using the configured pipeline mode
+  /// - 'auto': Use server if available, else edge (default recommended)
   /// - 'edge': On-device processing via Google ML Kit (OCR + Labels + Objects)
-  /// - 'multimodal': Server-side processing
-  Future<String> analyzeImage(String imagePath, String prompt) async {
-    final mode = _settingsStorage.getVisionPipelineMode();
-    Log.i('Vision mode: $mode');
+  /// - 'server': Server-side OCR via middleware /vision endpoint
+  /// - 'multimodal': Server-side processing (not yet implemented in Parallax)
+  ///
+  /// Note: 'server' mode automatically falls back to 'edge' on failure.
+  Future<String> analyzeImage(
+    String imagePath,
+    String prompt, {
+    bool serverAvailable = false,
+  }) async {
+    var mode = _settingsStorage.getVisionPipelineMode();
+    Log.i('Vision mode setting: $mode, serverAvailable: $serverAvailable');
 
-    if (mode == 'edge') {
+    // Auto-select: prefer server if available
+    if (mode == 'auto') {
+      mode = serverAvailable ? 'server' : 'edge';
+      Log.i('Auto-selected vision mode: $mode');
+    }
+
+    // If user selected 'server' but it's not available, use edge
+    if (mode == 'server' && !serverAvailable) {
+      Log.w('Server OCR unavailable, falling back to Edge OCR');
+      mode = 'edge';
+    }
+
+    switch (mode) {
+      case 'edge':
+        return _analyzeWithMLKit(imagePath, prompt);
+      case 'server':
+        return _analyzeWithServerOCR(imagePath, prompt);
+      case 'multimodal':
+      default:
+        return _analyzeWithServer(imagePath, prompt);
+    }
+  }
+
+  /// Server-side OCR via middleware /vision endpoint
+  /// Falls back to Edge OCR on any error
+  Future<String> _analyzeWithServerOCR(String imagePath, String prompt) async {
+    try {
+      final bytes = await File(imagePath).readAsBytes();
+      final base64Image = base64Encode(bytes);
+      Log.network('Sending image to server OCR (${bytes.length} bytes)');
+
+      final response = await _chatRepository.analyzeImage(
+        prompt.isEmpty ? 'Describe this image' : prompt,
+        base64Image,
+      );
+      return response;
+    } catch (e) {
+      Log.e('Server OCR failed, falling back to Edge OCR', e);
       return _analyzeWithMLKit(imagePath, prompt);
-    } else {
-      return _analyzeWithServer(imagePath, prompt);
     }
   }
 

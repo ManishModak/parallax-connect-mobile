@@ -221,7 +221,16 @@ async def vision_endpoint(
     prompt: str = Form(...),
     _: bool = Depends(check_password),
 ):
-    """Vision endpoint (not yet implemented in Parallax)."""
+    """
+    Vision endpoint with server-side OCR.
+
+    Extracts text from images using EasyOCR and forwards to Parallax
+    for LLM-based understanding and response.
+    """
+    from ...services.ocr_service import get_ocr_service
+    from ...services.prompts import get_prompt
+    from ...config import OCR_ENABLED
+
     request_id = datetime.now().strftime("%Y%m%d%H%M%S%f")
     logger.info(f"📸 [{request_id}] Vision request: {prompt[:50]}...")
 
@@ -230,5 +239,89 @@ async def vision_endpoint(
             "response": f"[MOCK] Vision Analysis: I see a simulated image. Prompt: {prompt}"
         }
 
-    logger.warning(f"⚠️ [{request_id}] Vision proxy not yet implemented")
-    return {"response": "[PROXY] Vision not yet implemented in Parallax API wrapper."}
+    # Get OCR service
+    ocr_service = get_ocr_service()
+    if ocr_service is None or not OCR_ENABLED:
+        logger.warning(f"⚠️ [{request_id}] Server OCR is disabled")
+        return {
+            "response": "[Server OCR is disabled. Enable with OCR_ENABLED=true or use mobile Edge OCR.]",
+            "ocr_enabled": False,
+        }
+
+    try:
+        # Read image bytes
+        image_bytes = await image.read()
+        logger.info(f"📸 [{request_id}] Processing image ({len(image_bytes)} bytes)")
+
+        # Extract text via OCR
+        ocr_result = await ocr_service.analyze_image(image_bytes)
+        extracted_text = ocr_result.get("text", "")
+        confidence = ocr_result.get("confidence", 0.0)
+
+        logger.info(
+            f"🔤 [{request_id}] OCR extracted {len(extracted_text)} chars "
+            f"(confidence: {confidence:.0%})"
+        )
+
+        if not extracted_text.strip():
+            return {
+                "response": "No text was detected in the image. The image may be too blurry, "
+                "contain no text, or the text may be in an unsupported language.",
+                "ocr_enabled": True,
+                "extracted_text": "",
+            }
+
+        # Build context prompt for LLM
+        context_prompt = get_prompt(
+            "image_context",
+            analysis=extracted_text,
+            query=prompt if prompt else "Describe what you see in this image.",
+        )
+
+        # Forward to Parallax for LLM response
+        client = await get_async_http_client()
+        payload = {
+            "model": "default",
+            "messages": [
+                {"role": "system", "content": context_prompt},
+                {
+                    "role": "user",
+                    "content": prompt
+                    or "What information can you extract from this image?",
+                },
+            ],
+            "stream": False,
+            "max_tokens": 2048,
+            "temperature": 0.7,
+        }
+
+        resp = await client.post(
+            PARALLAX_SERVICE_URL, json=payload, timeout=TIMEOUT_DEFAULT
+        )
+
+        if resp.status_code == 200:
+            data = resp.json()
+            choice = data["choices"][0]
+            content = (
+                choice.get("messages", {}).get("content")
+                or choice.get("message", {}).get("content")
+                or ""
+            )
+
+            return {
+                "response": content,
+                "ocr_enabled": True,
+                "extracted_text": extracted_text,
+                "confidence": confidence,
+            }
+        else:
+            logger.error(f"❌ [{request_id}] Parallax returned {resp.status_code}")
+            return {
+                "response": f"Error from LLM service: {resp.text}",
+                "ocr_enabled": True,
+                "extracted_text": extracted_text,
+            }
+
+    except Exception as e:
+        logger.error(f"❌ [{request_id}] Vision processing failed: {e}")
+        return handle_service_error(e, "Vision Endpoint", request_id)
