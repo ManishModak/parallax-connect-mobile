@@ -7,10 +7,12 @@ from typing import Optional
 SERVER_MODE = os.getenv("SERVER_MODE", "NORMAL").upper()
 
 # Parallax Service URLs
+PARALLAX_BASE_URL = os.getenv("PARALLAX_BASE_URL", "http://localhost:3001")
 PARALLAX_SERVICE_URL = os.getenv(
-    "PARALLAX_SERVICE_URL", "http://localhost:3001/v1/chat/completions"
+    "PARALLAX_SERVICE_URL", f"{PARALLAX_BASE_URL}/v1/chat/completions"
 )
-PARALLAX_UI_URL = os.getenv("PARALLAX_UI_URL", "http://localhost:3001")
+PARALLAX_UI_URL = os.getenv("PARALLAX_UI_URL", PARALLAX_BASE_URL)
+
 
 # Logging
 LOG_DIR = "applogs"

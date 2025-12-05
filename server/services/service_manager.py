@@ -5,7 +5,7 @@ Centralizes initialization and access to core services to prevent redundancy.
 
 from typing import Optional
 
-from ..config import PARALLAX_SERVICE_URL
+from ..config import PARALLAX_BASE_URL
 from ..logging_setup import get_logger
 from .parallax import ParallaxClient
 from .web_search import WebSearchService
@@ -45,7 +45,7 @@ class ServiceManager:
         logger.info("🚀 Initializing core services...")
 
         # 1. Parallax Client
-        self.parallax_client = ParallaxClient(PARALLAX_SERVICE_URL)
+        self.parallax_client = ParallaxClient(PARALLAX_BASE_URL)
 
         # 2. Web Search Service
         self.web_search_service = WebSearchService()
