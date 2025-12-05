@@ -179,6 +179,13 @@ class SearchRouter:
                 # Clean potential markdown code blocks
                 content = content.replace("```json", "").replace("```", "").strip()
 
+                # Strip <think> tags if present (LLM sometimes includes reasoning)
+                import re
+
+                content = re.sub(
+                    r"<think>.*?</think>", "", content, flags=re.DOTALL
+                ).strip()
+
                 try:
                     result = json.loads(content)
 

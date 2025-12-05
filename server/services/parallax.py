@@ -207,8 +207,11 @@ class ParallaxClient:
             "default": default_model,
         }
 
-        # Cache the result
-        self._model_cache.set(result)
+        # Only cache if we actually got models - don't cache empty results from connection failures
+        if models:
+            self._model_cache.set(result)
+        else:
+            logger.info("📋 Not caching empty model list (Parallax may be starting up)")
 
         if DEBUG_MODE:
             logger.debug(

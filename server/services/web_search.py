@@ -518,10 +518,25 @@ class WebSearchService:
                 "breadcrumb",
                 "menu",
             ]
+            # Safely collect elements to remove first (avoid modifying while iterating)
+            elements_to_remove = []
             for el in soup.find_all(class_=True):
-                classes = " ".join(el.get("class", [])).lower()
+                class_val = el.get("class")
+                if not class_val:
+                    continue
+                # class_val could be a list or string depending on parser
+                if isinstance(class_val, list):
+                    classes = " ".join(class_val).lower()
+                else:
+                    classes = str(class_val).lower()
                 if any(pattern in classes for pattern in noise_class_patterns):
+                    elements_to_remove.append(el)
+
+            for el in elements_to_remove:
+                try:
                     el.decompose()
+                except Exception:
+                    pass  # Element may already be removed
 
             # Prioritize article content containers
             content = None
