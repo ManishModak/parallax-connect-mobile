@@ -76,27 +76,9 @@ class VisionProcessingCard extends StatelessWidget {
           RadioOption(
             title: 'Auto (Recommended)',
             description:
-                'Automatically uses server processing when available, falls back to on-device.',
-            techNote: 'Best of both worlds with seamless fallback',
+                'Uses server when available for best performance. Seamless edge fallback.',
+            techNote: 'Best performance with automatic fallback',
             value: 'auto',
-            groupValue: state.visionPipelineMode,
-            onChanged: (val) {
-              hapticsHelper.triggerHaptics();
-              controller.setVisionPipelineMode(val!);
-            },
-          ),
-          const Divider(
-            height: 1,
-            indent: 16,
-            endIndent: 16,
-            color: AppColors.background,
-          ),
-          RadioOption(
-            title: 'Edge OCR',
-            description:
-                'Always process images locally on your device using Google ML Kit.',
-            techNote: 'Works offline, no server dependency',
-            value: 'edge',
             groupValue: state.visionPipelineMode,
             onChanged: (val) {
               hapticsHelper.triggerHaptics();
@@ -116,10 +98,10 @@ class VisionProcessingCard extends StatelessWidget {
               return RadioOption(
                 title: 'Server OCR',
                 description: serverOcrAvailable
-                    ? 'Process images on the middleware server using EasyOCR. Offloads processing from your device.'
+                    ? 'Process on middleware. Recommended for most users. Offloads work from device.'
                     : 'Not available: Server OCR is disabled. Enable with OCR_ENABLED=true on server.',
                 techNote: serverOcrAvailable
-                    ? 'Good for batch processing or low-power devices'
+                    ? 'Best for batch processing or low-power devices'
                     : null,
                 value: 'server',
                 groupValue: state.visionPipelineMode,
@@ -131,6 +113,24 @@ class VisionProcessingCard extends StatelessWidget {
                       }
                     : null,
               );
+            },
+          ),
+          const Divider(
+            height: 1,
+            indent: 16,
+            endIndent: 16,
+            color: AppColors.background,
+          ),
+          RadioOption(
+            title: 'Edge OCR (Privacy)',
+            description:
+                'Process locally for privacy. Use when connecting to untrusted hosts.',
+            techNote: 'Image bytes stay local; text sent to LLM',
+            value: 'edge',
+            groupValue: state.visionPipelineMode,
+            onChanged: (val) {
+              hapticsHelper.triggerHaptics();
+              controller.setVisionPipelineMode(val!);
             },
           ),
           const Divider(

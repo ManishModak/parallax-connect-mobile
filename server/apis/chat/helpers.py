@@ -12,11 +12,17 @@ logger = get_logger(__name__)
 
 # Document content detection constants
 DOCUMENT_PREFIX = "document content:"
+DOCUMENT_START_MARKER = "---DOCUMENT_START---"
+DOCUMENT_END_MARKER = "---DOCUMENT_END---"
 
 
 def detect_document_content(prompt: str) -> tuple[bool, str, str]:
     """
     Detect if prompt contains document content from the mobile app.
+
+    Supports two formats:
+    1. Legacy: "document content:\\n<content>\\n\\nUser question: <query>"
+    2. New markers: "---DOCUMENT_START---\\n<content>\\n---DOCUMENT_END---\\n\\nUser question: <query>"
 
     Returns:
         (is_document, document_content, user_query)
@@ -26,6 +32,26 @@ def detect_document_content(prompt: str) -> tuple[bool, str, str]:
     """
     prompt_lower = prompt.lower()
 
+    # Check for new marker format first
+    if DOCUMENT_START_MARKER in prompt:
+        start_idx = prompt.find(DOCUMENT_START_MARKER) + len(DOCUMENT_START_MARKER)
+        end_idx = prompt.find(DOCUMENT_END_MARKER)
+
+        if end_idx > start_idx:
+            content = prompt[start_idx:end_idx].strip()
+            remaining = prompt[end_idx + len(DOCUMENT_END_MARKER) :].strip()
+
+            # Extract user query
+            user_query = ""
+            if remaining.lower().startswith("user question:"):
+                user_query = remaining[len("user question:") :].strip()
+            elif "\n\nuser question:" in remaining.lower():
+                idx = remaining.lower().find("\n\nuser question:")
+                user_query = remaining[idx + len("\n\nuser question:") :].strip()
+
+            return True, content, user_query
+
+    # Legacy format: "document content:" prefix
     if not prompt_lower.startswith(DOCUMENT_PREFIX):
         return False, "", prompt
 

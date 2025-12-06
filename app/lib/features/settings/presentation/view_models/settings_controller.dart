@@ -28,6 +28,7 @@ class SettingsController extends Notifier<SettingsState> {
       webSearchDepth: _settingsStorage.getWebSearchDepth(),
       isSmartSearchEnabled: _settingsStorage.getSmartSearchEnabled(),
       webSearchExecutionMode: _settingsStorage.getWebSearchExecutionMode(),
+      docProcessingMode: _settingsStorage.getDocProcessingMode(),
     );
   }
 
@@ -124,6 +125,7 @@ class SettingsController extends Notifier<SettingsState> {
       webSearchDepth: _settingsStorage.getWebSearchDepth(),
       isSmartSearchEnabled: _settingsStorage.getSmartSearchEnabled(),
       webSearchExecutionMode: _settingsStorage.getWebSearchExecutionMode(),
+      docProcessingMode: _settingsStorage.getDocProcessingMode(),
     );
   }
 
@@ -155,6 +157,11 @@ class SettingsController extends Notifier<SettingsState> {
   Future<void> setWebSearchExecutionMode(String mode) async {
     await _settingsStorage.setWebSearchExecutionMode(mode);
     state = state.copyWith(webSearchExecutionMode: mode);
+  }
+
+  Future<void> setDocProcessingMode(String mode) async {
+    await _settingsStorage.setDocProcessingMode(mode);
+    state = state.copyWith(docProcessingMode: mode);
   }
 }
 

@@ -16,6 +16,9 @@ class SettingsState {
   final bool isSmartSearchEnabled;
   final String webSearchExecutionMode; // mobile, middleware, parallax
 
+  // Document Processing
+  final String docProcessingMode; // mobile, server
+
   const SettingsState({
     this.hapticsLevel = 'max',
     this.visionPipelineMode = 'edge',
@@ -31,6 +34,7 @@ class SettingsState {
     this.webSearchDepth = 'normal',
     this.isSmartSearchEnabled = true,
     this.webSearchExecutionMode = 'mobile',
+    this.docProcessingMode = 'server',
   });
 
   SettingsState copyWith({
@@ -48,6 +52,7 @@ class SettingsState {
     String? webSearchDepth,
     bool? isSmartSearchEnabled,
     String? webSearchExecutionMode,
+    String? docProcessingMode,
   }) {
     return SettingsState(
       hapticsLevel: hapticsLevel ?? this.hapticsLevel,
@@ -66,6 +71,7 @@ class SettingsState {
       isSmartSearchEnabled: isSmartSearchEnabled ?? this.isSmartSearchEnabled,
       webSearchExecutionMode:
           webSearchExecutionMode ?? this.webSearchExecutionMode,
+      docProcessingMode: docProcessingMode ?? this.docProcessingMode,
     );
   }
 }

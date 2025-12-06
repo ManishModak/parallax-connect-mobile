@@ -51,8 +51,8 @@ class VisionService {
 
     switch (mode) {
       case 'edge':
-        // Edge mode: On-device ML Kit (no system prompt needed - local analysis only)
-        return _analyzeWithMLKit(imagePath, prompt);
+        // Edge mode: Local extraction → Send context to LLM for understanding
+        return _analyzeWithMLKit(imagePath, prompt, systemPrompt: systemPrompt);
       case 'server':
         return _analyzeWithServerOCR(imagePath, prompt, systemPrompt);
       case 'multimodal':
@@ -81,14 +81,18 @@ class VisionService {
       return response;
     } catch (e) {
       Log.e('Server OCR failed, falling back to Edge OCR', e);
-      return _analyzeWithMLKit(imagePath, prompt);
+      return _analyzeWithMLKit(imagePath, prompt, systemPrompt: systemPrompt);
     }
   }
 
-  /// On-device image analysis using multiple ML Kit APIs
-  Future<String> _analyzeWithMLKit(String imagePath, String prompt) async {
+  /// On-device image analysis using ML Kit, then send context to LLM
+  /// This extracts text/labels locally for privacy, then uses /chat for understanding
+  Future<String> _analyzeWithMLKit(
+    String imagePath,
+    String prompt, {
+    String? systemPrompt,
+  }) async {
     final inputImage = InputImage.fromFilePath(imagePath);
-    final response = StringBuffer()..writeln('**Image Analysis (On-Device)**');
 
     // Run all analyzers in parallel
     final results = await Future.wait([
@@ -101,56 +105,68 @@ class VisionService {
     final labelsResult = results[1];
     final objectsResult = results[2];
 
-    bool hasContent = false;
+    // Build context from local analysis
+    final contextParts = <String>[];
 
-    // Text Recognition (OCR) - most useful for documents/screenshots
     if (textResult != null && textResult.isNotEmpty) {
-      hasContent = true;
-      response
-        ..writeln()
-        ..writeln('**Text Found:**')
-        ..writeln('```')
-        ..writeln(textResult)
-        ..writeln('```');
+      contextParts.add('Text found in image:\n$textResult');
     }
 
-    // Object Detection - specific objects with locations
     if (objectsResult != null && objectsResult.isNotEmpty) {
-      hasContent = true;
-      response
-        ..writeln()
-        ..writeln('**Objects Detected:**')
-        ..writeln(objectsResult);
+      contextParts.add('Objects detected:\n$objectsResult');
     }
 
-    // Image Labels - general scene/content understanding
     if (labelsResult != null && labelsResult.isNotEmpty) {
-      hasContent = true;
-      response
-        ..writeln()
-        ..writeln('**Scene Labels:**')
-        ..writeln(labelsResult);
+      contextParts.add('Scene labels:\n$labelsResult');
     }
 
-    if (!hasContent) {
-      response
-        ..writeln()
-        ..writeln('No significant content detected in this image.');
+    // If no content detected, return early
+    if (contextParts.isEmpty) {
+      return 'No significant content detected in this image.';
     }
 
-    // Add note about limitations if user asked a specific question
-    if (prompt.isNotEmpty && prompt != 'Describe this image') {
-      response
-        ..writeln()
-        ..writeln('---')
-        ..writeln(
-          '_On-device analysis provides detection only. '
-          'For detailed understanding or answering questions about the image, '
-          'switch to multimodal mode._',
-        );
-    }
+    // Send extracted context to LLM via /chat for natural understanding
+    final context = contextParts.join('\n\n');
+    final userPrompt = prompt.isEmpty ? 'Describe this image' : prompt;
 
-    return response.toString();
+    try {
+      Log.i('Edge OCR: Sending extracted context to LLM');
+      final response = await _chatRepository.generateText(
+        'Based on the following image analysis:\n\n$context\n\nUser request: $userPrompt',
+        systemPrompt: systemPrompt,
+      );
+      return response;
+    } catch (e) {
+      // Fallback: return raw analysis if LLM call fails
+      Log.w('Edge OCR: LLM call failed, returning raw analysis', e);
+      final response = StringBuffer()
+        ..writeln('**Image Analysis (On-Device)**');
+
+      if (textResult != null && textResult.isNotEmpty) {
+        response
+          ..writeln()
+          ..writeln('**Text Found:**')
+          ..writeln('```')
+          ..writeln(textResult)
+          ..writeln('```');
+      }
+
+      if (objectsResult != null && objectsResult.isNotEmpty) {
+        response
+          ..writeln()
+          ..writeln('**Objects Detected:**')
+          ..writeln(objectsResult);
+      }
+
+      if (labelsResult != null && labelsResult.isNotEmpty) {
+        response
+          ..writeln()
+          ..writeln('**Scene Labels:**')
+          ..writeln(labelsResult);
+      }
+
+      return response.toString();
+    }
   }
 
   /// Extract text using OCR

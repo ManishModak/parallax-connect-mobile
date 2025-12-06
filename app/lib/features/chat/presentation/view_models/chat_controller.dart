@@ -171,6 +171,7 @@ class ChatController extends Notifier<ChatState> {
           .read(serverCapabilitiesProvider.notifier)
           .getCapabilities();
       final serverVisionAvailable = caps.serverVisionAvailable;
+      final serverDocAvailable = caps.serverDocumentAvailable;
 
       await _sendOrchestrator.send(
         text: text,
@@ -181,6 +182,7 @@ class ChatController extends Notifier<ChatState> {
         sendNonStreaming: _sendNonStreamingMessage,
         finalizeMessage: _finalizeMessage,
         serverVisionAvailable: serverVisionAvailable,
+        serverDocAvailable: serverDocAvailable,
       );
     } catch (e) {
       state = state.copyWith(

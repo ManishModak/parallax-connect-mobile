@@ -34,15 +34,15 @@ class SettingsStorage implements HapticsSettings {
   }
 
   // Vision Pipeline Mode
-  // Values: 'edge' (on-device ML Kit), 'multimodal' (server-side vision)
+  // Values: 'auto' (recommended), 'edge' (on-device ML Kit), 'server', 'multimodal'
   Future<void> setVisionPipelineMode(String mode) async {
     await _prefs.setString(_keyVisionPipelineMode, mode);
   }
 
   /// Get vision pipeline mode
-  /// Returns 'edge' for on-device ML Kit processing, 'multimodal' for server-side
+  /// Returns 'auto' (default), 'edge' for privacy fallback, 'server', or 'multimodal'
   String getVisionPipelineMode() {
-    return _prefs.getString(_keyVisionPipelineMode) ?? 'edge';
+    return _prefs.getString(_keyVisionPipelineMode) ?? 'auto';
   }
 
   // Smart Context Window
@@ -170,6 +170,20 @@ class SettingsStorage implements HapticsSettings {
   String getWebSearchExecutionMode() {
     return _prefs.getString(_keyWebSearchExecutionMode) ??
         'middleware'; // mobile, middleware, parallax
+  }
+
+  // Document Processing Mode
+  // Values: 'mobile' (on-device extraction), 'server' (middleware extraction)
+  static const _keyDocProcessingMode = 'settings_doc_processing_mode';
+
+  Future<void> setDocProcessingMode(String mode) async {
+    await _prefs.setString(_keyDocProcessingMode, mode);
+  }
+
+  /// Get document processing mode
+  /// Returns 'server' (default), 'mobile' for privacy
+  String getDocProcessingMode() {
+    return _prefs.getString(_keyDocProcessingMode) ?? 'server';
   }
 
   // Clear all settings (reset to defaults)

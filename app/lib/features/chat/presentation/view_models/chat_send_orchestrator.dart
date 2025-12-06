@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import '../../utils/file_type_helper.dart';
 import '../../../../core/services/system/connectivity_service.dart';
 import '../../../../core/services/utilities/document_service.dart';
@@ -51,6 +53,7 @@ class ChatSendOrchestrator {
     sendNonStreaming,
     required Future<void> Function(String response) finalizeMessage,
     bool serverVisionAvailable = false,
+    bool serverDocAvailable = false,
   }) async {
     // Local copy of state so we can keep using the latest snapshot after
     // each copyWith + setState.
@@ -78,10 +81,33 @@ class ChatSendOrchestrator {
 
     String contextText = text;
     if (docAttachments.isNotEmpty) {
-      final docContent = await _documentService.extractText(
-        docAttachments.first,
+      var docMode = _settingsStorage.getDocProcessingMode();
+      Log.i(
+        'Document processing mode: $docMode, serverAvailable: $serverDocAvailable',
       );
-      contextText = 'Document content:\n$docContent\n\nUser question: $text';
+
+      // Fallback: if user selected 'server' but server not available, use mobile
+      if (docMode == 'server' && !serverDocAvailable) {
+        Log.w('Server doc processing unavailable, falling back to mobile');
+        docMode = 'mobile';
+      }
+
+      if (docMode == 'server') {
+        // Server mode: Read raw file content and let middleware parse it
+        // The server's detect_document_content will handle extraction
+        final file = await File(docAttachments.first).readAsString();
+        // Use document content marker that server recognizes
+        contextText =
+            '---DOCUMENT_START---\n$file\n---DOCUMENT_END---\n\nUser question: $text';
+        Log.i('Server doc mode: Sending raw content for server-side parsing');
+      } else {
+        // Mobile mode: Extract locally for privacy, then send text
+        final docContent = await _documentService.extractText(
+          docAttachments.first,
+        );
+        contextText = 'Document content:\n$docContent\n\nUser question: $text';
+        Log.i('Mobile doc mode: Extracted ${docContent.length} chars locally');
+      }
     }
 
     // 3) Optional smart web search (client-side mobile mode)
