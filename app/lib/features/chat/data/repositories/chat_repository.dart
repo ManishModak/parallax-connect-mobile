@@ -134,14 +134,25 @@ class ChatRepository {
     }
   }
 
-  Future<String> analyzeImage(String prompt, String imageBase64) async {
+  Future<String> analyzeImage(
+    String prompt,
+    String imageBase64, {
+    String? systemPrompt,
+  }) async {
     final baseUrl = _configStorage.getBaseUrl();
     if (baseUrl == null) throw Exception('No Base URL configured');
 
     try {
+      final data = <String, dynamic>{'prompt': prompt, 'image': imageBase64};
+
+      // Include user's custom system prompt if provided
+      if (systemPrompt != null && systemPrompt.isNotEmpty) {
+        data['system_prompt'] = systemPrompt;
+      }
+
       final response = await _dio.post(
         '$baseUrl/vision',
-        data: {'prompt': prompt, 'image': imageBase64},
+        data: data,
         options: Options(headers: _buildPasswordHeader()),
       );
 

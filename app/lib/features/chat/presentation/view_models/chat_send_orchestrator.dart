@@ -209,10 +209,13 @@ class ChatSendOrchestrator {
 
     if (imageAttachments.isNotEmpty) {
       // Use vision service for image analysis (non-streaming)
+      // Pass user's custom system prompt for server-side processing
+      final userSystemPrompt = _settingsStorage.getSystemPrompt();
       final response = await _visionService.analyzeImage(
         imageAttachments.first,
         text.isEmpty ? 'Describe this image' : text,
         serverAvailable: serverVisionAvailable,
+        systemPrompt: userSystemPrompt.isNotEmpty ? userSystemPrompt : null,
       );
       await finalizeMessage(response);
       return;

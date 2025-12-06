@@ -23,11 +23,16 @@ class VisionService {
   /// - 'server': Server-side OCR via middleware /vision endpoint
   /// - 'multimodal': Server-side processing (not yet implemented in Parallax)
   ///
+  /// [systemPrompt] is the user's custom system prompt from settings.
+  /// For server modes, it's sent along with the image.
+  /// For edge mode, the OCR result is returned directly (no LLM call).
+  ///
   /// Note: 'server' mode automatically falls back to 'edge' on failure.
   Future<String> analyzeImage(
     String imagePath,
     String prompt, {
     bool serverAvailable = false,
+    String? systemPrompt,
   }) async {
     var mode = _settingsStorage.getVisionPipelineMode();
     Log.i('Vision mode setting: $mode, serverAvailable: $serverAvailable');
@@ -46,18 +51,23 @@ class VisionService {
 
     switch (mode) {
       case 'edge':
+        // Edge mode: On-device ML Kit (no system prompt needed - local analysis only)
         return _analyzeWithMLKit(imagePath, prompt);
       case 'server':
-        return _analyzeWithServerOCR(imagePath, prompt);
+        return _analyzeWithServerOCR(imagePath, prompt, systemPrompt);
       case 'multimodal':
       default:
-        return _analyzeWithServer(imagePath, prompt);
+        return _analyzeWithServer(imagePath, prompt, systemPrompt);
     }
   }
 
   /// Server-side OCR via middleware /vision endpoint
   /// Falls back to Edge OCR on any error
-  Future<String> _analyzeWithServerOCR(String imagePath, String prompt) async {
+  Future<String> _analyzeWithServerOCR(
+    String imagePath,
+    String prompt,
+    String? systemPrompt,
+  ) async {
     try {
       final bytes = await File(imagePath).readAsBytes();
       final base64Image = base64Encode(bytes);
@@ -66,6 +76,7 @@ class VisionService {
       final response = await _chatRepository.analyzeImage(
         prompt.isEmpty ? 'Describe this image' : prompt,
         base64Image,
+        systemPrompt: systemPrompt,
       );
       return response;
     } catch (e) {
@@ -215,12 +226,20 @@ class VisionService {
   }
 
   /// Server-side image analysis
-  Future<String> _analyzeWithServer(String imagePath, String prompt) async {
+  Future<String> _analyzeWithServer(
+    String imagePath,
+    String prompt,
+    String? systemPrompt,
+  ) async {
     try {
       final bytes = await File(imagePath).readAsBytes();
       final base64Image = base64Encode(bytes);
       Log.network('Sending image (${bytes.length} bytes)');
-      return _chatRepository.analyzeImage(prompt, base64Image);
+      return _chatRepository.analyzeImage(
+        prompt,
+        base64Image,
+        systemPrompt: systemPrompt,
+      );
     } catch (e) {
       Log.e('Server image analysis failed', e);
       rethrow;

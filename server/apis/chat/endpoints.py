@@ -1,5 +1,6 @@
 """Chat API endpoints."""
 
+import base64
 import re
 import time
 from datetime import datetime
@@ -74,12 +75,27 @@ async def chat_endpoint(
         # Document detected - inject appropriate system prompt
         logger.info(f"📄 [{request_id}] Document detected ({len(doc_content)} chars)")
         doc_system_prompt = build_document_system_prompt(doc_content, user_query)
-        modified_request.system_prompt = doc_system_prompt
-        # Set prompt to user query (or empty if no query)
+
+        # Merge user's custom system prompt with document context (user prompt first)
+        if chat_request.system_prompt:
+            modified_request.system_prompt = (
+                f"{chat_request.system_prompt}\n\n{doc_system_prompt}"
+            )
+            logger.info(
+                f"📄 [{request_id}] Merged user system prompt ({len(chat_request.system_prompt)} chars)"
+            )
+        else:
+            modified_request.system_prompt = doc_system_prompt
+
+        # Set prompt to user query (or default if no query)
         modified_request.prompt = (
             user_query if user_query else "Please analyze this document."
         )
-        logger.info(f"📄 [{request_id}] User query: '{user_query or '(none)'}'")
+        logger.info(
+            f"📄 [{request_id}] User query: '{user_query}'"
+            if user_query
+            else f"📄 [{request_id}] User query: '(none)'"
+        )
 
     # Smart Search - only if not a document and web search enabled
     search_context = ""
@@ -238,14 +254,20 @@ async def chat_stream_endpoint(
 
 @router.post("/vision")
 async def vision_endpoint(
-    image: UploadFile = File(...),
-    prompt: str = Form(...),
+    request: Request,
     _: bool = Depends(check_password),
+    # Multipart form data (optional - for backwards compatibility)
+    image: UploadFile = File(None),
+    prompt: str = Form(None),
 ):
     """
     Vision endpoint with server-side OCR.
 
-    Extracts text from images using EasyOCR and forwards to Parallax
+    Accepts EITHER:
+    1. JSON body: {"image": "<base64>", "prompt": "optional", "system_prompt": "optional"}
+    2. Multipart form: image file + prompt field
+
+    Extracts text from images using OCR and forwards to Parallax
     for LLM-based understanding and response.
     """
     from ...services.ocr_service import get_ocr_service
@@ -253,11 +275,52 @@ async def vision_endpoint(
     from ...config import OCR_ENABLED
 
     request_id = datetime.now().strftime("%Y%m%d%H%M%S%f")
-    logger.info(f"📸 [{request_id}] Vision request: {prompt[:50]}...")
+
+    # Determine input format: JSON or multipart
+    image_bytes = None
+    user_prompt = ""
+    user_system_prompt = ""
+
+    content_type = request.headers.get("content-type", "")
+
+    if "application/json" in content_type:
+        # JSON body with base64 image
+        try:
+            body = await request.json()
+            base64_image = body.get("image", "")
+            user_prompt = body.get("prompt", "")
+            user_system_prompt = body.get("system_prompt", "")
+
+            if base64_image:
+                # Remove data URL prefix if present
+                if "," in base64_image:
+                    base64_image = base64_image.split(",", 1)[1]
+                image_bytes = base64.b64decode(base64_image)
+                logger.info(
+                    f"📸 [{request_id}] Vision request (JSON): {len(image_bytes)} bytes"
+                )
+        except Exception as e:
+            logger.error(f"❌ [{request_id}] Failed to parse JSON body: {e}")
+            raise HTTPException(status_code=400, detail=f"Invalid JSON body: {e}")
+    else:
+        # Multipart form data
+        if image is not None:
+            image_bytes = await image.read()
+            user_prompt = prompt or ""
+            logger.info(
+                f"📸 [{request_id}] Vision request (multipart): {len(image_bytes)} bytes"
+            )
+
+    if not image_bytes:
+        raise HTTPException(status_code=400, detail="No image provided")
+
+    logger.info(
+        f"📸 [{request_id}] Vision request: {user_prompt[:50] if user_prompt else '(no prompt)'}..."
+    )
 
     if SERVER_MODE == "MOCK":
         return {
-            "response": f"[MOCK] Vision Analysis: I see a simulated image. Prompt: {prompt}"
+            "response": f"[MOCK] Vision Analysis: I see a simulated image. Prompt: {user_prompt}"
         }
 
     # Get OCR service
@@ -270,8 +333,7 @@ async def vision_endpoint(
         }
 
     try:
-        # Read image bytes
-        image_bytes = await image.read()
+        # image_bytes already extracted above
         logger.info(f"📸 [{request_id}] Processing image ({len(image_bytes)} bytes)")
 
         # Extract text via OCR
@@ -293,16 +355,16 @@ async def vision_endpoint(
             }
 
         # Build context prompt for LLM - use appropriate prompt based on whether user asked a question
-        user_has_query = bool(prompt and prompt.strip())
+        user_has_query = bool(user_prompt and user_prompt.strip())
 
         if user_has_query:
             # User asked a specific question about the image
             context_prompt = get_prompt(
                 "image_context",
                 analysis=extracted_text,
-                query=prompt,
+                query=user_prompt,
             )
-            user_message = prompt
+            user_message = user_prompt
         else:
             # No specific question - use analysis prompt
             context_prompt = get_prompt(
@@ -315,12 +377,20 @@ async def vision_endpoint(
             f"📸 [{request_id}] Using {'image_context' if user_has_query else 'image_analysis'} prompt"
         )
 
+        # Merge user's system prompt with context prompt if provided
+        final_system_prompt = context_prompt
+        if user_system_prompt:
+            final_system_prompt = f"{user_system_prompt}\n\n{context_prompt}"
+            logger.info(
+                f"📸 [{request_id}] Merged user system prompt ({len(user_system_prompt)} chars)"
+            )
+
         # Forward to Parallax for LLM response
         client = await get_async_http_client()
         payload = {
             "model": "default",
             "messages": [
-                {"role": "system", "content": context_prompt},
+                {"role": "system", "content": final_system_prompt},
                 {
                     "role": "user",
                     "content": user_message,
