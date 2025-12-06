@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import '../../utils/file_type_helper.dart';
@@ -93,13 +94,20 @@ class ChatSendOrchestrator {
       }
 
       if (docMode == 'server') {
-        // Server mode: Read raw file content and let middleware parse it
-        // The server's detect_document_content will handle extraction
-        final file = await File(docAttachments.first).readAsString();
-        // Use document content marker that server recognizes
+        // Server mode: Read raw file bytes and base64 encode for transport
+        // The server's document endpoint will handle decoding and extraction
+        final file = File(docAttachments.first);
+        final bytes = await file.readAsBytes();
+        final base64Content = base64Encode(bytes);
+        final filename = docAttachments.first
+            .split(Platform.pathSeparator)
+            .last;
+        // Use document content marker that server recognizes with base64 payload
         contextText =
-            '---DOCUMENT_START---\n$file\n---DOCUMENT_END---\n\nUser question: $text';
-        Log.i('Server doc mode: Sending raw content for server-side parsing');
+            '---DOCUMENT_START(base64:$filename)---\n$base64Content\n---DOCUMENT_END---\n\nUser question: $text';
+        Log.i(
+          'Server doc mode: Sending base64 content (${bytes.length} bytes) for server-side parsing',
+        );
       } else {
         // Mobile mode: Extract locally for privacy, then send text
         final docContent = await _documentService.extractText(

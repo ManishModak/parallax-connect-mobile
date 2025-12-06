@@ -1,6 +1,8 @@
 """Chat package helper functions."""
 
 import time
+import base64
+import re
 
 from ...models import ChatRequest
 from ...logging_setup import get_logger
@@ -12,7 +14,7 @@ logger = get_logger(__name__)
 
 # Document content detection constants
 DOCUMENT_PREFIX = "document content:"
-DOCUMENT_START_MARKER = "---DOCUMENT_START---"
+DOCUMENT_START_MARKER = "---DOCUMENT_START"
 DOCUMENT_END_MARKER = "---DOCUMENT_END---"
 
 
@@ -20,9 +22,10 @@ def detect_document_content(prompt: str) -> tuple[bool, str, str]:
     """
     Detect if prompt contains document content from the mobile app.
 
-    Supports two formats:
+    Supports formats:
     1. Legacy: "document content:\\n<content>\\n\\nUser question: <query>"
-    2. New markers: "---DOCUMENT_START---\\n<content>\\n---DOCUMENT_END---\\n\\nUser question: <query>"
+    2. Plain markers: "---DOCUMENT_START---\\n<content>\\n---DOCUMENT_END---\\n\\nUser question: <query>"
+    3. Base64 markers: "---DOCUMENT_START(base64:filename.pdf)---\\n<base64>\\n---DOCUMENT_END---\\n\\nUser question: <query>"
 
     Returns:
         (is_document, document_content, user_query)
@@ -32,24 +35,74 @@ def detect_document_content(prompt: str) -> tuple[bool, str, str]:
     """
     prompt_lower = prompt.lower()
 
-    # Check for new marker format first
+    # Check for new marker format first (handles both plain and base64)
     if DOCUMENT_START_MARKER in prompt:
-        start_idx = prompt.find(DOCUMENT_START_MARKER) + len(DOCUMENT_START_MARKER)
-        end_idx = prompt.find(DOCUMENT_END_MARKER)
+        # Check for base64 format: ---DOCUMENT_START(base64:filename.ext)---
+        base64_match = re.search(r"---DOCUMENT_START\(base64:([^)]+)\)---", prompt)
 
-        if end_idx > start_idx:
-            content = prompt[start_idx:end_idx].strip()
-            remaining = prompt[end_idx + len(DOCUMENT_END_MARKER) :].strip()
+        if base64_match:
+            filename = base64_match.group(1)
+            start_idx = base64_match.end()
+            end_idx = prompt.find(DOCUMENT_END_MARKER)
 
-            # Extract user query
-            user_query = ""
-            if remaining.lower().startswith("user question:"):
-                user_query = remaining[len("user question:") :].strip()
-            elif "\n\nuser question:" in remaining.lower():
-                idx = remaining.lower().find("\n\nuser question:")
-                user_query = remaining[idx + len("\n\nuser question:") :].strip()
+            if end_idx > start_idx:
+                base64_content = prompt[start_idx:end_idx].strip()
+                remaining = prompt[end_idx + len(DOCUMENT_END_MARKER) :].strip()
 
-            return True, content, user_query
+                # Decode base64 and extract text using document service
+                try:
+                    file_bytes = base64.b64decode(base64_content)
+                    doc_service = service_manager.get_document_service()
+                    if doc_service and doc_service.enabled:
+                        result = doc_service.extract_text(file_bytes, filename)
+                        content = result.get("text", "")
+                        if result.get("error"):
+                            logger.warning(
+                                f"Document extraction warning: {result.get('error')}"
+                            )
+                    else:
+                        # Fallback: try to decode as text
+                        try:
+                            content = file_bytes.decode("utf-8")
+                        except UnicodeDecodeError:
+                            content = "[Unable to decode document - document processing not available]"
+
+                    logger.info(
+                        f"📄 Decoded base64 document: {filename} ({len(file_bytes)} bytes -> {len(content)} chars)"
+                    )
+                except Exception as e:
+                    logger.error(f"Failed to decode base64 document: {e}")
+                    content = f"[Document decode error: {e}]"
+
+                # Extract user query
+                user_query = ""
+                if remaining.lower().startswith("user question:"):
+                    user_query = remaining[len("user question:") :].strip()
+                elif "\n\nuser question:" in remaining.lower():
+                    idx = remaining.lower().find("\n\nuser question:")
+                    user_query = remaining[idx + len("\n\nuser question:") :].strip()
+
+                return True, content, user_query
+
+        # Plain marker format: ---DOCUMENT_START---
+        plain_marker = "---DOCUMENT_START---"
+        if plain_marker in prompt:
+            start_idx = prompt.find(plain_marker) + len(plain_marker)
+            end_idx = prompt.find(DOCUMENT_END_MARKER)
+
+            if end_idx > start_idx:
+                content = prompt[start_idx:end_idx].strip()
+                remaining = prompt[end_idx + len(DOCUMENT_END_MARKER) :].strip()
+
+                # Extract user query
+                user_query = ""
+                if remaining.lower().startswith("user question:"):
+                    user_query = remaining[len("user question:") :].strip()
+                elif "\n\nuser question:" in remaining.lower():
+                    idx = remaining.lower().find("\n\nuser question:")
+                    user_query = remaining[idx + len("\n\nuser question:") :].strip()
+
+                return True, content, user_query
 
     # Legacy format: "document content:" prefix
     if not prompt_lower.startswith(DOCUMENT_PREFIX):

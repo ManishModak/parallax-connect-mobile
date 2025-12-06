@@ -79,15 +79,26 @@ class OCRService:
                 "📥 Loading PaddleOCR models (first-time download if needed)..."
             )
 
-            # Some PaddleOCR versions do not support the show_log argument.
+            # Newer PaddleOCR versions removed show_log parameter
+            # Try without it first (more compatible), then with it for older versions
             init_kwargs = {
                 "use_angle_cls": True,
                 "lang": self.languages[0] if self.languages else "en",
             }
+
+            reader = None
             try:
-                reader = PaddleOCR(show_log=DEBUG_MODE, **init_kwargs)
-            except TypeError:
+                # First try without show_log (works with newer versions)
                 reader = PaddleOCR(**init_kwargs)
+            except Exception:
+                # If that fails, try with show_log (older versions)
+                try:
+                    reader = PaddleOCR(show_log=DEBUG_MODE, **init_kwargs)
+                except Exception:
+                    reader = PaddleOCR(**init_kwargs)
+
+            if reader is None:
+                raise RuntimeError("Failed to create PaddleOCR instance")
 
             logger.info("✅ PaddleOCR models loaded successfully")
             return ("paddleocr", reader)
@@ -104,17 +115,49 @@ class OCRService:
 
     def _init_easyocr(self):
         """Initialize EasyOCR."""
+        import os
+        import shutil
+
+        def _cleanup_corrupted_models():
+            """Remove corrupted EasyOCR model files."""
+            easyocr_dir = os.path.expanduser("~/.EasyOCR/model")
+            if os.path.exists(easyocr_dir):
+                temp_zip = os.path.join(easyocr_dir, "temp.zip")
+                if os.path.exists(temp_zip):
+                    try:
+                        os.remove(temp_zip)
+                        logger.info("🧹 Removed corrupted temp.zip")
+                    except Exception:
+                        pass
+
         try:
             import easyocr
 
             logger.info("📥 Loading EasyOCR models (first-time download if needed)...")
-            reader = easyocr.Reader(
-                self.languages,
-                gpu=False,
-                verbose=DEBUG_MODE,
-            )
-            logger.info("✅ EasyOCR models loaded successfully")
-            return ("easyocr", reader)
+
+            # Try initialization, cleanup corrupted files on failure and retry once
+            for attempt in range(2):
+                try:
+                    reader = easyocr.Reader(
+                        self.languages,
+                        gpu=False,
+                        verbose=DEBUG_MODE,
+                    )
+                    logger.info("✅ EasyOCR models loaded successfully")
+                    return ("easyocr", reader)
+                except Exception as e:
+                    if attempt == 0 and (
+                        "zip" in str(e).lower()
+                        or "temp" in str(e).lower()
+                        or "WinError" in str(e)
+                    ):
+                        logger.warning(
+                            f"⚠️ EasyOCR model issue detected, cleaning up: {e}"
+                        )
+                        _cleanup_corrupted_models()
+                        continue
+                    raise
+
         except ImportError:
             logger.error("❌ EasyOCR not installed. Run: pip install easyocr")
             return None
