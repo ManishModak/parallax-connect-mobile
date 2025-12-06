@@ -12,7 +12,6 @@ import '../view_models/settings_controller.dart';
 import '../widgets/expandable_feature_tile.dart';
 import '../widgets/section_header.dart';
 import 'document_processing_card.dart';
-import 'document_strategy_card.dart';
 import 'vision_processing_card.dart';
 
 /// Media & Documents settings section
@@ -174,12 +173,6 @@ class MediaDocumentsSection extends ConsumerWidget {
             state: state,
             controller: controller,
             serverDocAvailable: caps?.serverDocumentAvailable ?? false,
-          ),
-          const SizedBox(height: 12),
-          DocumentStrategyCard(
-            hapticsHelper: hapticsHelper,
-            state: state,
-            controller: controller,
           ),
         ],
       ],

@@ -9,7 +9,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.types import ASGIApp
 
 from ..logging_setup import get_logger
-from ..config import DEBUG_MODE, ENABLE_PERFORMANCE_METRICS
+from ..config import DEBUG_MODE, ENABLE_PERFORMANCE_METRICS, SENSITIVE_FIELDS
 
 logger = get_logger(__name__)
 
@@ -43,7 +43,17 @@ class LogMiddleware(BaseHTTPMiddleware):
 
         # Add headers in debug mode
         if DEBUG_MODE:
-            log_data["headers"] = dict(request.headers)
+            redacted_headers = {}
+            for k, v in request.headers.items():
+                if any(s in k.lower() for s in SENSITIVE_FIELDS) or k.lower() in [
+                    "authorization",
+                    "cookie",
+                    "set-cookie",
+                ]:
+                    redacted_headers[k] = "******"
+                else:
+                    redacted_headers[k] = v
+            log_data["headers"] = redacted_headers
 
         logger.info(
             f"➡️ [{request_id}] {request.method} {request.url.path}",

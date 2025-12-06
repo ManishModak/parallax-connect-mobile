@@ -4,6 +4,8 @@ import json
 import time
 from typing import Optional, Dict, Any
 
+import httpx
+
 from ..logging_setup import get_logger
 from ..config import DEBUG_MODE, TIMEOUT_FAST, MODEL_CACHE_TTL
 from .http_client import get_async_http_client
@@ -120,20 +122,18 @@ class ParallaxClient:
                 raw_models = response_data.get("data", [])
                 if not raw_models and isinstance(response_data, list):
                     raw_models = response_data
-                if raw_models and "id" in raw_models[0] and "name" not in raw_models[0]:
-                    raw_models = [{"name": m.get("id"), **m} for m in raw_models]
-                    if DEBUG_MODE:
-                        logger.debug("Transformed model IDs to names")
-
-                models = [
-                    {
-                        "id": m.get("name", "unknown"),
-                        "name": m.get("name", "Unknown Model"),
-                        "context_length": 32768,
-                        "vram_gb": m.get("vram_gb", 0),
-                    }
-                    for m in raw_models
-                ]
+                if raw_models and isinstance(raw_models[0], dict):
+                    # Normalize keys; Parallax returns name + vram_gb
+                    models = [
+                        {
+                            "id": m.get("name", m.get("id", "unknown")),
+                            "name": m.get("name", m.get("id", "Unknown Model")),
+                            "vram_gb": m.get("vram_gb", 0),
+                        }
+                        for m in raw_models
+                    ]
+                else:
+                    models = []
 
                 if DEBUG_MODE:
                     logger.debug(
@@ -143,13 +143,15 @@ class ParallaxClient:
                         },
                     )
 
-                # Get active model from cluster status
+                # Get active model from cluster status (long-lived stream; use relaxed timeout)
                 if DEBUG_MODE:
                     logger.debug("Fetching active model from cluster status")
 
                 try:
                     async with client.stream(
-                        "GET", f"{self.base_url}/cluster/status", timeout=TIMEOUT_FAST
+                        "GET",
+                        f"{self.base_url}/cluster/status",
+                        timeout=httpx.Timeout(None, connect=TIMEOUT_FAST),
                     ) as stream:
                         async for line in stream.aiter_lines():
                             if line.strip():
@@ -247,15 +249,14 @@ class ParallaxClient:
                 if not models and isinstance(model_data, list):
                     models = model_data
                 if models and isinstance(models[0], dict):
-                    if "id" in models[0] and "name" not in models[0]:
-                        models = [{"name": m.get("id"), **m} for m in models]
-
-                if models:
+                    active_models = [m.get("name", m.get("id", "unknown")) for m in models]
                     max_vram = max((m.get("vram_gb", 0) for m in models), default=0)
-                    capabilities["vram_gb"] = max_vram if max_vram > 0 else 8
-                    capabilities["document_processing"] = True
-                    capabilities["max_context_window"] = 32768
-                    active_models = [m.get("name", "unknown") for m in models[:5]]
+                    capabilities["vram_gb"] = max_vram if max_vram > 0 else 0
+                    # Do not claim document support unless provided explicitly
+                    capabilities["document_processing"] = False
+
+                if not active_models:
+                    active_models = []
 
         except Exception as e:
             # Provide user-friendly error messages

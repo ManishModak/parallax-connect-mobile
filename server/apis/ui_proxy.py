@@ -1,6 +1,6 @@
 """Parallax Web UI proxy routes."""
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Request, HTTPException
 from fastapi.responses import HTMLResponse, Response, StreamingResponse
 
 from ..auth import check_password
@@ -52,7 +52,7 @@ async def ui_proxy(path: str, request: Request, _: bool = Depends(check_password
             target_url += f"?{request.query_params}"
 
         client = await get_async_http_client()
-        resp = await client.get(target_url, timeout=30.0)
+        resp = await client.get(target_url, timeout=15.0)
         content_type = resp.headers.get("content-type", "application/octet-stream")
 
         if "text/html" in content_type:
@@ -84,6 +84,9 @@ async def ui_api_proxy(path: str, request: Request, _: bool = Depends(check_pass
         client = await get_async_http_client()
         body = await request.body()
 
+        if len(body) > 1_000_000:
+            raise HTTPException(status_code=413, detail="Request body too large (>1MB)")
+
         resp = await client.request(
             method=request.method,
             url=target_url,
@@ -93,7 +96,7 @@ async def ui_api_proxy(path: str, request: Request, _: bool = Depends(check_pass
                 for k, v in request.headers.items()
                 if k.lower() not in ["host", "content-length"]
             },
-            timeout=60.0,
+            timeout=20.0,
         )
 
         content_type = resp.headers.get("content-type", "application/json")
@@ -110,7 +113,7 @@ async def ui_api_proxy(path: str, request: Request, _: bool = Depends(check_pass
                     method=request.method,
                     url=target_url,
                     content=body if body else None,
-                    timeout=60.0,
+                    timeout=20.0,
                 ) as stream_resp:
                     async for chunk in stream_resp.aiter_bytes():
                         yield chunk

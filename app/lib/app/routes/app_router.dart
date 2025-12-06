@@ -7,6 +7,10 @@ import '../../features/chat/presentation/views/history_screen.dart';
 import '../../features/config/presentation/views/config_screen.dart';
 import '../../features/splash/presentation/views/splash_screen.dart';
 import '../../features/settings/presentation/views/settings_screen.dart';
+import '../../features/settings/presentation/views/app_settings_page.dart';
+import '../../features/settings/presentation/views/media_settings_page.dart';
+import '../../features/settings/presentation/views/web_search_settings_page.dart';
+import '../../features/settings/presentation/views/ai_settings_page.dart';
 import '../../core/services/storage/config_storage.dart';
 import '../../core/utils/logger.dart';
 
@@ -17,6 +21,10 @@ class AppRoutes {
   static const chat = '/chat';
   static const history = '/history';
   static const settings = '/settings';
+  static const settingsApp = '/settings/app';
+  static const settingsMedia = '/settings/media';
+  static const settingsWebSearch = '/settings/web-search';
+  static const settingsAI = '/settings/ai';
 }
 
 /// Common fade transition builder
@@ -151,6 +159,46 @@ final routerProvider = Provider<GoRouter>((ref) {
           return _buildFadeTransition(
             key: state.pageKey,
             child: const SettingsScreen(),
+          );
+        },
+      ),
+      GoRoute(
+        path: AppRoutes.settingsApp,
+        pageBuilder: (context, state) {
+          Log.nav('Settings > App');
+          return _buildFadeTransition(
+            key: state.pageKey,
+            child: const AppSettingsPage(),
+          );
+        },
+      ),
+      GoRoute(
+        path: AppRoutes.settingsMedia,
+        pageBuilder: (context, state) {
+          Log.nav('Settings > Media');
+          return _buildFadeTransition(
+            key: state.pageKey,
+            child: const MediaSettingsPage(),
+          );
+        },
+      ),
+      GoRoute(
+        path: AppRoutes.settingsWebSearch,
+        pageBuilder: (context, state) {
+          Log.nav('Settings > Web Search');
+          return _buildFadeTransition(
+            key: state.pageKey,
+            child: const WebSearchSettingsPage(),
+          );
+        },
+      ),
+      GoRoute(
+        path: AppRoutes.settingsAI,
+        pageBuilder: (context, state) {
+          Log.nav('Settings > AI');
+          return _buildFadeTransition(
+            key: state.pageKey,
+            child: const AISettingsPage(),
           );
         },
       ),

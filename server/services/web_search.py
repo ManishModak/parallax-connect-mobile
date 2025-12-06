@@ -6,13 +6,21 @@ Implements Normal, Deep, and Deeper search strategies using DuckDuckGo and scrap
 import asyncio
 import time
 from typing import Dict, Any, List
+from collections import deque
+from urllib.parse import urlparse
 
+from fastapi import HTTPException
 from ddgs import DDGS
 from bs4 import BeautifulSoup
 import httpx
 
 from ..logging_setup import get_logger
-from ..config import DEBUG_MODE, TIMEOUT_FAST
+from ..config import (
+    DEBUG_MODE,
+    TIMEOUT_FAST,
+    SEARCH_RATE_LIMIT_PER_MIN,
+    SEARCH_ALLOWED_DOMAINS,
+)
 from .http_client import get_scraping_http_client
 
 logger = get_logger(__name__)
@@ -34,6 +42,9 @@ class WebSearchService:
 
     def __init__(self):
         self._ua_index = 0
+        self._timestamps = deque()
+        self._rate_limit = max(0, SEARCH_RATE_LIMIT_PER_MIN)
+        self.allowed_domains = set(SEARCH_ALLOWED_DOMAINS)
         # Domains that commonly block scraping - use snippets only
         self.blocked_domains = {
             # Paywalled / subscription sites
@@ -93,6 +104,7 @@ class WebSearchService:
         """
         Main entry point for search.
         """
+        await self._enforce_rate_limit()
         start_time = time.time()
         logger.info(f"🔍 Searching for '{query}' with depth '{depth}'")
 
@@ -161,6 +173,40 @@ class WebSearchService:
             None, lambda: list(DDGS().news(query, max_results=max_results))
         )
 
+    async def _enforce_rate_limit(self):
+        """Simple sliding-window rate limit per minute."""
+        if self._rate_limit == 0:
+            return
+        now = time.time()
+        window_start = now - 60
+        while self._timestamps and self._timestamps[0] < window_start:
+            self._timestamps.popleft()
+        if len(self._timestamps) >= self._rate_limit:
+            raise HTTPException(
+                status_code=429,
+                detail="Search rate limit exceeded. Try again in a moment.",
+            )
+        self._timestamps.append(now)
+
+    def _filter_results(self, results: List[Dict], key: str = "href") -> List[Dict]:
+        """Apply allowlist filter to result URLs."""
+        filtered = []
+        for r in results:
+            url = r.get(key)
+            if not url:
+                continue
+            if not self._is_allowed(url):
+                continue
+            filtered.append(r)
+        return filtered
+
+    def _is_allowed(self, url: str) -> bool:
+        """Check against optional allowlist."""
+        if not self.allowed_domains:
+            return True
+        host = (urlparse(url).hostname or "").lower()
+        return any(host == d or host.endswith(f".{d}") for d in self.allowed_domains)
+
     async def _normal_search(self, query: str) -> Dict[str, Any]:
         """
         Normal: 2 Full Visits + 2 Snippets + 1 News.
@@ -171,6 +217,8 @@ class WebSearchService:
         news_task = self._search_ddg_news(query, max_results=2)
 
         results, news_results = await asyncio.gather(web_task, news_task)
+        results = self._filter_results(results, key="href")
+        news_results = self._filter_results(news_results, key="url")
 
         logger.info(
             f"🔎 [AUDIT] Raw DDG Results for '{query}':",
@@ -311,6 +359,8 @@ class WebSearchService:
         news_task = self._search_ddg_news(query, max_results=config["news_results"])
 
         broad_results, news_results = await asyncio.gather(broad_task, news_task)
+        broad_results = self._filter_results(broad_results, key="href")
+        news_results = self._filter_results(news_results, key="url")
 
         logger.info(
             f"🔎 [AUDIT] Raw DDG Results ({depth_name} - Broad) for '{query}':",
@@ -331,7 +381,9 @@ class WebSearchService:
 
         # Process broad results
         scrapeable_broad = [
-            r for r in broad_results if not self._is_blocked_domain(r["href"])
+            r
+            for r in broad_results
+            if not self._is_blocked_domain(r["href"]) and self._is_allowed(r["href"])
         ][: config["scrape_limit_broad"]]
         blocked_broad = [r for r in broad_results if self._is_blocked_domain(r["href"])]
 
@@ -373,7 +425,11 @@ class WebSearchService:
 
         # Process news results
         unique_news = [
-            r for r in news_results if r.get("url") and r["url"] not in existing_urls
+            r
+            for r in news_results
+            if r.get("url")
+            and r["url"] not in existing_urls
+            and self._is_allowed(r["url"])
         ][: config["scrape_limit_news"]]
         if unique_news:
             news_tasks = [
@@ -417,9 +473,11 @@ class WebSearchService:
         # Flatten results
         all_targeted = [item for sublist in targeted_results_lists for item in sublist]
 
-        unique_targeted = [r for r in all_targeted if r["href"] not in existing_urls][
-            : config["scrape_limit_targeted"]
-        ]
+        unique_targeted = [
+            r
+            for r in all_targeted
+            if r["href"] not in existing_urls and self._is_allowed(r["href"])
+        ][: config["scrape_limit_targeted"]]
 
         if unique_targeted:
             scrapeable_targeted = [
@@ -463,6 +521,8 @@ class WebSearchService:
             )
 
         try:
+            if not self._is_allowed(url):
+                return ""
             client = await get_scraping_http_client()
             resp = await client.get(
                 url, headers=self._get_headers(), timeout=TIMEOUT_FAST

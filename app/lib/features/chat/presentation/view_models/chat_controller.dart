@@ -66,11 +66,32 @@ class ChatController extends Notifier<ChatState> {
     );
   }
 
-  void startNewChat() {
+  Future<void> startNewChat() async {
+    // Archive current session before clearing (if not private and has messages)
+    if (state.messages.isNotEmpty && !state.isPrivateMode) {
+      try {
+        final messageMaps = state.messages.map((m) => m.toMap()).toList();
+        if (state.currentSessionId != null) {
+          await _archiveStorage.updateSession(
+            sessionId: state.currentSessionId!,
+            messages: messageMaps,
+          );
+        } else {
+          await _archiveStorage.archiveSession(messages: messageMaps);
+        }
+        // Also clear the history storage since we're starting fresh
+        await _historyStorage.clearHistory();
+        // Notify history screen to refresh
+        ref.read(archiveRefreshProvider.notifier).refresh();
+      } catch (e) {
+        Log.e('Failed to archive session before new chat', e);
+      }
+    }
+
     state = state.copyWith(
       messages: [],
       clearError: true,
-      currentSessionId: null,
+      clearCurrentSessionId: true,
       isPrivateMode: false,
       webSearchMode: 'deep',
     );
@@ -428,6 +449,8 @@ class ChatController extends Notifier<ChatState> {
         );
         state = state.copyWith(currentSessionId: sessionId);
       }
+      // Notify history screen to refresh
+      ref.read(archiveRefreshProvider.notifier).refresh();
     }
   }
 

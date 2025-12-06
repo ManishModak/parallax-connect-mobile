@@ -125,6 +125,9 @@ async def info_endpoint(request: Request, _: bool = Depends(check_password)):
         # Add OCR info to capabilities
         info["capabilities"]["ocr_enabled"] = OCR_ENABLED
         info["capabilities"]["ocr_available"] = ocr_available
+        # Add Document processing info to capabilities
+        info["capabilities"]["doc_enabled"] = DOC_ENABLED
+        info["capabilities"]["doc_available"] = doc_available
         info["active_models"] = result["active_models"]
 
         log_debug("Capabilities fetched", request_id, info["capabilities"])

@@ -46,6 +46,7 @@ class ChatState {
     bool clearError = false,
     bool? isPrivateMode,
     String? currentSessionId,
+    bool clearCurrentSessionId = false,
     bool? isStreaming,
     String? streamingContent,
     String? thinkingContent,
@@ -64,7 +65,9 @@ class ChatState {
       isLoading: isLoading ?? this.isLoading,
       error: clearError ? null : (error ?? this.error),
       isPrivateMode: isPrivateMode ?? this.isPrivateMode,
-      currentSessionId: currentSessionId ?? this.currentSessionId,
+      currentSessionId: clearCurrentSessionId
+          ? null
+          : (currentSessionId ?? this.currentSessionId),
       isStreaming: isStreaming ?? this.isStreaming,
       streamingContent: streamingContent ?? this.streamingContent,
       thinkingContent: thinkingContent ?? this.thinkingContent,

@@ -2,9 +2,10 @@
 Search API endpoints.
 """
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Request, Depends
 from pydantic import BaseModel
 
+from ..auth import check_password
 from ..services.service_manager import service_manager
 from ..logging_setup import get_logger
 from ..utils.error_handler import handle_service_error
@@ -19,7 +20,9 @@ class SearchRequest(BaseModel):
 
 
 @router.post("/search")
-async def search_endpoint(request: Request, search_req: SearchRequest):
+async def search_endpoint(
+    request: Request, search_req: SearchRequest, _: bool = Depends(check_password)
+):
     """
     Execute a web search.
     """

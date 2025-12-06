@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:go_router/go_router.dart';
-
 import '../../../../app/constants/app_colors.dart';
 import '../../../../app/routes/app_router.dart';
 import '../../../../core/services/server/feature_flags_service.dart';
@@ -11,8 +10,8 @@ import '../../../../core/utils/feature_snackbar.dart';
 import '../../../../core/utils/haptics_helper.dart';
 import 'chat_input/attachment_menu_handler.dart';
 import 'chat_input/attachment_preview.dart';
-
 import 'chat_input/web_search_mode_selector.dart';
+import 'chat_input/web_search_menu_handler.dart';
 import '../view_models/chat_controller.dart';
 import '../state/chat_state.dart';
 
@@ -43,6 +42,9 @@ class _ChatInputAreaState extends ConsumerState<ChatInputArea> {
   bool _isAttachmentMenuOpen = false;
   final LayerLink _layerLink = LayerLink();
   OverlayEntry? _overlayEntry;
+  bool _isWebMenuOpen = false;
+  final LayerLink _webLayerLink = LayerLink();
+  OverlayEntry? _webOverlayEntry;
 
   @override
   void initState() {
@@ -60,6 +62,8 @@ class _ChatInputAreaState extends ConsumerState<ChatInputArea> {
   void _toggleAttachmentMenu() {
     // Dismiss keyboard first
     _focusNode.unfocus();
+    // Ensure web search menu is closed
+    _removeWebMenu();
 
     if (_isAttachmentMenuOpen) {
       _removeOverlay();
@@ -99,6 +103,40 @@ class _ChatInputAreaState extends ConsumerState<ChatInputArea> {
     _overlayEntry = null;
     if (_isAttachmentMenuOpen) {
       setState(() => _isAttachmentMenuOpen = false);
+    }
+  }
+
+  void _toggleWebMenu() {
+    _focusNode.unfocus();
+    // Ensure attachment menu is closed
+    _removeOverlay();
+
+    if (_isWebMenuOpen) {
+      _removeWebMenu();
+    } else {
+      _showWebMenu();
+    }
+  }
+
+  void _showWebMenu() {
+    _webOverlayEntry = WebSearchMenuHandler.createOverlayEntry(
+      context: context,
+      ref: ref,
+      layerLink: _webLayerLink,
+      onModeSelected: (mode) {
+        ref.read(chatControllerProvider.notifier).setWebSearchMode(mode);
+      },
+      onRemoveOverlay: _removeWebMenu,
+    );
+    Overlay.of(context).insert(_webOverlayEntry!);
+    setState(() => _isWebMenuOpen = true);
+  }
+
+  void _removeWebMenu() {
+    _webOverlayEntry?.remove();
+    _webOverlayEntry = null;
+    if (_isWebMenuOpen) {
+      setState(() => _isWebMenuOpen = false);
     }
   }
 
@@ -205,13 +243,13 @@ class _ChatInputAreaState extends ConsumerState<ChatInputArea> {
     );
 
     return TapRegion(
-      groupId: 'attachment_menu',
+      groupId: 'menu_group',
       onTapOutside: (_) {
         if (_isAttachmentMenuOpen) {
           _removeOverlay();
-          setState(() {
-            _isAttachmentMenuOpen = false;
-          });
+        }
+        if (_isWebMenuOpen) {
+          _removeWebMenu();
         }
       },
       child: Padding(
@@ -273,7 +311,12 @@ class _ChatInputAreaState extends ConsumerState<ChatInputArea> {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           // Web Search Mode Selector
-                          const WebSearchModeSelector(),
+                          CompositedTransformTarget(
+                            link: _webLayerLink,
+                            child: WebSearchModeSelector(
+                              onTap: _toggleWebMenu,
+                            ),
+                          ),
                         ],
                       ),
                     ),

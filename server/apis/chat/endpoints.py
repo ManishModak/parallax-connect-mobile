@@ -29,6 +29,8 @@ router = APIRouter()
 router.include_router(openai_router)
 logger = get_logger(__name__)
 
+MAX_IMAGE_BYTES = 8 * 1024 * 1024  # 8MB cap to prevent DoS
+
 
 @router.post("/chat")
 async def chat_endpoint(
@@ -54,7 +56,17 @@ async def chat_endpoint(
         },
     )
 
-    log_debug("Full chat request payload", request_id, chat_request.model_dump())
+    log_debug(
+        "Chat payload meta",
+        request_id,
+        {
+            "model": chat_request.model,
+            "prompt_length": len(chat_request.prompt or ""),
+            "system_length": len(chat_request.system_prompt or ""),
+            "messages_count": len(chat_request.messages or []),
+            "web_search": chat_request.web_search_enabled,
+        },
+    )
 
     validate_chat_request(
         prompt=chat_request.prompt,
@@ -227,7 +239,17 @@ async def chat_stream_endpoint(
         },
     )
 
-    log_debug("Full stream request payload", request_id, chat_request.model_dump())
+    log_debug(
+        "Stream payload meta",
+        request_id,
+        {
+            "model": chat_request.model,
+            "prompt_length": len(chat_request.prompt or ""),
+            "system_length": len(chat_request.system_prompt or ""),
+            "messages_count": len(chat_request.messages or []),
+            "web_search": chat_request.web_search_enabled,
+        },
+    )
 
     validate_chat_request(
         prompt=chat_request.prompt,
@@ -295,6 +317,13 @@ async def vision_endpoint(
                 # Remove data URL prefix if present
                 if "," in base64_image:
                     base64_image = base64_image.split(",", 1)[1]
+                # Pre-check size to avoid decoding giant payloads
+                estimated_size = len(base64_image) * 3 // 4
+                if estimated_size > MAX_IMAGE_BYTES:
+                    raise HTTPException(
+                        status_code=413,
+                        detail=f"Image too large (max {MAX_IMAGE_BYTES // (1024*1024)}MB).",
+                    )
                 image_bytes = base64.b64decode(base64_image)
                 logger.info(
                     f"📸 [{request_id}] Vision request (JSON): {len(image_bytes)} bytes"
@@ -305,7 +334,26 @@ async def vision_endpoint(
     else:
         # Multipart form data
         if image is not None:
+            size_hint = getattr(image, "size", None)
+            if size_hint and size_hint > MAX_IMAGE_BYTES:
+                raise HTTPException(
+                    status_code=413,
+                    detail=f"Image too large (max {MAX_IMAGE_BYTES // (1024*1024)}MB).",
+                )
+            # Basic mime guard
+            content_type = (image.content_type or "").lower()
+            if content_type and not content_type.startswith(("image/", "application/octet-stream")):
+                raise HTTPException(
+                    status_code=415,
+                    detail="Unsupported file type for vision endpoint.",
+                )
+
             image_bytes = await image.read()
+            if len(image_bytes) > MAX_IMAGE_BYTES:
+                raise HTTPException(
+                    status_code=413,
+                    detail=f"Image too large (max {MAX_IMAGE_BYTES // (1024*1024)}MB).",
+                )
             user_prompt = prompt or ""
             logger.info(
                 f"📸 [{request_id}] Vision request (multipart): {len(image_bytes)} bytes"

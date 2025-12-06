@@ -4,16 +4,18 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
 import '../../../../../app/constants/app_colors.dart';
-import '../../../../../core/utils/haptics_helper.dart';
 import '../../view_models/chat_controller.dart';
 
 class WebSearchModeSelector extends ConsumerWidget {
-  const WebSearchModeSelector({super.key});
+  final VoidCallback onTap;
+
+  const WebSearchModeSelector({
+    super.key,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Only listen to the webSearchMode field so that other ChatState changes
-    // (streaming, messages, errors, etc.) don't cause this widget to rebuild.
     final mode = ref.watch(
       chatControllerProvider.select((state) => state.webSearchMode),
     );
@@ -41,54 +43,8 @@ class WebSearchModeSelector extends ConsumerWidget {
         break;
     }
 
-    return PopupMenuButton<String>(
-      offset: const Offset(0, -260), // Adjust to show above
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      color: AppColors.surface,
-      elevation: 4,
-      onSelected: (value) {
-        ref.read(hapticsHelperProvider).triggerHaptics();
-        ref.read(chatControllerProvider.notifier).setWebSearchMode(value);
-        // Keep keyboard dismissed after selection
-        FocusScope.of(context).unfocus();
-      },
-      onCanceled: () {
-        // Keep keyboard dismissed when menu is cancelled
-        FocusScope.of(context).unfocus();
-      },
-      onOpened: () {
-        ref.read(hapticsHelperProvider).triggerHaptics();
-        // Dismiss keyboard when menu opens
-        FocusScope.of(context).unfocus();
-      },
-      itemBuilder: (context) => [
-        _buildMenuItem(
-          'deep',
-          'Deep Search',
-          'Multi-phase analysis',
-          LucideIcons.globe,
-        ),
-        _buildMenuItem(
-          'normal',
-          'Normal Search',
-          'Fast check',
-          LucideIcons.zap,
-        ),
-        _buildMenuItem(
-          'deeper',
-          'Deeper Search',
-          'Ultra-intensive research',
-          LucideIcons.layers,
-        ),
-        const PopupMenuDivider(),
-        _buildMenuItem(
-          'off',
-          'Turn Off',
-          'Disable web search',
-          LucideIcons.globe,
-          isDestructive: true,
-        ),
-      ],
+    return GestureDetector(
+      onTap: onTap,
       child: Container(
         height: 36,
         padding: EdgeInsets.symmetric(horizontal: isActive ? 12 : 0),
@@ -98,6 +54,7 @@ class WebSearchModeSelector extends ConsumerWidget {
               ? AppColors.primary.withValues(alpha: 0.1)
               : AppColors.surfaceLight.withValues(alpha: 0.2),
           borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: AppColors.surfaceLight, width: 1),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -127,49 +84,6 @@ class WebSearchModeSelector extends ConsumerWidget {
             ],
           ],
         ),
-      ),
-    );
-  }
-
-  PopupMenuItem<String> _buildMenuItem(
-    String value,
-    String title,
-    String subtitle,
-    IconData icon, {
-    bool isDestructive = false,
-  }) {
-    return PopupMenuItem<String>(
-      value: value,
-      child: Row(
-        children: [
-          Icon(
-            icon,
-            size: 18,
-            color: isDestructive ? AppColors.error : AppColors.primary,
-          ),
-          const SizedBox(width: 12),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: GoogleFonts.inter(
-                  color: isDestructive ? AppColors.error : AppColors.primary,
-                  fontWeight: FontWeight.w500,
-                  fontSize: 14,
-                ),
-              ),
-              if (subtitle.isNotEmpty)
-                Text(
-                  subtitle,
-                  style: GoogleFonts.inter(
-                    color: AppColors.secondary,
-                    fontSize: 11,
-                  ),
-                ),
-            ],
-          ),
-        ],
       ),
     );
   }

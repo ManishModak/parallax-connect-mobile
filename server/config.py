@@ -28,6 +28,13 @@ ENABLE_PERFORMANCE_METRICS = (
     os.getenv("ENABLE_PERFORMANCE_METRICS", "false").lower() == "true" or DEBUG_MODE
 )
 
+# Password requirement (opt-in; disabled by default and in MOCK/DEBUG)
+REQUIRE_PASSWORD = (
+    os.getenv("REQUIRE_PASSWORD", "false").lower() == "true"
+    and SERVER_MODE != "MOCK"
+    and not DEBUG_MODE
+)
+
 # OCR Configuration
 # Set to "true" to enable server-side OCR (requires ~100MB model download on first use)
 OCR_ENABLED = os.getenv("OCR_ENABLED", "false").lower() == "true"
@@ -40,6 +47,14 @@ DOC_ENGINE = os.getenv("DOC_ENGINE", "pymupdf")  # 'pymupdf' or 'pdfplumber'
 
 # Cache Configuration
 MODEL_CACHE_TTL = int(os.getenv("MODEL_CACHE_TTL", "60"))  # seconds
+
+# Web Search controls
+SEARCH_RATE_LIMIT_PER_MIN = int(os.getenv("SEARCH_RATE_LIMIT_PER_MIN", "30"))
+SEARCH_ALLOWED_DOMAINS = [
+    d.strip().lower()
+    for d in os.getenv("SEARCH_ALLOWED_DOMAINS", "").split(",")
+    if d.strip()
+]
 
 # Timeouts (seconds)
 TIMEOUT_DEFAULT = 60.0

@@ -124,14 +124,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             tooltip: chatState.messages.isEmpty && !chatState.isPrivateMode
                 ? 'Start Private Chat'
                 : chatState.isPrivateMode
-                ? 'Exit Private Chat'
-                : 'Start New Chat',
+                    ? 'Exit Private & Start New'
+                    : 'Start New Chat',
             onPressed: () {
               ref.read(hapticsHelperProvider).triggerHaptics();
               if (chatState.messages.isEmpty && !chatState.isPrivateMode) {
                 chatController.togglePrivateMode();
               } else if (chatState.isPrivateMode) {
-                chatController.disablePrivateMode();
+                chatController.startNewChat();
               } else {
                 chatController.startNewChat();
               }
@@ -389,7 +389,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               },
               onGalleryTap: () async {
                 final picker = ImagePicker();
-                final List<XFile> images = await picker.pickMultipleMedia();
+                final List<XFile> images = await picker.pickMultiImage();
                 return images.map((img) => img.path).toList();
               },
               onFileTap: () async {

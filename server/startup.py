@@ -1,9 +1,12 @@
 """Server startup logic and event handlers."""
 
-from pyngrok import ngrok
-
 from .auth import setup_password
-from .config import SERVER_MODE, PARALLAX_SERVICE_URL, TIMEOUT_FAST
+from .config import (
+    SERVER_MODE,
+    PARALLAX_SERVICE_URL,
+    PARALLAX_BASE_URL,
+    TIMEOUT_FAST,
+)
 from .utils import get_local_ip, print_qr
 from .logging_setup import get_logger
 from .services.http_client import get_async_http_client
@@ -68,9 +71,7 @@ async def _test_parallax_connection():
     logger.info(f"Testing connection to Parallax at {PARALLAX_SERVICE_URL}...")
     try:
         client = await get_async_http_client()
-        resp = await client.get(
-            "http://localhost:3001/model/list", timeout=TIMEOUT_FAST
-        )
+        resp = await client.get(f"{PARALLAX_BASE_URL}/model/list", timeout=TIMEOUT_FAST)
         if resp.status_code == 200:
             logger.info(
                 "✅ Parallax connection successful",
@@ -132,8 +133,14 @@ def _display_connection_info():
 def _start_ngrok_tunnel() -> str | None:
     """Start ngrok tunnel and return public URL."""
     try:
+        from pyngrok import ngrok  # Lazy import to avoid hard dependency
+
         http_tunnel = ngrok.connect(8000)
         return http_tunnel.public_url
+    except ModuleNotFoundError:
+        print("⚠️ pyngrok not installed. Skipping Cloud Tunnel.")
+        print("   Install with: pip install pyngrok && ngrok config add-authtoken <TOKEN>")
+        return None
     except Exception as e:
         error_msg = str(e).lower()
         if "authtoken" in error_msg or "authentication" in error_msg:
