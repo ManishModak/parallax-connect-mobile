@@ -106,6 +106,50 @@ class ModelSelectionNotifier extends Notifier<ModelSelectionState> {
     return {'x-password': password};
   }
 
+  /// Silently refresh models without loading state (for pre-query checks)
+  /// Returns true if an active model was found
+  Future<bool> refreshModels() async {
+    final configStorage = ref.read(configStorageProvider);
+    final baseUrl = configStorage.getBaseUrl();
+    if (baseUrl == null) return false;
+
+    try {
+      final dio = ref.read(dioProvider);
+      final response = await dio.get(
+        '$baseUrl/models',
+        options: Options(
+          receiveTimeout: const Duration(seconds: 5),
+          headers: _buildPasswordHeader(),
+        ),
+      );
+
+      if (response.statusCode == 200) {
+        final data = response.data as Map<String, dynamic>;
+        final modelsList = (data['models'] as List<dynamic>?) ?? [];
+        final activeModel = data['active'] as String?;
+        final defaultModel = data['default'] as String?;
+
+        final models = modelsList
+            .map((m) => ModelInfo.fromJson(m as Map<String, dynamic>))
+            .toList();
+
+        String? selectedId = activeModel ?? defaultModel;
+
+        state = state.copyWith(
+          availableModels: models,
+          activeModelId: activeModel,
+          selectedModelId: selectedId,
+        );
+
+        logger.d('Refreshed models: ${models.length}, active: $activeModel');
+        return activeModel != null;
+      }
+    } catch (e) {
+      logger.w('Silent model refresh failed', error: e);
+    }
+    return state.activeModelId != null;
+  }
+
   /// Fetch available models from server
   Future<void> fetchModels() async {
     final configStorage = ref.read(configStorageProvider);

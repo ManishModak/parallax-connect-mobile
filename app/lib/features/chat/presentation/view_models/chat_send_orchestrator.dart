@@ -50,6 +50,7 @@ class ChatSendOrchestrator {
     )
     sendNonStreaming,
     required Future<void> Function(String response) finalizeMessage,
+    bool serverVisionAvailable = false,
   }) async {
     // Local copy of state so we can keep using the latest snapshot after
     // each copyWith + setState.
@@ -211,6 +212,7 @@ class ChatSendOrchestrator {
       final response = await _visionService.analyzeImage(
         imageAttachments.first,
         text.isEmpty ? 'Describe this image' : text,
+        serverAvailable: serverVisionAvailable,
       );
       await finalizeMessage(response);
       return;

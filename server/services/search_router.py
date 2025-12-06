@@ -4,6 +4,7 @@ Determines if a user query requires external information from the web.
 """
 
 import json
+import re
 import time
 from collections import OrderedDict
 from typing import Dict, Any, Optional
@@ -180,11 +181,20 @@ class SearchRouter:
                 content = content.replace("```json", "").replace("```", "").strip()
 
                 # Strip <think> tags if present (LLM sometimes includes reasoning)
-                import re
-
+                # Handle both closed <think>...</think> and unclosed <think>...
                 content = re.sub(
                     r"<think>.*?</think>", "", content, flags=re.DOTALL
                 ).strip()
+                # Handle unclosed think blocks (LLM cut off mid-thinking)
+                if content.startswith("<think>"):
+                    # Find JSON start after the thinking block
+                    json_start = content.find("{")
+                    if json_start != -1:
+                        content = content[json_start:]
+                    else:
+                        # No JSON found, use heuristic
+                        logger.warning("⚠️ LLM returned only thinking, using heuristic")
+                        return self._heuristic_fallback(query)
 
                 try:
                     result = json.loads(content)
@@ -201,7 +211,7 @@ class SearchRouter:
                     self._intent_cache.set(cache_key, result)
                     return result
                 except json.JSONDecodeError:
-                    logger.warning(f"⚠️ Failed to parse router JSON: {content}")
+                    logger.warning(f"⚠️ Failed to parse router JSON: {content[:100]}...")
                     return self._heuristic_fallback(query)
             else:
                 logger.error(f"❌ Router LLM call failed: {resp.status_code}")

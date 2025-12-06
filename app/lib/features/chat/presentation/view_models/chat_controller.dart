@@ -4,6 +4,8 @@ import '../../../../core/services/system/connectivity_service.dart';
 import '../../../../core/services/utilities/document_service.dart';
 import '../../../../core/services/ai/smart_search_service.dart';
 import '../../../../core/services/ai/vision_service.dart';
+import '../../../../core/services/ai/model_selection_service.dart';
+import '../../../../core/services/server/server_capabilities_service.dart';
 import '../../../../core/utils/haptics_helper.dart';
 import '../../../../core/utils/logger.dart';
 import '../../data/repositories/chat_repository.dart';
@@ -153,6 +155,23 @@ class ChatController extends Notifier<ChatState> {
     }
 
     try {
+      // Refresh models before each query to handle Parallax starting after middleware connection
+      final hasActiveModel = await ref
+          .read(modelSelectionProvider.notifier)
+          .refreshModels();
+
+      if (!hasActiveModel) {
+        throw Exception(
+          'No AI model available. Make sure Parallax is running and has a model loaded.',
+        );
+      }
+
+      // Get server capabilities (auto-refreshes if stale or not fetched)
+      final caps = await ref
+          .read(serverCapabilitiesProvider.notifier)
+          .getCapabilities();
+      final serverVisionAvailable = caps.serverVisionAvailable;
+
       await _sendOrchestrator.send(
         text: text,
         attachmentPaths: attachmentPaths,
@@ -161,6 +180,7 @@ class ChatController extends Notifier<ChatState> {
         sendStreaming: _sendStreamingMessage,
         sendNonStreaming: _sendNonStreamingMessage,
         finalizeMessage: _finalizeMessage,
+        serverVisionAvailable: serverVisionAvailable,
       );
     } catch (e) {
       state = state.copyWith(

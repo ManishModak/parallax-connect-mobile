@@ -99,6 +99,11 @@ def setup_logging():
     # Clear existing handlers
     root_logger.handlers = []
 
+    # Suppress verbose HTTP library loggers (they spam TLS/header details)
+    # These are too low-level to be useful in application logs
+    for noisy_logger in ["httpcore", "hpack", "httpx", "h2", "h11"]:
+        logging.getLogger(noisy_logger).setLevel(logging.WARNING)
+
     # Console Handler (Human readable)
     console_handler = logging.StreamHandler(sys.stdout)
     console_handler.setFormatter(logging.Formatter(LOG_FORMAT, datefmt=LOG_DATE_FORMAT))

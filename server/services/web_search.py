@@ -23,20 +23,20 @@ class WebSearchService:
     Executes web searches with varying depth.
     """
 
+    # User agents to rotate for better scraping success
+    USER_AGENTS = [
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:121.0) Gecko/20100101 Firefox/121.0",
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Safari/605.1.15",
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    ]
+
     def __init__(self):
-        # Headers for scraping to look like a real browser
-        self.headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
-            "Accept-Language": "en-US,en;q=0.9",
-            "Upgrade-Insecure-Requests": "1",
-            "Sec-Fetch-Dest": "document",
-            "Sec-Fetch-Mode": "navigate",
-            "Sec-Fetch-Site": "none",
-            "Sec-Fetch-User": "?1",
-        }
+        self._ua_index = 0
         # Domains that commonly block scraping - use snippets only
         self.blocked_domains = {
+            # Paywalled / subscription sites
             "mit.edu",
             "nytimes.com",
             "wsj.com",
@@ -44,8 +44,50 @@ class WebSearchService:
             "ft.com",
             "economist.com",
             "washingtonpost.com",
+            "theathletic.com",
+            # Cloudflare challenge sites
+            "investing.com",
+            "bitcoinmagazine.com",
+            "tradingview.com",
+            "okx.com",
+            "bingx.com",
+            "binance.com",
+            "coinbase.com",
+            "kraken.com",
+            # Wikipedia blocks bots with 403
+            "wikipedia.org",
+            # Other aggressive bot detection
+            "linkedin.com",
+            "twitter.com",
+            "x.com",
+            "facebook.com",
+            "instagram.com",
+            "reddit.com",
+            "quora.com",
+            "medium.com",
         }
         logger.info("🌐 Web Search Service initialized")
+
+    def _get_headers(self) -> dict:
+        """Get headers with rotating user-agent."""
+        ua = self.USER_AGENTS[self._ua_index % len(self.USER_AGENTS)]
+        self._ua_index += 1
+        return {
+            "User-Agent": ua,
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+            "Accept-Language": "en-US,en;q=0.9",
+            "Accept-Encoding": "gzip, deflate, br",
+            "DNT": "1",
+            "Connection": "keep-alive",
+            "Upgrade-Insecure-Requests": "1",
+            "Sec-Fetch-Dest": "document",
+            "Sec-Fetch-Mode": "navigate",
+            "Sec-Fetch-Site": "none",
+            "Sec-Fetch-User": "?1",
+            "Sec-CH-UA": '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
+            "Sec-CH-UA-Mobile": "?0",
+            "Sec-CH-UA-Platform": '"Windows"',
+        }
 
     async def search(self, query: str, depth: str = "normal") -> Dict[str, Any]:
         """
@@ -422,7 +464,9 @@ class WebSearchService:
 
         try:
             client = await get_scraping_http_client()
-            resp = await client.get(url, headers=self.headers, timeout=TIMEOUT_FAST)
+            resp = await client.get(
+                url, headers=self._get_headers(), timeout=TIMEOUT_FAST
+            )
             if resp.status_code != 200:
                 if DEBUG_MODE:
                     logger.debug(
