@@ -29,33 +29,30 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
   }
 
   void _navigateToNextScreen() async {
-    // Start the minimum splash timer
-    final minSplashDuration = Future.delayed(const Duration(seconds: 3));
-
-    if (!mounted) return;
+    final configStorage = ref.read(configStorageProvider);
+    final hasConfig = configStorage.hasConfig();
 
     // 🧪 In test mode, skip config screen
     if (TestConfig.enabled) {
-      await minSplashDuration;
+      await Future.delayed(const Duration(milliseconds: 800));
       if (mounted) context.go(AppRoutes.chat);
       return;
     }
 
-    final configStorage = ref.read(configStorageProvider);
-    final hasConfig = configStorage.hasConfig();
-
     if (hasConfig) {
+      // User already configured - quick splash then go to chat
+      final minSplashDuration = Future.delayed(
+        const Duration(milliseconds: 1200),
+      );
+
       // Start connection test in background immediately
       final repository = ref.read(chatRepositoryProvider);
       final connectionFuture = repository.testConnection();
 
-      // Wait for the splash animation/timer to finish
+      // Wait for the quick splash animation
       await minSplashDuration;
 
-      // Now check if connection is done or wait for it
-      // We use a small timeout here to avoid hanging if connection is slow
-      // If it takes too long, we assume it might be offline/slow and go to chat anyway
-      // (Chat screen handles offline state gracefully)
+      // Check connection with small timeout
       bool isConnected = false;
       try {
         isConnected = await connectionFuture.timeout(
@@ -71,14 +68,12 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
       if (isConnected) {
         // Fetch available models in background (fire and forget)
         ref.read(modelSelectionProvider.notifier).fetchModels();
-        context.go(AppRoutes.chat);
-      } else {
-        // If connection failed or timed out, still go to chat if we have config
-        // The chat screen will show connection error if needed
-        context.go(AppRoutes.chat);
       }
+      // Go to chat regardless - it handles offline state gracefully
+      context.go(AppRoutes.chat);
     } else {
-      await minSplashDuration;
+      // First-time user - show full splash then config
+      await Future.delayed(const Duration(seconds: 2));
       if (mounted) context.go(AppRoutes.config);
     }
   }

@@ -99,8 +99,8 @@ Run a **private, self-hosted AI assistant** from your own GPU and access it from
 
 ```bash
 # Clone the repository
-git clone https://github.com/ManishModak/parallax-connect.git
-cd parallax-connect
+git clone https://github.com/ManishModak/parallax-connect-mobile.git
+cd parallax-connect-mobile
 
 # Install dependencies
 pip install -r requirements.txt

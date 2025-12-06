@@ -7,6 +7,7 @@ import '../../features/chat/presentation/views/history_screen.dart';
 import '../../features/config/presentation/views/config_screen.dart';
 import '../../features/splash/presentation/views/splash_screen.dart';
 import '../../features/settings/presentation/views/settings_screen.dart';
+import '../../core/services/storage/config_storage.dart';
 import '../../core/utils/logger.dart';
 
 // Route paths
@@ -52,10 +53,24 @@ CustomTransitionPage _buildSlideTransition({
 
 // GoRouter provider
 final routerProvider = Provider<GoRouter>((ref) {
+  final configStorage = ref.watch(configStorageProvider);
+
   return GoRouter(
     initialLocation: AppRoutes.splash,
     navigatorKey: GlobalKey<NavigatorState>(),
     debugLogDiagnostics: true,
+
+    // Redirect: skip splash if config exists, go directly to chat
+    redirect: (context, state) {
+      final isGoingToSplash = state.matchedLocation == AppRoutes.splash;
+
+      if (isGoingToSplash && configStorage.hasConfig()) {
+        Log.nav('Config exists, skipping splash → chat');
+        return AppRoutes.chat;
+      }
+
+      return null; // No redirect
+    },
 
     // Error builder for 404 and other errors
     errorBuilder: (context, state) {
@@ -142,4 +157,3 @@ final routerProvider = Provider<GoRouter>((ref) {
     ],
   );
 });
-
