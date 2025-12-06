@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/images/architecture.png" alt="Parallax Connect Architecture" width="700"/>
+  <img src="docs/images/architecture.png" alt="Parallax Connect Architecture"/>
 </p>
 
 <h1 align="center">Parallax Connect</h1>
@@ -212,7 +212,7 @@ Another process is using port 8000. Close it or restart your computer.
 
 ---
 
-## 🎯 Why Local AI Matters
+<h2 align="center">❤️ Why Local AI Matters ❤️</h2>
 
 <p align="center">
   <strong>Private</strong> — Your data never leaves your machine<br/>
