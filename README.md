@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/images/architecture.png" alt="Parallax Connect Architecture" width="700"/>
+  <img src="docs/images/architecture.png" alt="Parallax Connect Architecture"/>
 </p>
 
 <h1 align="center">Parallax Connect</h1>
@@ -24,7 +24,15 @@
 
 ---
 
-## 🎯 Why Parallax Connect?
+## 🏆 Inspired by the Parallax Hackathon
+
+This project was fueled by the **"Build your own AI lab"** competition hosted by [Gradient](https://gradient.network/) and [TheAhmadOsman](https://x.com/TheAhmadOsman). While developed for the competition, Parallax Connect represents just the beginning of what's possible with local AI - this is not the end, but the start of a journey toward truly personal, private AI assistants.
+
+**Track 2 Submission**: Building Applications - Demonstrating how local AI can solve real problems with privacy and cost-efficiency at its core.
+
+---
+
+## Why Parallax Connect?
 
 Run a **private, self-hosted AI assistant** from your own GPU and access it from anywhere via mobile — no cloud APIs, no subscriptions, **your data stays yours**.
 
@@ -34,6 +42,22 @@ Run a **private, self-hosted AI assistant** from your own GPU and access it from
 | Privacy concerns | All data stays local — **never leaves your machine** |
 | Limited mobile access | QR scan & go — **instant connection** |
 | Complex setup | One command — **`python run_server.py`** |
+
+---
+
+## 🚀 Beyond the Competition
+
+While inspired by the Parallax Hackathon, this project represents just the beginning. Our vision extends beyond competition requirements:
+
+🔮 **Future Roadmap**:
+
+- Multi-device synchronization
+- Enhanced security features
+- Expanded model support
+- Community-driven development
+
+🌱 **Join the Journey**:
+This isn't just a competition entry - it's the foundation for a new era of personal AI. We invite developers, researchers, and AI enthusiasts to build upon this foundation and shape the future of local AI together.
 
 ---
 
@@ -215,6 +239,43 @@ This project demonstrates how **local AI** can be:
 - **Cost-effective** — Zero API costs after hardware
 - **Accessible** — Mobile access from anywhere
 - **Powerful** — Full LLM capabilities + web search + vision
+
+---
+
+## 🎯 Competition Alignment
+
+**Track 2 Submission**: Building Applications
+
+Parallax Connect directly addresses the competition's judging criteria:
+
+✅ **Privacy-First Design**: All data processing happens locally - no cloud transmission
+✅ **Cost Efficiency**: Zero inference API costs after initial hardware investment
+✅ **Problem Solving**: Enables mobile access to powerful AI without compromising privacy
+✅ **Impactful Application**: Demonstrates real-world utility for individuals and businesses
+
+**Judging Criteria Focus**:
+
+- Privacy and data ownership
+- Cost reduction through local processing
+- Practical mobile accessibility
+- Business efficiency improvements
+
+---
+
+## 📋 About the Competition
+
+The **"Build your own AI lab"** competition challenges participants to showcase innovative local AI applications. Hosted by [Gradient](https://gradient.network/) and co-hosted with [TheAhmadOsman](https://x.com/TheAhmadOsman), this competition seeks to demonstrate the power of local AI infrastructure.
+
+**Key Competition Links**:
+
+- [Official Competition Page](https://gradient.network/)
+- [Parallax GitHub](https://github.com/GradientHQ/parallax)
+- [Submission Form](https://github.com/GradientHQ/parallax)
+
+**Competition Timeline**:
+
+- Submissions: November 17, 2025 - December 7, 2025
+- Winners Announced: Week of December 8, 2025
 
 ---
 
