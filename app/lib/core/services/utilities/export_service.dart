@@ -81,6 +81,9 @@ class ExportService {
   }
 
   Future<void> exportSessionToPdf(ChatSession session) async {
+    // Force fresh font instances each export to prevent Syncfusion's
+    // internal font dictionary corruption bug on subsequent saves
+    _fontsLoaded = false;
     await _loadFonts();
 
     try {
