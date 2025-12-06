@@ -156,51 +156,51 @@ def main():
     if enable_vision == "y":
         os.environ["OCR_ENABLED"] = "true"
 
-    print("\nSelect OCR engine:")
-    print("  1. PaddleOCR - Faster & more accurate (recommended)")
-    print("  2. EasyOCR   - Simpler, smaller download")
-    print("  3. Install both - Paddle primary, Easy fallback")
+        print("\nSelect OCR engine:")
+        print("  1. PaddleOCR - Faster & more accurate (recommended)")
+        print("  2. EasyOCR   - Simpler, smaller download")
+        print("  3. Install both - Paddle primary, Easy fallback")
 
-    engine_choice = ask_choice("Enter choice", [1, 2, 3], default=1)
+        engine_choice = ask_choice("Enter choice", [1, 2, 3], default=1)
 
-    def ensure_easyocr_installed():
-        if importlib.util.find_spec("easyocr") is None:
-            print("\n📦 Installing EasyOCR (for fallback)...")
-            subprocess.check_call(
-                [sys.executable, "-m", "pip", "install", "easyocr", "-q"]
-            )
-            print("✅ EasyOCR installed!")
-
-    if engine_choice in [1, 3]:
-        os.environ["OCR_ENGINE"] = "paddleocr"
-        if importlib.util.find_spec("paddleocr") is None:
-            print("\n📦 PaddleOCR not installed. Installing...")
-            try:
+        def ensure_easyocr_installed():
+            if importlib.util.find_spec("easyocr") is None:
+                print("\n📦 Installing EasyOCR (for fallback)...")
                 subprocess.check_call(
-                    [
-                        sys.executable,
-                        "-m",
-                        "pip",
-                        "install",
-                        "paddlepaddle",
-                        "paddleocr",
-                        "-q",
-                    ]
+                    [sys.executable, "-m", "pip", "install", "easyocr", "-q"]
                 )
-                print("✅ PaddleOCR installed!")
-            except subprocess.CalledProcessError:
-                print("⚠️  PaddleOCR install failed. Switching to EasyOCR.")
-                os.environ["OCR_ENGINE"] = "easyocr"
-                ensure_easyocr_installed()
-        if engine_choice == 3:
-            # Ensure EasyOCR is available so Paddle can gracefully fall back.
-            ensure_easyocr_installed()
-            print("ℹ️  EasyOCR installed for fallback if PaddleOCR cannot load.")
-    else:
-        os.environ["OCR_ENGINE"] = "easyocr"
-        ensure_easyocr_installed()
+                print("✅ EasyOCR installed!")
 
-    print(f"✅ OCR: {os.environ.get('OCR_ENGINE', 'easyocr')}")
+        if engine_choice in [1, 3]:
+            os.environ["OCR_ENGINE"] = "paddleocr"
+            if importlib.util.find_spec("paddleocr") is None:
+                print("\n📦 PaddleOCR not installed. Installing...")
+                try:
+                    subprocess.check_call(
+                        [
+                            sys.executable,
+                            "-m",
+                            "pip",
+                            "install",
+                            "paddlepaddle",
+                            "paddleocr",
+                            "-q",
+                        ]
+                    )
+                    print("✅ PaddleOCR installed!")
+                except subprocess.CalledProcessError:
+                    print("⚠️  PaddleOCR install failed. Switching to EasyOCR.")
+                    os.environ["OCR_ENGINE"] = "easyocr"
+                    ensure_easyocr_installed()
+            if engine_choice == 3:
+                # Ensure EasyOCR is available so Paddle can gracefully fall back.
+                ensure_easyocr_installed()
+                print("ℹ️  EasyOCR installed for fallback if PaddleOCR cannot load.")
+        else:
+            os.environ["OCR_ENGINE"] = "easyocr"
+            ensure_easyocr_installed()
+
+        print(f"✅ OCR: {os.environ.get('OCR_ENGINE', 'easyocr')}")
 
         # Document processing
         os.environ["DOC_ENABLED"] = "true"
