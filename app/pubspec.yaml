@@ -1,7 +1,7 @@
 name: parallax_connect
 description: "Mobile AI interface for self-hosted Parallax GPU servers. Access your private AI from anywhere."
 publish_to: 'none'
-version: 1.0.0-beta.1+1
+version: 0.5.0+5
 
 environment:
   sdk: ^3.9.2

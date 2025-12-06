@@ -1,73 +1,230 @@
-# Parallax Connect
+<p align="center">
+  <img src="docs/images/architecture.png" alt="Parallax Connect Architecture" width="700"/>
+</p>
 
-**Your Personal AI Cloud.**
+<h1 align="center">Parallax Connect</h1>
 
-Parallax Connect allows you to use your powerful home computer's AI capabilities from your mobile phone, anywhere in the world. It's like having your own private ChatGPT, running entirely on your own hardware.
+<p align="center">
+  <strong>Your Personal AI Cloud — Mobile Access to Your Local GPU</strong>
+</p>
+
+<p align="center">
+  <a href="#-features">Features</a> •
+  <a href="#-quick-start">Quick Start</a> •
+  <a href="#-architecture">Architecture</a> •
+  <a href="#-documentation">Docs</a>
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/Python-3.10+-blue?logo=python" alt="Python"/>
+  <img src="https://img.shields.io/badge/Flutter-3.9+-02569B?logo=flutter" alt="Flutter"/>
+  <img src="https://img.shields.io/badge/Parallax-Powered-00C853?logo=nvidia" alt="Parallax"/>
+  <img src="https://img.shields.io/badge/License-MIT-green" alt="License"/>
+</p>
+
+---
+
+## 🎯 Why Parallax Connect?
+
+Run a **private, self-hosted AI assistant** from your own GPU and access it from anywhere via mobile — no cloud APIs, no subscriptions, **your data stays yours**.
+
+| Problem | Solution |
+|---------|----------|
+| Cloud AI is expensive | Run on your own GPU — **zero inference costs** |
+| Privacy concerns | All data stays local — **never leaves your machine** |
+| Limited mobile access | QR scan & go — **instant connection** |
+| Complex setup | One command — **`python run_server.py`** |
+
+---
+
+## ✨ Features
+
+<table>
+<tr>
+<td width="50%">
+
+### 💬 Smart Chat
+
+- Real-time **streaming responses**
+- Markdown rendering with code highlighting
+- Multi-turn conversations with context
+- OpenAI-compatible API (`/v1/chat/completions`)
+
+### 🔍 Intelligent Web Search
+
+- **3 depth levels**: Normal → Deep → Deeper
+- DuckDuckGo & Brave providers
+- Source attribution with clickable links
+- Smart query routing
+
+</td>
+<td width="50%">
+
+### 👁️ Vision & OCR
+
+- **Edge mode**: On-device ML Kit processing
+- **Server mode**: PaddleOCR / EasyOCR
+- Image analysis with context-aware prompts
+- Automatic pipeline selection
+
+### 📄 Document Processing
+
+- PDF text extraction (PyMuPDF)
+- Smart context chunking
+- Mobile or server-side processing
+- Document-aware responses
+
+</td>
+</tr>
+</table>
+
+### 🔐 Built for Privacy
+
+- Optional **password protection** on all endpoints
+- Local network mode (same WiFi)
+- Cloud mode via **ngrok** tunnel
+- Zero telemetry by default
+
+---
 
 ## 🚀 Quick Start
 
-### 1. Prerequisites
+### Prerequisites
 
-- A computer with an NVIDIA GPU (Windows/Linux).
-- [Python 3.10+](https://www.python.org/downloads/) installed.
-- [Parallax](https://github.com/ManishModak/parallax) installed and running.
+- Computer with **NVIDIA GPU** (Windows/Linux)
+- [Python 3.10+](https://www.python.org/downloads/)
+- [Parallax](https://github.com/GradientHQ/parallax) running (`parallax run`)
 
-### 2. Installation
-
-Open your terminal (Command Prompt or PowerShell) and run:
+### Installation
 
 ```bash
-# 1. Download the code (or unzip the folder)
+# Clone the repository
 git clone https://github.com/ManishModak/parallax-connect.git
 cd parallax-connect
 
-# 2. Install requirements
+# Install dependencies
 pip install -r requirements.txt
-```
 
-### 3. Run the Server
-
-```bash
+# Start the server
 python run_server.py
 ```
 
-Follow the on-screen prompts to start the server. You can choose **Normal Mode** for standard use or **Mock Mode** to test without a GPU.
+### Connect Your Phone
 
-### 4. Connect Your Phone
+1. **Scan** the QR code displayed in terminal
+2. **Chat** — your AI is ready!
 
-1. Open the **Parallax Connect** app on your phone.
-2. Scan the **QR Code** displayed in your terminal.
-3. Start chatting!
+<!-- TODO: Add screenshot of QR code in terminal -->
+<!-- ![QR Code Terminal](docs/images/qr-terminal.png) -->
 
 ---
 
-## 🌟 Features
+## 🏗️ Architecture
 
-- **Private & Secure**: Your data never leaves your control.
-- **Anywhere Access**: Connect via local Wi-Fi or over the internet (using Ngrok).
-- **Smart AI**: Supports "Thinking" models with visual reasoning steps.
-- **Web Search**: The AI can search the web to answer current questions.
-- **Multi-Device**: Share your GPU with family members.
+```
+┌─────────────────┐     QR Scan      ┌──────────────────┐     REST API     ┌─────────────┐
+│   Mobile App    │ ───────────────► │   Python Server  │ ───────────────► │  Parallax   │
+│    (Flutter)    │ ◄─── streaming ── │    (FastAPI)     │ ◄── inference ── │ (Local GPU) │
+└─────────────────┘                  └──────────────────┘                  └─────────────┘
+                                              │
+                              ┌───────────────┼───────────────┐
+                              ▼               ▼               ▼
+                         🔍 Search      👁️ Vision       📄 Documents
+                        (Web scraping)  (OCR engines)  (PDF extraction)
+```
+
+**How it works:**
+
+1. **Parallax** serves open-source LLMs on your local GPU
+2. **Python middleware** adds web search, vision, and document capabilities
+3. **Flutter app** connects via QR code for seamless mobile access
+
+---
+
+## 🔑 API Endpoints
+
+| Endpoint | Description |
+|----------|-------------|
+| `POST /chat` | Synchronous chat |
+| `POST /chat/stream` | Server-sent events streaming |
+| `POST /vision` | Image + OCR → LLM analysis |
+| `POST /search` | Web search (normal/deep/deeper) |
+| `GET /models` | List available models |
+| `GET /info` | Server capabilities |
+| `POST /v1/chat/completions` | OpenAI-compatible endpoint |
+
+---
+
+## 📱 Mobile App Features
+
+- **QR Code Scanner** — Instant connection
+- **Dual Modes** — Local WiFi or ngrok Cloud
+- **Settings Panel** — Search depth, OCR mode, response style
+- **Chat History** — Local storage with export
+- **Dark Theme** — OLED-optimized UI
+
+<!-- TODO: Add app screenshots -->
+<!-- 
+<p align="center">
+  <img src="docs/images/app-chat.png" width="200"/>
+  <img src="docs/images/app-settings.png" width="200"/>
+  <img src="docs/images/app-qr.png" width="200"/>
+</p>
+-->
+
+---
 
 ## 📚 Documentation
 
-- **[Setup Guide](SERVER_SETUP.md)**: Detailed instructions for installing and configuring the server.
-- **[Usage Guide](SERVER_USAGE_GUIDE.md)**: Technical details for developers and advanced users.
-
-## ❓ Troubleshooting
-
-**"Cannot connect to Parallax"**
-> Make sure the main Parallax service is running (`parallax run`) before starting this server.
-
-**"Ngrok error"**
-> If you want to connect from outside your home, you need a free Ngrok account. Run `ngrok config add-authtoken YOUR_TOKEN`.
-
-**"Port already in use"**
-> Another program might be using port 8000. Close it or restart your computer.
-
-**"Local connection worked yesterday but not today"**
-> Your phone's WiFi MAC randomization may be interfering. See the [Troubleshooting Guide in SERVER_SETUP.md](SERVER_SETUP.md#-troubleshooting-local-connection-issues) for the fix.
+| Guide | Description |
+|-------|-------------|
+| [Server Setup](SERVER_SETUP.md) | Installation, modes, ngrok, security |
+| [Usage Guide](SERVER_USAGE_GUIDE.md) | API endpoints, payloads, examples |
+| [Mobile App](app/README.md) | Build, run, configuration |
 
 ---
 
-*Built with ❤️ for the Local AI Community.*
+## 🛠️ Troubleshooting
+
+<details>
+<summary><strong>"Cannot connect to Parallax"</strong></summary>
+
+Ensure Parallax is running: `parallax run`
+</details>
+
+<details>
+<summary><strong>"Connection refused" on mobile</strong></summary>
+
+- Check firewall allows Python on port 8000
+- Ensure phone is on same WiFi network
+- Try Cloud Mode with ngrok
+
+</details>
+
+<details>
+<summary><strong>"Port already in use"</strong></summary>
+
+Another process is using port 8000. Close it or restart your computer.
+</details>
+
+---
+
+## 🏆 Built for [Parallax Hackathon](https://gradient.network/)
+
+This project demonstrates how **local AI** can be:
+
+- **Private** — Your data never leaves your machine
+- **Cost-effective** — Zero API costs after hardware
+- **Accessible** — Mobile access from anywhere
+- **Powerful** — Full LLM capabilities + web search + vision
+
+---
+
+<p align="center">
+  Built with ❤️ for the Local AI Community
+</p>
+
+<p align="center">
+  <a href="https://github.com/GradientHQ/parallax">Parallax</a> •
+  <a href="https://gradient.network/">Gradient</a>
+</p>

@@ -79,6 +79,46 @@ data: {"type": "done", "metadata": {...}}
 | `/status` | GET | Check if Parallax is connected and ready. |
 | `/models` | GET | List all available AI models. |
 | `/healthz` | GET | Simple health check (returns "ok"). |
+| `/info` | GET | Server capabilities (ocr/doc availability, active models). |
+| `/ui`, `/ui/*`, `/ui-api/*` | GET/ALL | Proxy to Parallax Web UI (port 3001 by default). |
+
+## 👁️ Vision Endpoint
+
+**POST** `/vision`
+
+- JSON: `{ "image": "<base64>", "prompt": "optional", "system_prompt": "optional" }`
+- Multipart: file field `image`, form field `prompt`
+- Uses server OCR when enabled; otherwise responds with guidance to use mobile edge OCR.
+
+## 🌐 Web Search Endpoint
+
+**POST** `/search`
+
+```json
+{ "query": "latest llama 3 updates", "depth": "normal" }
+```
+
+- `depth`: `normal` | `deep` | `deeper`
+- Returns structured results with snippets/full content where available.
+
+## 🔒 Logs Upload (mobile)
+
+**POST** `/logs/upload`
+
+```json
+{ "device_id": "pixel8pro", "device_name": "Pixel 8 Pro", "logs": "..." }
+```
+
+Stores to `applogs/mobile_<device>_<timestamp>.log`.
+
+## 🤝 OpenAI-Compatible Endpoint
+
+**POST** `/v1/chat/completions` — same payload schema as `/chat` (stream is forced off). Used by the app for intent classification; also handy for drop-in SDK compatibility. Honors password + mock mode.
+
+## 📄 Document & Smart Search Behavior
+
+- Document prompts are auto-detected and routed to document system prompts with optional PDF/text extraction when server doc processing is enabled.
+- Smart search runs only when `web_search_enabled` is true and the intent classifier decides external context is needed; depth is configurable (`normal/deep/deeper`).
 
 ---
 

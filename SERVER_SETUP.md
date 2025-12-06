@@ -126,6 +126,47 @@ Once the server starts, you will see a big **QR Code** in the terminal.
 
 ---
 
+## ⚙️ Operation Modes
+
+- **Normal (default)** — production settings.
+- **Debug** — verbose logs + autoreload (useful while iterating).
+- **Mock** — simulated responses without GPU/Parallax (great for UI testing).
+
+Pick during `python run_server.py` prompt.
+
+## 🔒 Security
+
+- Set a password when prompted, or pre-set via env `SERVER_PASSWORD=...`.
+- All routes honor password via header `x-password`.
+- Default port: `8000` (allow through firewall).
+
+## 🖼️ Vision & Documents
+
+- Enable during startup prompt (downloads OCR models ~100–300MB).
+- Engines: **PaddleOCR** (recommended) or **EasyOCR** fallback.
+- Document extraction: PyMuPDF by default; pdfplumber fallback.
+- Env overrides:
+  - `OCR_ENABLED=true|false`
+  - `OCR_ENGINE=paddleocr|easyocr`
+  - `OCR_LANGUAGES=en,fr,...`
+  - `DOC_ENABLED=true|false`
+  - `DOC_ENGINE=pymupdf|pdfplumber`
+
+## 🌐 Ngrok (Cloud Mode)
+
+1. `ngrok config add-authtoken YOUR_TOKEN`
+2. Start the server, then in another terminal: `ngrok http 8000`
+3. Use the HTTPS URL shown by ngrok; the server QR will display it.
+
+## 🧰 Useful Env Overrides
+
+- `PARALLAX_BASE_URL` (default `http://localhost:3001`)
+- `PARALLAX_SERVICE_URL` (chat endpoint override)
+- `PARALLAX_UI_URL` (for `/ui` proxy)
+- `LOG_LEVEL=DEBUG|INFO`
+- `DEBUG_MODE=true` (forces debug logging)
+- `LOG_DIR` (default `applogs/`)
+
 ## 🌐 Connection Modes
 
 The server supports two ways to connect:

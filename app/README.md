@@ -10,11 +10,22 @@ A Flutter mobile app that connects to your self-hosted Parallax AI server. Acces
 - **Multi-turn Conversations** - Context-aware responses with conversation history
 - **QR Code Scanner** - Instant server connection via QR code
 - **Dual Connection Modes** - Cloud (ngrok) and Local (Wi-Fi) support
-- **Edge AI Processing** - On-device OCR and image labeling via ML Kit
+- **Smart Search** - Provider choice (DuckDuckGo/Brave), depth (`normal/deep/deeper`), execution mode (mobile/middleware/parallax)
+- **Edge + Server AI** - On-device OCR/image labeling; optional server OCR/document extraction
 - **Document Support** - PDF text extraction and smart context chunking
+- **Vision Pipeline** - Select edge/server pipeline; toggle thinking display
 - **Chat History** - Local storage with export/share functionality
-- **AI Settings** - Adjustable temperature, tokens, and sampling parameters
+- **AI Settings** - Response styles, system prompt presets, streaming toggle, context window slider
 - **Dark Theme** - Modern dark UI optimized for OLED displays
+
+## Key Controls (mobile)
+
+- **Connection**: QR scan or manual URL; switch between Local/Cloud.
+- **Web Search**: Enable/disable; provider selection; depth `normal/deep/deeper`; execution mode (mobile vs middleware vs parallax).
+- **Documents**: Choose processing on device or server.
+- **Vision**: Pipeline mode (edge/server) and OCR availability indicator.
+- **Response Style**: Neutral/Concise/Formal/Casual/Detailed/Humorous or custom system prompt.
+- **Privacy**: Password flows through QR handshake; history export/clear.
 
 ## Requirements
 
