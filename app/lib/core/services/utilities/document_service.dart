@@ -10,16 +10,43 @@ class DocumentService {
 
   DocumentService(this._settingsStorage);
 
+  /// Supported text file extensions
+  static const _textExtensions = ['.txt', '.md', '.json', '.xml', '.csv'];
+
   Future<String> extractText(String filePath) async {
     final file = File(filePath);
+    final ext = filePath.toLowerCase().split('.').last;
+
+    String text;
+    if (ext == 'pdf') {
+      text = await _extractPdfText(file);
+    } else if (_textExtensions.any((e) => filePath.toLowerCase().endsWith(e))) {
+      text = await _extractPlainText(file);
+    } else {
+      // Attempt PDF extraction as fallback for unknown types
+      text = await _extractPdfText(file);
+    }
+
+    return _processContext(text);
+  }
+
+  Future<String> _extractPdfText(File file) async {
     final bytes = await file.readAsBytes();
     final document = PdfDocument(inputBytes: bytes);
-
     final extractor = PdfTextExtractor(document);
     final text = extractor.extractText();
     document.dispose();
+    return text;
+  }
 
-    return _processContext(text);
+  Future<String> _extractPlainText(File file) async {
+    try {
+      return await file.readAsString();
+    } catch (e) {
+      // Fallback for non-UTF-8 files
+      final bytes = await file.readAsBytes();
+      return String.fromCharCodes(bytes);
+    }
   }
 
   String _processContext(String text) {

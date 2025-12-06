@@ -63,16 +63,18 @@ class DocumentService:
         if ext == ".pdf":
             return self._extract_pdf(file_bytes)
         elif ext in (".txt", ".md", ".json", ".xml", ".csv"):
-            # Plain text files
-            try:
-                text = file_bytes.decode("utf-8")
-                return {"text": text, "page_count": 1, "engine": "text"}
-            except UnicodeDecodeError:
-                return {
-                    "text": "",
-                    "error": "Could not decode text file",
-                    "enabled": True,
-                }
+            # Plain text files - try multiple encodings
+            for encoding in ["utf-8", "latin-1", "cp1252"]:
+                try:
+                    text = file_bytes.decode(encoding)
+                    return {"text": text, "page_count": 1, "engine": "text"}
+                except UnicodeDecodeError:
+                    continue
+            return {
+                "text": "",
+                "error": "Could not decode text file with any supported encoding",
+                "enabled": True,
+            }
         else:
             return {
                 "text": "",

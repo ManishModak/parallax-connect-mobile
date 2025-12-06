@@ -116,7 +116,6 @@ class OCRService:
     def _init_easyocr(self):
         """Initialize EasyOCR."""
         import os
-        import shutil
 
         def _cleanup_corrupted_models():
             """Remove corrupted EasyOCR model files."""
@@ -192,19 +191,60 @@ class OCRService:
         image = Image.open(io.BytesIO(image_data))
         img_array = np.array(image)
 
-        results = reader.ocr(img_array, cls=True)
+        # Try different API methods for different PaddleOCR versions
+        results = None
+        try:
+            # Newer PaddleOCR versions use predict() method
+            if hasattr(reader, "predict"):
+                results = reader.predict(img_array)
+            else:
+                # Older versions use ocr() method - try without cls first
+                try:
+                    results = reader.ocr(img_array)
+                except TypeError:
+                    # Very old versions might need cls parameter
+                    results = reader.ocr(img_array, cls=True)
+        except Exception as e:
+            logger.warning(f"PaddleOCR extraction attempt failed: {e}")
+            # Last resort: try basic call
+            results = reader.ocr(img_array) if hasattr(reader, "ocr") else None
 
         texts = []
         total_confidence = 0.0
         count = 0
 
-        if results and results[0]:
-            for line in results[0]:
-                text = line[1][0]
-                confidence = line[1][1]
-                texts.append(text)
-                total_confidence += confidence
-                count += 1
+        # Handle different result formats
+        if results:
+            # New format: results might be a dict with 'rec_text' key
+            if isinstance(results, dict):
+                if "rec_text" in results:
+                    for text_item in results.get("rec_text", []):
+                        if isinstance(text_item, (list, tuple)) and len(text_item) >= 2:
+                            texts.append(str(text_item[0]))
+                            total_confidence += (
+                                float(text_item[1]) if len(text_item) > 1 else 0.9
+                            )
+                            count += 1
+                        elif isinstance(text_item, str):
+                            texts.append(text_item)
+                            total_confidence += 0.9
+                            count += 1
+            # Old format: list of lists
+            elif isinstance(results, list) and results and results[0]:
+                for line in results[0]:
+                    if isinstance(line, (list, tuple)) and len(line) >= 2:
+                        text_data = line[1] if len(line) > 1 else line[0]
+                        if isinstance(text_data, (list, tuple)) and len(text_data) >= 2:
+                            text = str(text_data[0])
+                            confidence = float(text_data[1])
+                        elif isinstance(text_data, str):
+                            text = text_data
+                            confidence = 0.9
+                        else:
+                            continue
+                        texts.append(text)
+                        total_confidence += confidence
+                        count += 1
 
         combined_text = " ".join(texts)
         avg_confidence = total_confidence / count if count > 0 else 0.0

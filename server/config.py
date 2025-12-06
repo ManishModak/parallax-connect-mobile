@@ -64,8 +64,10 @@ TIMEOUT_STREAM_CONNECT = 10.0
 TIMEOUT_STREAM_CHUNK = 30.0
 
 # Request Validation Limits
-MAX_PROMPT_LENGTH = int(os.getenv("MAX_PROMPT_LENGTH", "100000"))  # characters
-MAX_SYSTEM_PROMPT_LENGTH = int(os.getenv("MAX_SYSTEM_PROMPT_LENGTH", "50000"))
+# NOTE: MAX_PROMPT_LENGTH is high to support base64-encoded documents (e.g., PDFs)
+# Base64 increases size by ~33%, so a 37MB PDF becomes ~50M chars
+MAX_PROMPT_LENGTH = int(os.getenv("MAX_PROMPT_LENGTH", "50000000"))  # 50M characters
+MAX_SYSTEM_PROMPT_LENGTH = int(os.getenv("MAX_SYSTEM_PROMPT_LENGTH", "100000"))  # 100K
 MAX_MESSAGE_HISTORY = int(os.getenv("MAX_MESSAGE_HISTORY", "100"))  # messages
 
 # Global password (set at runtime)
