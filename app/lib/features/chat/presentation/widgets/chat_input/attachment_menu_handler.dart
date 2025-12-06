@@ -26,7 +26,7 @@ class AttachmentMenuHandler {
           showWhenUnlinked: false,
           offset: const Offset(0, -220),
           child: TapRegion(
-            groupId: 'attachment_menu',
+            groupId: 'menu_group',
             child: AttachmentMenu(
               onCameraTap: () async {
                 ref.read(hapticsHelperProvider).triggerHaptics();

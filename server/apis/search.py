@@ -33,4 +33,4 @@ async def search_endpoint(
         results = await search_service.search(search_req.query, search_req.depth)
         return results
     except Exception as e:
-        return handle_service_error(e, "Search Endpoint", request_id)
+        raise handle_service_error(e, "Search Endpoint", request_id)

@@ -18,6 +18,7 @@ from ..logging_setup import get_logger
 from ..config import (
     DEBUG_MODE,
     TIMEOUT_FAST,
+    TIMEOUT_SEARCH,
     SEARCH_RATE_LIMIT_PER_MIN,
     SEARCH_ALLOWED_DOMAINS,
 )
@@ -45,6 +46,7 @@ class WebSearchService:
         self._timestamps = deque()
         self._rate_limit = max(0, SEARCH_RATE_LIMIT_PER_MIN)
         self.allowed_domains = set(SEARCH_ALLOWED_DOMAINS)
+        self._scrape_semaphore = asyncio.Semaphore(5)
         # Domains that commonly block scraping - use snippets only
         self.blocked_domains = {
             # Paywalled / subscription sites
@@ -104,6 +106,10 @@ class WebSearchService:
         """
         Main entry point for search.
         """
+        if len(query) > 500:
+            raise HTTPException(
+                status_code=413, detail="Query too long (max 500 characters)."
+            )
         await self._enforce_rate_limit()
         start_time = time.time()
         logger.info(f"🔍 Searching for '{query}' with depth '{depth}'")
@@ -146,6 +152,17 @@ class WebSearchService:
                         }
                     },
                 )
+            else:
+                logger.info(
+                    "🔍 Search completed",
+                    extra={
+                        "extra_data": {
+                            "depth": depth,
+                            "duration_seconds": elapsed,
+                            "result_count": len(result.get("results", [])),
+                        }
+                    },
+                )
             return result
 
         except Exception as e:
@@ -162,16 +179,30 @@ class WebSearchService:
     async def _search_ddg(self, query: str, max_results: int = 4) -> List[Dict]:
         """Execute DuckDuckGo search in thread pool to avoid blocking."""
         loop = asyncio.get_running_loop()
-        return await loop.run_in_executor(
-            None, lambda: list(DDGS().text(query, max_results=max_results))
-        )
+        try:
+            return await asyncio.wait_for(
+                loop.run_in_executor(
+                    None, lambda: list(DDGS().text(query, max_results=max_results))
+                ),
+                timeout=TIMEOUT_SEARCH,
+            )
+        except asyncio.TimeoutError:
+            logger.warning(f"⚠️ DDG search timed out for '{query}'")
+            return []
 
     async def _search_ddg_news(self, query: str, max_results: int = 4) -> List[Dict]:
         """Execute DuckDuckGo news search for recent content."""
         loop = asyncio.get_running_loop()
-        return await loop.run_in_executor(
-            None, lambda: list(DDGS().news(query, max_results=max_results))
-        )
+        try:
+            return await asyncio.wait_for(
+                loop.run_in_executor(
+                    None, lambda: list(DDGS().news(query, max_results=max_results))
+                ),
+                timeout=TIMEOUT_SEARCH,
+            )
+        except asyncio.TimeoutError:
+            logger.warning(f"⚠️ DDG news search timed out for '{query}'")
+            return []
 
     async def _enforce_rate_limit(self):
         """Simple sliding-window rate limit per minute."""
@@ -523,10 +554,12 @@ class WebSearchService:
         try:
             if not self._is_allowed(url):
                 return ""
-            client = await get_scraping_http_client()
-            resp = await client.get(
-                url, headers=self._get_headers(), timeout=TIMEOUT_FAST
-            )
+
+            async with self._scrape_semaphore:
+                client = await get_scraping_http_client()
+                resp = await client.get(
+                    url, headers=self._get_headers(), timeout=TIMEOUT_FAST
+                )
             if resp.status_code != 200:
                 if DEBUG_MODE:
                     logger.debug(

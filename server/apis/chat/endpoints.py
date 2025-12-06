@@ -50,7 +50,7 @@ async def chat_endpoint(
                 "model": chat_request.model,
                 "max_tokens": chat_request.max_tokens,
                 "stream": False,
-                "prompt_length": len(chat_request.prompt),
+                "prompt_length": len(chat_request.prompt or ""),
                 "web_search": chat_request.web_search_enabled,
             },
         },
@@ -214,7 +214,7 @@ async def chat_endpoint(
         }
 
     except Exception as e:
-        return handle_service_error(e, "Chat Endpoint", request_id)
+        raise handle_service_error(e, "Chat Endpoint", request_id)
 
 
 @router.post("/chat/stream")
@@ -233,7 +233,7 @@ async def chat_stream_endpoint(
             "extra_data": {
                 "model": chat_request.model,
                 "stream": True,
-                "prompt_length": len(chat_request.prompt),
+                "prompt_length": len(chat_request.prompt or ""),
                 "web_search": chat_request.web_search_enabled,
             },
         },
@@ -478,4 +478,4 @@ async def vision_endpoint(
 
     except Exception as e:
         logger.error(f"❌ [{request_id}] Vision processing failed: {e}")
-        return handle_service_error(e, "Vision Endpoint", request_id)
+        raise handle_service_error(e, "Vision Endpoint", request_id)

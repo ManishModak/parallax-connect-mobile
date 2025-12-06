@@ -114,4 +114,4 @@ async def openai_chat_completion(
         return resp.json()
 
     except Exception as e:
-        return handle_service_error(e, "OpenAI Compat Endpoint", request_id)
+        raise handle_service_error(e, "OpenAI Compat Endpoint", request_id)

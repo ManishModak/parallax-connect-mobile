@@ -78,11 +78,17 @@ class OCRService:
             logger.info(
                 "📥 Loading PaddleOCR models (first-time download if needed)..."
             )
-            reader = PaddleOCR(
-                use_angle_cls=True,
-                lang=self.languages[0] if self.languages else "en",
-                show_log=DEBUG_MODE,
-            )
+
+            # Some PaddleOCR versions do not support the show_log argument.
+            init_kwargs = {
+                "use_angle_cls": True,
+                "lang": self.languages[0] if self.languages else "en",
+            }
+            try:
+                reader = PaddleOCR(show_log=DEBUG_MODE, **init_kwargs)
+            except TypeError:
+                reader = PaddleOCR(**init_kwargs)
+
             logger.info("✅ PaddleOCR models loaded successfully")
             return ("paddleocr", reader)
         except ImportError:

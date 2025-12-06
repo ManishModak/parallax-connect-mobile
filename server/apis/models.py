@@ -68,7 +68,7 @@ async def models_endpoint(request: Request, _: bool = Depends(check_password)):
         return result
 
     except Exception as e:
-        return handle_service_error(e, "Models Endpoint", request_id)
+        raise handle_service_error(e, "Models Endpoint", request_id)
 
 
 @router.get("/info")
@@ -135,4 +135,4 @@ async def info_endpoint(request: Request, _: bool = Depends(check_password)):
         return info
 
     except Exception as e:
-        return handle_service_error(e, "Info Endpoint", request_id)
+        raise handle_service_error(e, "Info Endpoint", request_id)

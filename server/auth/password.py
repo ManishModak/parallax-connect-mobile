@@ -67,16 +67,24 @@ def setup_password():
 
 async def check_password(x_password: Optional[str] = Header(default=None)):
     """FastAPI dependency to verify password header."""
-    # Auth disabled in mock/dev or when not required
-    if SERVER_MODE == "MOCK" or DEBUG_MODE or not REQUIRE_PASSWORD:
+    # Always allow MOCK mode
+    if SERVER_MODE == "MOCK":
         return True
 
     pwd = get_password()
-    if not pwd:
+
+    # If a password is configured, enforce it regardless of REQUIRE_PASSWORD/DEBUG
+    if pwd:
+        if x_password != pwd:
+            raise HTTPException(status_code=401, detail="Invalid password")
+        return True
+
+    # No password configured: optionally require based on REQUIRE_PASSWORD
+    if REQUIRE_PASSWORD:
         raise HTTPException(
             status_code=401,
             detail="Password required. Set SERVER_PASSWORD env and provide X-Password header.",
         )
-    if x_password != pwd:
-        raise HTTPException(status_code=401, detail="Invalid password")
+
+    # Passwordless and not required: allow (dev convenience)
     return True
