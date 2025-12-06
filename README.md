@@ -114,8 +114,9 @@ python run_server.py
 1. **Scan** the QR code displayed in terminal
 2. **Chat** — your AI is ready!
 
-<!-- TODO: Add screenshot of QR code in terminal -->
-<!-- ![QR Code Terminal](docs/images/qr-terminal.png) -->
+<p align="center">
+  <img src="docs/images/Qr_plus_normal_chat.gif" alt="QR Scan and Chat Demo" width="300"/>
+</p>
 
 ---
 
@@ -157,20 +158,17 @@ python run_server.py
 
 ## 📱 Mobile App Features
 
+<p align="center">
+  <img src="docs/images/private_chat.gif" alt="Private Chat" width="250"/>
+  <img src="docs/images/settings.gif" alt="Settings" width="250"/>
+  <img src="docs/images/export.gif" alt="Export" width="250"/>
+</p>
+
 - **QR Code Scanner** — Instant connection
 - **Dual Modes** — Local WiFi or ngrok Cloud
 - **Settings Panel** — Search depth, OCR mode, response style
 - **Chat History** — Local storage with export
 - **Dark Theme** — OLED-optimized UI
-
-<!-- TODO: Add app screenshots -->
-<!-- 
-<p align="center">
-  <img src="docs/images/app-chat.png" width="200"/>
-  <img src="docs/images/app-settings.png" width="200"/>
-  <img src="docs/images/app-qr.png" width="200"/>
-</p>
--->
 
 ---
 
