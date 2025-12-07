@@ -12,7 +12,8 @@
   <a href="#-features">Features</a> •
   <a href="#-quick-start">Quick Start</a> •
   <a href="#-architecture">Architecture</a> •
-  <a href="#-documentation">Docs</a>
+  <a href="#-documentation">Docs</a> •
+  <a href="https://youtu.be/1G5gAEA_tz8">📺 Demo Video</a>
 </p>
 
 <p align="center">
