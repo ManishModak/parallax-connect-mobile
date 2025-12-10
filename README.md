@@ -95,6 +95,7 @@ This project was built for the **"Build your own AI lab"** competition hosted by
 - Computer with **NVIDIA GPU** (Windows/Linux)
 - [Python 3.10+](https://www.python.org/downloads/)
 - [Parallax](https://github.com/GradientHQ/parallax) running (`parallax run`)
+- **Mobile App**: [📱 Download APK](https://drive.google.com/file/d/1Rt_so8tpFoaGFlQLx14yIMJkE66vGH2N/view?usp=drive_link) or [GitHub Releases](https://github.com/ManishModak/parallax-connect/releases)
 
 ### Installation
 
