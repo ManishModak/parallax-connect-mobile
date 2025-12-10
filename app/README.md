@@ -18,6 +18,13 @@ A Flutter mobile app that connects to your self-hosted Parallax AI server. Acces
 - **AI Settings** - Response styles, system prompt presets, streaming toggle, context window slider
 - **Dark Theme** - Modern dark UI optimized for OLED displays
 
+## 📥 Download Pre-built APK
+
+Don't want to build from source? Download the latest APK:
+
+- **[📱 Google Drive (Direct Download)](https://drive.google.com/file/d/1Rt_so8tpFoaGFlQLx14yIMJkE66vGH2N/view?usp=drive_link)**
+- **[🏷️ GitHub Releases](https://github.com/ManishModak/parallax-connect/releases)**
+
 ## Key Controls (mobile)
 
 - **Connection**: QR scan or manual URL; switch between Local/Cloud.

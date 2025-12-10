@@ -103,12 +103,14 @@ This project was built for the **"Build your own AI lab"** competition hosted by
 git clone https://github.com/ManishModak/parallax-connect-mobile.git
 cd parallax-connect-mobile
 
-# Install dependencies
+# Install dependencies (use virtual env recommended)
 pip install -r requirements.txt
 
 # Start the server
 python run_server.py
 ```
+
+> 💡 **Tip**: We recommend using a virtual environment. See [Server Setup Guide](SERVER_SETUP.md#step-3-create-a-virtual-environment-recommended) for detailed instructions.
 
 ### Connect Your Phone
 
@@ -162,6 +164,16 @@ python run_server.py
 ---
 
 ## 📱 Mobile App
+
+<p align="center">
+  <a href="https://drive.google.com/file/d/1Rt_so8tpFoaGFlQLx14yIMJkE66vGH2N/view?usp=drive_link">
+    <img src="https://img.shields.io/badge/Download-APK-green?style=for-the-badge&logo=android" alt="Download APK"/>
+  </a>
+  &nbsp;&nbsp;
+  <a href="https://github.com/ManishModak/parallax-connect/releases">
+    <img src="https://img.shields.io/badge/GitHub-Releases-blue?style=for-the-badge&logo=github" alt="GitHub Releases"/>
+  </a>
+</p>
 
 <p align="center">
   <img src="docs/images/private_chat.gif" alt="Private Chat" width="220"/>
