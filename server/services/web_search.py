@@ -15,6 +15,7 @@ from bs4 import BeautifulSoup
 import httpx
 
 from ..logging_setup import get_logger
+from ..utils.security import validate_url
 from ..config import (
     DEBUG_MODE,
     TIMEOUT_FAST,
@@ -557,9 +558,49 @@ class WebSearchService:
 
             async with self._scrape_semaphore:
                 client = await get_scraping_http_client()
-                resp = await client.get(
-                    url, headers=self._get_headers(), timeout=TIMEOUT_FAST
-                )
+
+                # Manual redirect handling for SSRF protection
+                current_url = url
+                redirect_count = 0
+                max_redirects = 5
+                resp = None
+
+                while redirect_count < max_redirects:
+                    # Run validation in executor to avoid blocking loop
+                    loop = asyncio.get_running_loop()
+                    is_safe = await loop.run_in_executor(
+                        None, lambda: validate_url(current_url)
+                    )
+
+                    if not is_safe:
+                        logger.warning(
+                            f"⚠️ Blocked SSRF attempt to {current_url} (original: {url})"
+                        )
+                        return ""
+
+                    resp = await client.get(
+                        current_url,
+                        headers=self._get_headers(),
+                        timeout=TIMEOUT_FAST,
+                        follow_redirects=False,
+                    )
+
+                    if 300 <= resp.status_code < 400:
+                        next_url = resp.headers.get("Location")
+                        if not next_url:
+                            break
+
+                        # Handle relative redirects
+                        current_url = str(httpx.URL(current_url).join(next_url))
+                        redirect_count += 1
+                        continue
+
+                    break
+
+                if not resp or (redirect_count >= max_redirects and resp.status_code >= 300):
+                    logger.warning(f"⚠️ Too many redirects or failed to resolve for {url}")
+                    return ""
+
             if resp.status_code != 200:
                 if DEBUG_MODE:
                     logger.debug(
