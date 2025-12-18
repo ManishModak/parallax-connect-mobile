@@ -1,0 +1,3 @@
+## 2024-05-23 - Accessibility Improvements in Chat
+**Learning:** Flutter's `GestureDetector` on `Container` is often used for custom buttons but lacks accessibility features like semantic roles, keyboard focus, and visual feedback (ripple).
+**Action:** When spotting a custom button using `GestureDetector`, refactor it to use `InkWell` wrapped in `Material` (and `Ink` if custom decoration is needed) and ensure `Tooltip` is present. This provides semantic role, keyboard focus, hover effects, and touch feedback for free.

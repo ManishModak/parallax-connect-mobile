@@ -190,6 +190,7 @@ class _ChatInputAreaState extends ConsumerState<ChatInputArea> {
         shape: BoxShape.circle,
       ),
       child: IconButton(
+        tooltip: 'Add attachments',
         icon: Icon(
           LucideIcons.paperclip,
           size: 18,
@@ -344,6 +345,7 @@ class _ChatInputAreaState extends ConsumerState<ChatInputArea> {
                       shape: BoxShape.circle,
                     ),
                     child: IconButton(
+                      tooltip: isEditing ? 'Update message' : 'Send message',
                       icon: widget.isLoading
                           ? const SizedBox(
                               width: 16,

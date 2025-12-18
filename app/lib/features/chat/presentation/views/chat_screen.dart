@@ -80,6 +80,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         backgroundColor: AppColors.background,
         elevation: 0,
         leading: IconButton(
+          tooltip: 'History',
           icon: Icon(
             LucideIcons.panelLeftOpen,
             color: AppColors.secondary,
