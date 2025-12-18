@@ -5,6 +5,7 @@ Implements Normal, Deep, and Deeper search strategies using DuckDuckGo and scrap
 
 import asyncio
 import time
+import queue
 from typing import Dict, Any, List
 from collections import deque
 from urllib.parse import urlparse
@@ -43,6 +44,10 @@ class WebSearchService:
 
     def __init__(self):
         self._ua_index = 0
+        # Pool of DDGS instances to reuse connections while maintaining thread safety
+        self._ddgs_pool = queue.Queue()
+        for _ in range(5):
+            self._ddgs_pool.put(DDGS(timeout=int(TIMEOUT_SEARCH)))
         self._timestamps = deque()
         self._rate_limit = max(0, SEARCH_RATE_LIMIT_PER_MIN)
         self.allowed_domains = set(SEARCH_ALLOWED_DOMAINS)
@@ -179,11 +184,17 @@ class WebSearchService:
     async def _search_ddg(self, query: str, max_results: int = 4) -> List[Dict]:
         """Execute DuckDuckGo search in thread pool to avoid blocking."""
         loop = asyncio.get_running_loop()
+
+        def _do_search():
+            ddgs = self._ddgs_pool.get()
+            try:
+                return list(ddgs.text(query, max_results=max_results))
+            finally:
+                self._ddgs_pool.put(ddgs)
+
         try:
             return await asyncio.wait_for(
-                loop.run_in_executor(
-                    None, lambda: list(DDGS().text(query, max_results=max_results))
-                ),
+                loop.run_in_executor(None, _do_search),
                 timeout=TIMEOUT_SEARCH,
             )
         except asyncio.TimeoutError:
@@ -193,11 +204,17 @@ class WebSearchService:
     async def _search_ddg_news(self, query: str, max_results: int = 4) -> List[Dict]:
         """Execute DuckDuckGo news search for recent content."""
         loop = asyncio.get_running_loop()
+
+        def _do_search():
+            ddgs = self._ddgs_pool.get()
+            try:
+                return list(ddgs.news(query, max_results=max_results))
+            finally:
+                self._ddgs_pool.put(ddgs)
+
         try:
             return await asyncio.wait_for(
-                loop.run_in_executor(
-                    None, lambda: list(DDGS().news(query, max_results=max_results))
-                ),
+                loop.run_in_executor(None, _do_search),
                 timeout=TIMEOUT_SEARCH,
             )
         except asyncio.TimeoutError:
