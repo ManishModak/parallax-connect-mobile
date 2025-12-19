@@ -38,9 +38,14 @@ class ExportService {
       );
       final fontBytes = fontData.buffer.asUint8List();
 
+      final italicFontData = await rootBundle.load(
+        'assets/fonts/NotoSans-Italic.ttf',
+      );
+      final italicFontBytes = italicFontData.buffer.asUint8List();
+
       _bodyFont = PdfTrueTypeFont(fontBytes, 11);
       _boldFont = PdfTrueTypeFont(fontBytes, 11); // TODO: Load bold variant
-      _italicFont = PdfTrueTypeFont(fontBytes, 11); // TODO: Load italic variant
+      _italicFont = PdfTrueTypeFont(italicFontBytes, 11);
       _headingFont = PdfTrueTypeFont(fontBytes, 16);
       // Use TrueType for code to support Unicode characters (emojis, etc.)
       _codeFont = PdfTrueTypeFont(fontBytes, 10);
