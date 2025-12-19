@@ -49,6 +49,9 @@ class _ChatInputAreaState extends ConsumerState<ChatInputArea> {
   @override
   void initState() {
     super.initState();
+    _controller.addListener(() {
+      if (mounted) setState(() {});
+    });
   }
 
   @override
@@ -337,35 +340,45 @@ class _ChatInputAreaState extends ConsumerState<ChatInputArea> {
                     const SizedBox(width: 8),
                   ],
                   // Send/Voice/Update Button
-                  Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      color: AppColors.primary,
-                      shape: BoxShape.circle,
-                    ),
-                    child: IconButton(
-                      tooltip: isEditing ? 'Update message' : 'Send message',
-                      icon: widget.isLoading
-                          ? const SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: AppColors.background,
+                  Builder(builder: (context) {
+                    final canSubmit = (_controller.text.trim().isNotEmpty ||
+                            _selectedAttachments.isNotEmpty) &&
+                        !widget.isLoading;
+
+                    return Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: canSubmit
+                            ? AppColors.primary
+                            : AppColors.surfaceLight,
+                        shape: BoxShape.circle,
+                      ),
+                      child: IconButton(
+                        tooltip: isEditing ? 'Update message' : 'Send message',
+                        icon: widget.isLoading
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: AppColors.background,
+                                ),
+                              )
+                            : Icon(
+                                isEditing
+                                    ? LucideIcons.check
+                                    : LucideIcons.arrowUp,
+                                size: 20,
+                                color: canSubmit
+                                    ? AppColors.background
+                                    : AppColors.secondary,
                               ),
-                            )
-                          : Icon(
-                              isEditing
-                                  ? LucideIcons.check
-                                  : LucideIcons.arrowUp,
-                              size: 20,
-                              color: AppColors.background,
-                            ),
-                      onPressed: _handleSubmit,
-                      padding: EdgeInsets.zero,
-                    ),
-                  ),
+                        onPressed: canSubmit ? _handleSubmit : null,
+                        padding: EdgeInsets.zero,
+                      ),
+                    );
+                  }),
                 ],
               ),
             ],
