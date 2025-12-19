@@ -1,0 +1,4 @@
+## 2024-05-23 - Path Traversal in Proxy Endpoints
+**Vulnerability:** The `ui_proxy` and `ui_api_proxy` endpoints in `server/apis/ui_proxy.py` accepted an arbitrary `path` parameter and appended it to `PARALLAX_UI_URL`. This allowed an attacker to potentially traverse paths or manipulate the target URL using `../` or leading slashes.
+**Learning:** Even when using "safe" path parameters in frameworks like FastAPI, manual string concatenation for proxying can re-introduce traversal vulnerabilities if the upstream server handles paths differently or if `..` is preserved. Proxies must strictly validate the path they are forwarding.
+**Prevention:** Always validate and sanitize user-supplied path components before appending them to internal URLs. Explicitly block `..` and ensure path normalization.

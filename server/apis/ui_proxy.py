@@ -46,6 +46,11 @@ async def ui_index(_: bool = Depends(check_password)):
 @router.get("/ui/{path:path}")
 async def ui_proxy(path: str, request: Request, _: bool = Depends(check_password)):
     """Proxy all Parallax UI requests (assets, API calls, etc.)."""
+    # Security: Prevent path traversal
+    if ".." in path or path.startswith("/") or "\\" in path:
+        logger.warning(f"⚠️ Blocked potential path traversal in UI proxy: {path}")
+        raise HTTPException(status_code=400, detail="Invalid path")
+
     try:
         target_url = f"{PARALLAX_UI_URL}/{path}"
         if request.query_params:
@@ -76,6 +81,11 @@ async def ui_proxy(path: str, request: Request, _: bool = Depends(check_password
 @router.api_route("/ui-api/{path:path}", methods=["GET", "POST", "PUT", "DELETE"])
 async def ui_api_proxy(path: str, request: Request, _: bool = Depends(check_password)):
     """Proxy API calls from the Parallax UI."""
+    # Security: Prevent path traversal
+    if ".." in path or path.startswith("/") or "\\" in path:
+        logger.warning(f"⚠️ Blocked potential path traversal in UI API proxy: {path}")
+        raise HTTPException(status_code=400, detail="Invalid path")
+
     try:
         target_url = f"{PARALLAX_UI_URL}/{path}"
         if request.query_params:
