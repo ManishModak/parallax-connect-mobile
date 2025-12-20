@@ -1,6 +1,7 @@
 """Password authentication for server endpoints."""
 
 import getpass
+import secrets
 from typing import Optional
 from fastapi import Header, HTTPException
 
@@ -75,7 +76,7 @@ async def check_password(x_password: Optional[str] = Header(default=None)):
 
     # If a password is configured, enforce it regardless of REQUIRE_PASSWORD/DEBUG
     if pwd:
-        if x_password != pwd:
+        if x_password is None or not secrets.compare_digest(x_password, pwd):
             raise HTTPException(status_code=401, detail="Invalid password")
         return True
 
