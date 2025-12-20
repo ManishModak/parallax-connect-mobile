@@ -45,12 +45,20 @@ class _ChatInputAreaState extends ConsumerState<ChatInputArea> {
   bool _isWebMenuOpen = false;
   final LayerLink _webLayerLink = LayerLink();
   OverlayEntry? _webOverlayEntry;
+  bool _isFocused = false;
 
   @override
   void initState() {
     super.initState();
     _controller.addListener(() {
       if (mounted) setState(() {});
+    });
+    _focusNode.addListener(() {
+      if (mounted) {
+        setState(() {
+          _isFocused = _focusNode.hasFocus;
+        });
+      }
     });
   }
 
@@ -262,7 +270,12 @@ class _ChatInputAreaState extends ConsumerState<ChatInputArea> {
           decoration: BoxDecoration(
             color: AppColors.chatInputBackground,
             borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: AppColors.surfaceLight, width: 1),
+            border: Border.all(
+              color: _isFocused
+                  ? AppColors.primary.withOpacity(0.5)
+                  : AppColors.surfaceLight,
+              width: 1,
+            ),
           ),
           padding: const EdgeInsets.all(12),
           child: Column(
@@ -276,26 +289,31 @@ class _ChatInputAreaState extends ConsumerState<ChatInputArea> {
               ),
 
               // Text Input
-              TextField(
-                controller: _controller,
-                focusNode: _focusNode,
-                style: GoogleFonts.inter(
-                  color: AppColors.primary,
-                  fontSize: 16,
-                ),
-                maxLines: 6,
-                minLines: 2,
-                decoration: InputDecoration(
-                  hintText: isEditing ? 'Edit your message...' : 'Ask anything',
-                  hintStyle: GoogleFonts.inter(color: AppColors.secondary),
-                  border: InputBorder.none,
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 4,
-                    vertical: 8,
+              Semantics(
+                label: isEditing ? 'Edit message input' : 'Message input',
+                textField: true,
+                child: TextField(
+                  controller: _controller,
+                  focusNode: _focusNode,
+                  style: GoogleFonts.inter(
+                    color: AppColors.primary,
+                    fontSize: 16,
                   ),
-                  isDense: true,
+                  maxLines: 6,
+                  minLines: 2,
+                  decoration: InputDecoration(
+                    hintText:
+                        isEditing ? 'Edit your message...' : 'Ask anything',
+                    hintStyle: GoogleFonts.inter(color: AppColors.secondary),
+                    border: InputBorder.none,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 4,
+                      vertical: 8,
+                    ),
+                    isDense: true,
+                  ),
+                  onSubmitted: (_) => _handleSubmit(),
                 ),
-                onSubmitted: (_) => _handleSubmit(),
               ),
               const SizedBox(height: 12),
               // Bottom Actions Row
