@@ -5,7 +5,6 @@ Implements Normal, Deep, and Deeper search strategies using DuckDuckGo and scrap
 
 import asyncio
 import time
-import queue
 from typing import Dict, Any, List
 from collections import deque
 from urllib.parse import urlparse
@@ -46,9 +45,10 @@ class WebSearchService:
     def __init__(self):
         self._ua_index = 0
         # Pool of DDGS instances to reuse connections while maintaining thread safety
-        self._ddgs_pool = queue.Queue()
+        # Using asyncio.Queue to allow async waiting without blocking executor threads
+        self._ddgs_pool = asyncio.Queue()
         for _ in range(5):
-            self._ddgs_pool.put(DDGS(timeout=int(TIMEOUT_SEARCH)))
+            self._ddgs_pool.put_nowait(DDGS(timeout=int(TIMEOUT_SEARCH)))
         self._timestamps = deque()
         self._rate_limit = max(0, SEARCH_RATE_LIMIT_PER_MIN)
         self.allowed_domains = set(SEARCH_ALLOWED_DOMAINS)
@@ -186,18 +186,25 @@ class WebSearchService:
         """Execute DuckDuckGo search in thread pool to avoid blocking."""
         loop = asyncio.get_running_loop()
 
+        # Get instance from async pool to avoid blocking threads in executor
+        ddgs = await self._ddgs_pool.get()
+
         def _do_search():
-            ddgs = self._ddgs_pool.get()
             try:
                 return list(ddgs.text(query, max_results=max_results))
             finally:
-                self._ddgs_pool.put(ddgs)
+                # Return to pool safely via loop
+                loop.call_soon_threadsafe(self._ddgs_pool.put_nowait, ddgs)
 
         try:
-            return await asyncio.wait_for(
-                loop.run_in_executor(None, _do_search),
-                timeout=TIMEOUT_SEARCH,
-            )
+            task = loop.run_in_executor(None, _do_search)
+        except Exception:
+            # If run_in_executor fails immediately (e.g. shutdown), we must return the instance
+            self._ddgs_pool.put_nowait(ddgs)
+            raise
+
+        try:
+            return await asyncio.wait_for(task, timeout=TIMEOUT_SEARCH)
         except asyncio.TimeoutError:
             logger.warning(f"⚠️ DDG search timed out for '{query}'")
             return []
@@ -206,18 +213,24 @@ class WebSearchService:
         """Execute DuckDuckGo news search for recent content."""
         loop = asyncio.get_running_loop()
 
+        # Get instance from async pool to avoid blocking threads in executor
+        ddgs = await self._ddgs_pool.get()
+
         def _do_search():
-            ddgs = self._ddgs_pool.get()
             try:
                 return list(ddgs.news(query, max_results=max_results))
             finally:
-                self._ddgs_pool.put(ddgs)
+                # Return to pool safely via loop
+                loop.call_soon_threadsafe(self._ddgs_pool.put_nowait, ddgs)
 
         try:
-            return await asyncio.wait_for(
-                loop.run_in_executor(None, _do_search),
-                timeout=TIMEOUT_SEARCH,
-            )
+            task = loop.run_in_executor(None, _do_search)
+        except Exception:
+            self._ddgs_pool.put_nowait(ddgs)
+            raise
+
+        try:
+            return await asyncio.wait_for(task, timeout=TIMEOUT_SEARCH)
         except asyncio.TimeoutError:
             logger.warning(f"⚠️ DDG news search timed out for '{query}'")
             return []
