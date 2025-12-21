@@ -346,18 +346,21 @@ class _ChatMessageBubbleState extends ConsumerState<ChatMessageBubble> {
     required String tooltip,
     required VoidCallback onTap,
   }) {
-    return InkWell(
-      onTap: () {
-        ref.read(hapticsHelperProvider).triggerHaptics();
-        onTap();
-      },
-      borderRadius: BorderRadius.circular(12),
-      child: Padding(
-        padding: const EdgeInsets.all(6),
-        child: Icon(
-          icon,
-          size: 18,
-          color: AppColors.secondary.withValues(alpha: 0.7),
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        onTap: () {
+          ref.read(hapticsHelperProvider).triggerHaptics();
+          onTap();
+        },
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(6),
+          child: Icon(
+            icon,
+            size: 18,
+            color: AppColors.secondary.withValues(alpha: 0.7),
+          ),
         ),
       ),
     );
