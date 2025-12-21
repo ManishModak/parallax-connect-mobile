@@ -1,4 +1,4 @@
-## 2024-05-23 - Path Traversal in Proxy Endpoints
-**Vulnerability:** The `ui_proxy` and `ui_api_proxy` endpoints in `server/apis/ui_proxy.py` accepted an arbitrary `path` parameter and appended it to `PARALLAX_UI_URL`. This allowed an attacker to potentially traverse paths or manipulate the target URL using `../` or leading slashes.
-**Learning:** Even when using "safe" path parameters in frameworks like FastAPI, manual string concatenation for proxying can re-introduce traversal vulnerabilities if the upstream server handles paths differently or if `..` is preserved. Proxies must strictly validate the path they are forwarding.
-**Prevention:** Always validate and sanitize user-supplied path components before appending them to internal URLs. Explicitly block `..` and ensure path normalization.
+## 2024-05-24 - Information Leakage in Error Handling
+**Vulnerability:** The `handle_service_error` function in `server/utils/error_handler.py` was exposing raw exception messages to API clients in the `detail` field. This could leak sensitive internal information such as file paths, database connection strings, or internal IP addresses if an exception occurred.
+**Learning:** Default error handlers often prioritize developer convenience (showing the full error) over security. Explicit checks for `DEBUG_MODE` or environment type are crucial to sanitize errors in production.
+**Prevention:** Always wrap error details in a conditional block that checks if the environment is production. If so, return a generic error message (e.g., "An unexpected error occurred") and log the full details securely on the server side.

@@ -24,7 +24,14 @@ def handle_service_error(
     Log error with full context and return appropriate HTTPException.
     """
     error_msg = str(e)
-    user_detail = detail or f"{service_name} Error: {error_msg}"
+
+    # Security: Don't leak internal exception details in production
+    if detail:
+        user_detail = detail
+    elif DEBUG_MODE:
+        user_detail = f"{service_name} Error: {error_msg}"
+    else:
+        user_detail = f"{service_name} Error: An unexpected error occurred."
 
     # Log structure
     log_data = {
