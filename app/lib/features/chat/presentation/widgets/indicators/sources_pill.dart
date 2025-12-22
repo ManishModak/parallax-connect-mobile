@@ -18,13 +18,16 @@ class SourcesPill extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return InkWell(
-      onTap: () {
-        ref.read(hapticsHelperProvider).triggerHaptics();
-        onTap();
-      },
-      borderRadius: BorderRadius.circular(20),
-      child: Container(
+    return Semantics(
+      button: true,
+      label: 'View $sourceCount sources',
+      child: InkWell(
+        onTap: () {
+          ref.read(hapticsHelperProvider).triggerHaptics();
+          onTap();
+        },
+        borderRadius: BorderRadius.circular(20),
+        child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
         decoration: BoxDecoration(
           color: AppColors.surfaceLight.withValues(alpha: 0.5),
@@ -110,6 +113,6 @@ class SourcesPill extends ConsumerWidget {
           ],
         ),
       ),
-    );
+    ));
   }
 }

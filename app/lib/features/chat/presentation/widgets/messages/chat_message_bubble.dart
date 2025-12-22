@@ -291,10 +291,13 @@ class _ChatMessageBubbleState extends ConsumerState<ChatMessageBubble> {
           // Copy All button for bot messages
           if (!isUser && message.text.isNotEmpty) ...[
             const SizedBox(height: 12),
-            InkWell(
-              onTap: () => _copyToClipboard(message.text),
-              borderRadius: BorderRadius.circular(8),
-              child: Container(
+            Semantics(
+              button: true,
+              label: 'Copy entire message to clipboard',
+              child: InkWell(
+                onTap: () => _copyToClipboard(message.text),
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 12,
                   vertical: 8,
@@ -334,7 +337,7 @@ class _ChatMessageBubbleState extends ConsumerState<ChatMessageBubble> {
                   ],
                 ),
               ),
-            ),
+            )),
           ],
         ],
       ),
@@ -371,15 +374,18 @@ class _ChatMessageBubbleState extends ConsumerState<ChatMessageBubble> {
       padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
       child: Align(
         alignment: Alignment.centerLeft,
-        child: Shimmer.fromColors(
-          baseColor: AppColors.shimmerBase,
-          highlightColor: AppColors.shimmerHighlight,
-          child: Container(
-            width: 200,
-            height: 40,
-            decoration: BoxDecoration(
-              color: AppColors.background,
-              borderRadius: BorderRadius.circular(20),
+        child: Semantics(
+          label: 'AI is thinking...',
+          child: Shimmer.fromColors(
+            baseColor: AppColors.shimmerBase,
+            highlightColor: AppColors.shimmerHighlight,
+            child: Container(
+              width: 200,
+              height: 40,
+              decoration: BoxDecoration(
+                color: AppColors.background,
+                borderRadius: BorderRadius.circular(20),
+              ),
             ),
           ),
         ),
