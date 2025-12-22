@@ -28,6 +28,202 @@ from .http_client import get_scraping_http_client
 logger = get_logger(__name__)
 
 
+def _process_scraped_content(html_text: str, url: str, max_words: int, scrape_start: float) -> str:
+    """
+    CPU-intensive HTML parsing and cleaning logic.
+    Running in a separate thread to avoid blocking the event loop.
+    """
+    try:
+        soup = BeautifulSoup(html_text, "lxml")
+
+        # Extract metadata before cleaning
+        metadata_parts = []
+
+        # Try to get publish date
+        time_el = soup.find("time")
+        if time_el and time_el.get("datetime"):
+            metadata_parts.append(f"Published: {time_el['datetime'][:10]}")
+        else:
+            meta_date = soup.find("meta", property="article:published_time")
+            if meta_date and meta_date.get("content"):
+                metadata_parts.append(f"Published: {meta_date['content'][:10]}")
+
+        # Try to get author
+        meta_author = soup.find("meta", attrs={"name": "author"})
+        if meta_author and meta_author.get("content"):
+            metadata_parts.append(f"Author: {meta_author['content']}")
+
+        # Extended noise tag removal
+        noise_tags = [
+            "script",
+            "style",
+            "nav",
+            "footer",
+            "header",
+            "aside",
+            "iframe",
+            "form",
+            "noscript",
+            "svg",
+            "button",
+            "input",
+            "select",
+            "textarea",
+            "label",
+            "menu",
+            "menuitem",
+            "dialog",
+            "template",
+            "canvas",
+            "video",
+            "audio",
+            "source",
+            "picture",
+        ]
+        for tag in soup(noise_tags):
+            tag.decompose()
+
+        # Remove elements by class patterns (ads, sidebars, comments, etc.)
+        noise_class_patterns = [
+            "ad",
+            "ads",
+            "advert",
+            "advertisement",
+            "banner",
+            "sidebar",
+            "side-bar",
+            "side_bar",
+            "comment",
+            "comments",
+            "discussion",
+            "share",
+            "sharing",
+            "social",
+            "related",
+            "recommended",
+            "suggestions",
+            "newsletter",
+            "subscribe",
+            "signup",
+            "popup",
+            "modal",
+            "overlay",
+            "cookie",
+            "gdpr",
+            "consent",
+            "navigation",
+            "breadcrumb",
+            "menu",
+        ]
+        # Safely collect elements to remove first (avoid modifying while iterating)
+        elements_to_remove = []
+        for el in soup.find_all(class_=True):
+            class_val = el.get("class")
+            if not class_val:
+                continue
+            # class_val could be a list or string depending on parser
+            if isinstance(class_val, list):
+                classes = " ".join(class_val).lower()
+            else:
+                classes = str(class_val).lower()
+            if any(pattern in classes for pattern in noise_class_patterns):
+                elements_to_remove.append(el)
+
+        for el in elements_to_remove:
+            try:
+                el.decompose()
+            except Exception:
+                pass  # Element may already be removed
+
+        # Prioritize article content containers
+        content = None
+        content_selectors = [
+            "article",
+            "main",
+            "[role='main']",
+            ".article-content",
+            ".article-body",
+            ".post-content",
+            ".entry-content",
+            ".content-body",
+            "#article-body",
+            "#content",
+            ".story-body",
+        ]
+
+        for selector in content_selectors:
+            try:
+                content = soup.select_one(selector)
+                if content and len(content.get_text(strip=True)) > 200:
+                    break
+            except Exception:
+                pass
+            content = None
+
+        # Fallback to body if no article container found
+        if not content:
+            content = soup.body if soup.body else soup
+
+        # Final safety check
+        if content is None:
+            logger.warning(f"⚠️ No parseable content in {url}")
+            return ""
+
+        text = content.get_text(separator=" ", strip=True)
+
+        # Intelligent truncation at sentence boundaries
+        words = text.split()
+        if len(words) > max_words:
+            # Find a sentence boundary near max_words
+            truncated_text = " ".join(words[:max_words])
+
+            # Try to end at a sentence boundary
+            sentence_end = max(
+                truncated_text.rfind(". "),
+                truncated_text.rfind("! "),
+                truncated_text.rfind("? "),
+            )
+
+            if sentence_end > len(truncated_text) * 0.7:  # Only if not too far back
+                final_text = truncated_text[: sentence_end + 1]
+            else:
+                final_text = truncated_text + "..."
+        else:
+            final_text = text
+
+        # Prepend metadata if available
+        if metadata_parts:
+            final_text = f"[{' | '.join(metadata_parts)}]\n\n{final_text}"
+
+        if DEBUG_MODE:
+            logger.debug(
+                f"✅ Scraped {url}",
+                extra={
+                    "extra_data": {
+                        "url": url,
+                        "word_count": len(words),
+                        "truncated": len(words) > max_words,
+                        "final_word_count": len(final_text.split()),
+                        "duration_seconds": time.time() - scrape_start,
+                        "has_metadata": bool(metadata_parts),
+                        "preview": final_text[:200] + "..."
+                        if final_text
+                        else "No content",
+                    }
+                },
+            )
+
+        # Always log scrape summary in INFO
+        logger.info(
+            f"📄 Scraped {len(words)} words from {url} ({time.time() - scrape_start:.2f}s)"
+        )
+
+        return final_text
+    except Exception as e:
+        logger.warning(f"⚠️ Failed to parse content from {url}: {e}")
+        return ""
+
+
 class WebSearchService:
     """
     Executes web searches with varying depth.
@@ -645,190 +841,16 @@ class WebSearchService:
                     )
                 return ""
 
-            soup = BeautifulSoup(resp.text, "lxml")
-
-            # Extract metadata before cleaning
-            metadata_parts = []
-
-            # Try to get publish date
-            time_el = soup.find("time")
-            if time_el and time_el.get("datetime"):
-                metadata_parts.append(f"Published: {time_el['datetime'][:10]}")
-            else:
-                meta_date = soup.find("meta", property="article:published_time")
-                if meta_date and meta_date.get("content"):
-                    metadata_parts.append(f"Published: {meta_date['content'][:10]}")
-
-            # Try to get author
-            meta_author = soup.find("meta", attrs={"name": "author"})
-            if meta_author and meta_author.get("content"):
-                metadata_parts.append(f"Author: {meta_author['content']}")
-
-            # Extended noise tag removal
-            noise_tags = [
-                "script",
-                "style",
-                "nav",
-                "footer",
-                "header",
-                "aside",
-                "iframe",
-                "form",
-                "noscript",
-                "svg",
-                "button",
-                "input",
-                "select",
-                "textarea",
-                "label",
-                "menu",
-                "menuitem",
-                "dialog",
-                "template",
-                "canvas",
-                "video",
-                "audio",
-                "source",
-                "picture",
-            ]
-            for tag in soup(noise_tags):
-                tag.decompose()
-
-            # Remove elements by class patterns (ads, sidebars, comments, etc.)
-            noise_class_patterns = [
-                "ad",
-                "ads",
-                "advert",
-                "advertisement",
-                "banner",
-                "sidebar",
-                "side-bar",
-                "side_bar",
-                "comment",
-                "comments",
-                "discussion",
-                "share",
-                "sharing",
-                "social",
-                "related",
-                "recommended",
-                "suggestions",
-                "newsletter",
-                "subscribe",
-                "signup",
-                "popup",
-                "modal",
-                "overlay",
-                "cookie",
-                "gdpr",
-                "consent",
-                "navigation",
-                "breadcrumb",
-                "menu",
-            ]
-            # Safely collect elements to remove first (avoid modifying while iterating)
-            elements_to_remove = []
-            for el in soup.find_all(class_=True):
-                class_val = el.get("class")
-                if not class_val:
-                    continue
-                # class_val could be a list or string depending on parser
-                if isinstance(class_val, list):
-                    classes = " ".join(class_val).lower()
-                else:
-                    classes = str(class_val).lower()
-                if any(pattern in classes for pattern in noise_class_patterns):
-                    elements_to_remove.append(el)
-
-            for el in elements_to_remove:
-                try:
-                    el.decompose()
-                except Exception:
-                    pass  # Element may already be removed
-
-            # Prioritize article content containers
-            content = None
-            content_selectors = [
-                "article",
-                "main",
-                "[role='main']",
-                ".article-content",
-                ".article-body",
-                ".post-content",
-                ".entry-content",
-                ".content-body",
-                "#article-body",
-                "#content",
-                ".story-body",
-            ]
-
-            for selector in content_selectors:
-                try:
-                    content = soup.select_one(selector)
-                    if content and len(content.get_text(strip=True)) > 200:
-                        break
-                except Exception:
-                    pass
-                content = None
-
-            # Fallback to body if no article container found
-            if not content:
-                content = soup.body if soup.body else soup
-
-            # Final safety check
-            if content is None:
-                logger.warning(f"⚠️ No parseable content in {url}")
-                return ""
-
-            text = content.get_text(separator=" ", strip=True)
-
-            # Intelligent truncation at sentence boundaries
-            words = text.split()
-            if len(words) > max_words:
-                # Find a sentence boundary near max_words
-                truncated_text = " ".join(words[:max_words])
-
-                # Try to end at a sentence boundary
-                sentence_end = max(
-                    truncated_text.rfind(". "),
-                    truncated_text.rfind("! "),
-                    truncated_text.rfind("? "),
-                )
-
-                if sentence_end > len(truncated_text) * 0.7:  # Only if not too far back
-                    final_text = truncated_text[: sentence_end + 1]
-                else:
-                    final_text = truncated_text + "..."
-            else:
-                final_text = text
-
-            # Prepend metadata if available
-            if metadata_parts:
-                final_text = f"[{' | '.join(metadata_parts)}]\n\n{final_text}"
-
-            if DEBUG_MODE:
-                logger.debug(
-                    f"✅ Scraped {url}",
-                    extra={
-                        "extra_data": {
-                            "url": url,
-                            "word_count": len(words),
-                            "truncated": len(words) > max_words,
-                            "final_word_count": len(final_text.split()),
-                            "duration_seconds": time.time() - scrape_start,
-                            "has_metadata": bool(metadata_parts),
-                            "preview": final_text[:200] + "..."
-                            if final_text
-                            else "No content",
-                        }
-                    },
-                )
-
-            # Always log scrape summary in INFO
-            logger.info(
-                f"📄 Scraped {len(words)} words from {url} ({time.time() - scrape_start:.2f}s)"
+            # Offload CPU-intensive parsing to thread pool
+            loop = asyncio.get_running_loop()
+            final_text = await loop.run_in_executor(
+                None,
+                _process_scraped_content,
+                resp.text,
+                url,
+                max_words,
+                scrape_start
             )
-
             return final_text
 
         except httpx.ConnectError as e:
