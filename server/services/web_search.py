@@ -28,6 +28,70 @@ from .http_client import get_scraping_http_client
 
 logger = get_logger(__name__)
 
+# Extended noise tag removal
+NOISE_TAGS = [
+    "script",
+    "style",
+    "nav",
+    "footer",
+    "header",
+    "aside",
+    "iframe",
+    "form",
+    "noscript",
+    "svg",
+    "button",
+    "input",
+    "select",
+    "textarea",
+    "label",
+    "menu",
+    "menuitem",
+    "dialog",
+    "template",
+    "canvas",
+    "video",
+    "audio",
+    "source",
+    "picture",
+]
+
+# Remove elements by class patterns (ads, sidebars, comments, etc.)
+NOISE_CLASS_PATTERNS = [
+    "ad",
+    "ads",
+    "advert",
+    "advertisement",
+    "banner",
+    "sidebar",
+    "side-bar",
+    "side_bar",
+    "comment",
+    "comments",
+    "discussion",
+    "share",
+    "sharing",
+    "social",
+    "related",
+    "recommended",
+    "suggestions",
+    "newsletter",
+    "subscribe",
+    "signup",
+    "popup",
+    "modal",
+    "overlay",
+    "cookie",
+    "gdpr",
+    "consent",
+    "navigation",
+    "breadcrumb",
+    "menu",
+]
+
+# Compile regex for faster matching (approx 70% faster than list iteration)
+NOISE_REGEX = re.compile("|".join(map(re.escape, NOISE_CLASS_PATTERNS)))
+
 
 def _process_scraped_content(
     html_text: str, url: str, max_words: int, scrape_start: float
@@ -57,70 +121,8 @@ def _process_scraped_content(
             metadata_parts.append(f"Author: {meta_author['content']}")
 
         # Extended noise tag removal
-        noise_tags = [
-            "script",
-            "style",
-            "nav",
-            "footer",
-            "header",
-            "aside",
-            "iframe",
-            "form",
-            "noscript",
-            "svg",
-            "button",
-            "input",
-            "select",
-            "textarea",
-            "label",
-            "menu",
-            "menuitem",
-            "dialog",
-            "template",
-            "canvas",
-            "video",
-            "audio",
-            "source",
-            "picture",
-        ]
-        for tag in soup(noise_tags):
+        for tag in soup(NOISE_TAGS):
             tag.decompose()
-
-        # Remove elements by class patterns (ads, sidebars, comments, etc.)
-        noise_class_patterns = [
-            "ad",
-            "ads",
-            "advert",
-            "advertisement",
-            "banner",
-            "sidebar",
-            "side-bar",
-            "side_bar",
-            "comment",
-            "comments",
-            "discussion",
-            "share",
-            "sharing",
-            "social",
-            "related",
-            "recommended",
-            "suggestions",
-            "newsletter",
-            "subscribe",
-            "signup",
-            "popup",
-            "modal",
-            "overlay",
-            "cookie",
-            "gdpr",
-            "consent",
-            "navigation",
-            "breadcrumb",
-            "menu",
-        ]
-
-        # Compile regex for faster matching (approx 70% faster than list iteration)
-        noise_regex = re.compile("|".join(map(re.escape, noise_class_patterns)))
 
         # Safely collect elements to remove first (avoid modifying while iterating)
         elements_to_remove = []
@@ -135,7 +137,7 @@ def _process_scraped_content(
                 classes = str(class_val).lower()
 
             # Optimized regex check
-            if noise_regex.search(classes):
+            if NOISE_REGEX.search(classes):
                 elements_to_remove.append(el)
 
         for el in elements_to_remove:
@@ -146,6 +148,7 @@ def _process_scraped_content(
 
         # Prioritize article content containers
         content = None
+        text = ""
         content_selectors = [
             "article",
             "main",
@@ -162,9 +165,14 @@ def _process_scraped_content(
 
         for selector in content_selectors:
             try:
-                content = soup.select_one(selector)
-                if content and len(content.get_text(strip=True)) > 200:
-                    break
+                candidate = soup.select_one(selector)
+                if candidate:
+                    # Cache the text to avoid re-extracting
+                    candidate_text = candidate.get_text(separator=" ", strip=True)
+                    if len(candidate_text) > 200:
+                        content = candidate
+                        text = candidate_text
+                        break
             except Exception:
                 pass
             content = None
@@ -172,13 +180,12 @@ def _process_scraped_content(
         # Fallback to body if no article container found
         if not content:
             content = soup.body if soup.body else soup
+            text = content.get_text(separator=" ", strip=True)
 
         # Final safety check
         if content is None:
             logger.warning(f"⚠️ No parseable content in {url}")
             return ""
-
-        text = content.get_text(separator=" ", strip=True)
 
         # Intelligent truncation at sentence boundaries
         words = text.split()
