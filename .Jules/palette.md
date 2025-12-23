@@ -1,6 +1,6 @@
-## 2024-05-22 - Visual Focus and Semantics
-**Learning:** `InputDecoration` in Flutter doesn't have a `semanticsLabel` property. To add accessibility labels to a `TextField`, you must wrap it in a `Semantics` widget.
-**Action:** Always wrap `TextField` in `Semantics` when `labelText` is not used or insufficient.
+## 2024-05-23 - Interactive Pills and Bubbles
+**Learning:** Custom interactive widgets like "pills" or "bubbles" (using `InkWell` or `GestureDetector`) are often invisible to screen readers as actionable elements unless explicitly wrapped in `Semantics` with `button: true`.
+**Action:** Always wrap custom interactive containers in `Semantics(button: true, label: 'Action description', child: ...)` to ensure they are announced as buttons.
 
-**Learning:** Visual focus states are critical for keyboard users and general UX. Using a `FocusNode` listener to update UI state is a reliable pattern.
-**Action:** Consider creating a reusable `FocusAwareContainer` if this pattern is needed frequently.
+**Learning:** Purely visual loading states (like Shimmer effects) leave screen reader users in the dark.
+**Action:** Wrap loading indicators in `Semantics(label: 'Loading...', child: ...)` so non-sighted users know the system is busy.
