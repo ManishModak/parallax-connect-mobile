@@ -28,6 +28,85 @@ from .http_client import get_scraping_http_client
 
 logger = get_logger(__name__)
 
+# Extended noise tag removal
+NOISE_TAGS = [
+    "script",
+    "style",
+    "nav",
+    "footer",
+    "header",
+    "aside",
+    "iframe",
+    "form",
+    "noscript",
+    "svg",
+    "button",
+    "input",
+    "select",
+    "textarea",
+    "label",
+    "menu",
+    "menuitem",
+    "dialog",
+    "template",
+    "canvas",
+    "video",
+    "audio",
+    "source",
+    "picture",
+]
+
+# Remove elements by class patterns (ads, sidebars, comments, etc.)
+NOISE_CLASS_PATTERNS = [
+    "ad",
+    "ads",
+    "advert",
+    "advertisement",
+    "banner",
+    "sidebar",
+    "side-bar",
+    "side_bar",
+    "comment",
+    "comments",
+    "discussion",
+    "share",
+    "sharing",
+    "social",
+    "related",
+    "recommended",
+    "suggestions",
+    "newsletter",
+    "subscribe",
+    "signup",
+    "popup",
+    "modal",
+    "overlay",
+    "cookie",
+    "gdpr",
+    "consent",
+    "navigation",
+    "breadcrumb",
+    "menu",
+]
+
+# Compile regex for faster matching (approx 70% faster than list iteration)
+NOISE_REGEX = re.compile("|".join(map(re.escape, NOISE_CLASS_PATTERNS)))
+
+# Prioritize article content containers
+CONTENT_SELECTORS = [
+    "article",
+    "main",
+    "[role='main']",
+    ".article-content",
+    ".article-body",
+    ".post-content",
+    ".entry-content",
+    ".content-body",
+    "#article-body",
+    "#content",
+    ".story-body",
+]
+
 
 def _process_scraped_content(
     html_text: str, url: str, max_words: int, scrape_start: float
@@ -56,71 +135,8 @@ def _process_scraped_content(
         if meta_author and meta_author.get("content"):
             metadata_parts.append(f"Author: {meta_author['content']}")
 
-        # Extended noise tag removal
-        noise_tags = [
-            "script",
-            "style",
-            "nav",
-            "footer",
-            "header",
-            "aside",
-            "iframe",
-            "form",
-            "noscript",
-            "svg",
-            "button",
-            "input",
-            "select",
-            "textarea",
-            "label",
-            "menu",
-            "menuitem",
-            "dialog",
-            "template",
-            "canvas",
-            "video",
-            "audio",
-            "source",
-            "picture",
-        ]
-        for tag in soup(noise_tags):
+        for tag in soup(NOISE_TAGS):
             tag.decompose()
-
-        # Remove elements by class patterns (ads, sidebars, comments, etc.)
-        noise_class_patterns = [
-            "ad",
-            "ads",
-            "advert",
-            "advertisement",
-            "banner",
-            "sidebar",
-            "side-bar",
-            "side_bar",
-            "comment",
-            "comments",
-            "discussion",
-            "share",
-            "sharing",
-            "social",
-            "related",
-            "recommended",
-            "suggestions",
-            "newsletter",
-            "subscribe",
-            "signup",
-            "popup",
-            "modal",
-            "overlay",
-            "cookie",
-            "gdpr",
-            "consent",
-            "navigation",
-            "breadcrumb",
-            "menu",
-        ]
-
-        # Compile regex for faster matching (approx 70% faster than list iteration)
-        noise_regex = re.compile("|".join(map(re.escape, noise_class_patterns)))
 
         # Safely collect elements to remove first (avoid modifying while iterating)
         elements_to_remove = []
@@ -135,7 +151,7 @@ def _process_scraped_content(
                 classes = str(class_val).lower()
 
             # Optimized regex check
-            if noise_regex.search(classes):
+            if NOISE_REGEX.search(classes):
                 elements_to_remove.append(el)
 
         for el in elements_to_remove:
@@ -144,23 +160,8 @@ def _process_scraped_content(
             except Exception:
                 pass  # Element may already be removed
 
-        # Prioritize article content containers
         content = None
-        content_selectors = [
-            "article",
-            "main",
-            "[role='main']",
-            ".article-content",
-            ".article-body",
-            ".post-content",
-            ".entry-content",
-            ".content-body",
-            "#article-body",
-            "#content",
-            ".story-body",
-        ]
-
-        for selector in content_selectors:
+        for selector in CONTENT_SELECTORS:
             try:
                 content = soup.select_one(selector)
                 if content and len(content.get_text(strip=True)) > 200:
