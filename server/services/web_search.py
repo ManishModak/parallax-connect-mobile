@@ -92,6 +92,21 @@ NOISE_CLASS_PATTERNS = [
 # Compile regex for faster matching (approx 70% faster than list iteration)
 NOISE_REGEX = re.compile("|".join(map(re.escape, NOISE_CLASS_PATTERNS)))
 
+# Prioritize article content containers
+CONTENT_SELECTORS = [
+    "article",
+    "main",
+    "[role='main']",
+    ".article-content",
+    ".article-body",
+    ".post-content",
+    ".entry-content",
+    ".content-body",
+    "#article-body",
+    "#content",
+    ".story-body",
+]
+
 
 def _process_scraped_content(
     html_text: str, url: str, max_words: int, scrape_start: float
@@ -146,8 +161,8 @@ def _process_scraped_content(
             except Exception:
                 pass  # Element may already be removed
 
-        # Prioritize article content containers
         content = None
+        
         text = ""
         content_selectors = [
             "article",
