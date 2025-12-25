@@ -6,6 +6,7 @@ from .apis import health_router, chat_router, models_router, ui_router, logs_rou
 from .startup import on_startup
 from .logging_setup import setup_logging
 from .middleware.log_middleware import LogMiddleware
+from .middleware.security_middleware import SecurityHeadersMiddleware
 
 
 def create_app() -> FastAPI:
@@ -30,6 +31,7 @@ def create_app() -> FastAPI:
 
     # Add Middleware
     app.add_middleware(LogMiddleware)
+    app.add_middleware(SecurityHeadersMiddleware)
 
     # Include routers
     app.include_router(health_router)
