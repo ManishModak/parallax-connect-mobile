@@ -4,3 +4,7 @@
 
 **Learning:** Purely visual loading states (like Shimmer effects) leave screen reader users in the dark.
 **Action:** Wrap loading indicators in `Semantics(label: 'Loading...', child: ...)` so non-sighted users know the system is busy.
+
+## 2025-02-14 - Icon Affordance
+**Learning:** Using a state-completion icon (like a checkmark) for an action button (like "Copy") before the action is taken confuses users about the button's purpose and state.
+**Action:** Use action-oriented icons (e.g., Clipboard/Copy) for the default state, and switch to completion icons (e.g., Check) only after the action is successful.

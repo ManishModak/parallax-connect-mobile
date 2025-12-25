@@ -135,6 +135,7 @@ def _process_scraped_content(
         if meta_author and meta_author.get("content"):
             metadata_parts.append(f"Author: {meta_author['content']}")
 
+        # Extended noise tag removal
         for tag in soup(NOISE_TAGS):
             tag.decompose()
 
@@ -161,11 +162,32 @@ def _process_scraped_content(
                 pass  # Element may already be removed
 
         content = None
-        for selector in CONTENT_SELECTORS:
+        
+        text = ""
+        content_selectors = [
+            "article",
+            "main",
+            "[role='main']",
+            ".article-content",
+            ".article-body",
+            ".post-content",
+            ".entry-content",
+            ".content-body",
+            "#article-body",
+            "#content",
+            ".story-body",
+        ]
+
+        for selector in content_selectors:
             try:
-                content = soup.select_one(selector)
-                if content and len(content.get_text(strip=True)) > 200:
-                    break
+                candidate = soup.select_one(selector)
+                if candidate:
+                    # Cache the text to avoid re-extracting
+                    candidate_text = candidate.get_text(separator=" ", strip=True)
+                    if len(candidate_text) > 200:
+                        content = candidate
+                        text = candidate_text
+                        break
             except Exception:
                 pass
             content = None
@@ -173,13 +195,12 @@ def _process_scraped_content(
         # Fallback to body if no article container found
         if not content:
             content = soup.body if soup.body else soup
+            text = content.get_text(separator=" ", strip=True)
 
         # Final safety check
         if content is None:
             logger.warning(f"⚠️ No parseable content in {url}")
             return ""
-
-        text = content.get_text(separator=" ", strip=True)
 
         # Intelligent truncation at sentence boundaries
         words = text.split()

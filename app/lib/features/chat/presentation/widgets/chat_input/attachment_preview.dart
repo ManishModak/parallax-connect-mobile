@@ -69,20 +69,27 @@ class AttachmentPreview extends StatelessWidget {
               Positioned(
                 top: 4,
                 right: 4,
-                child: GestureDetector(
-                  onTap: () => onRemove(index),
-                  child: Container(
-                    padding: const EdgeInsets.all(4),
-                    decoration: BoxDecoration(
-                      color: AppColors.background.withValues(
-                        alpha: 0.6,
+                child: Semantics(
+                  label: 'Remove attachment',
+                  button: true,
+                  child: Tooltip(
+                    message: 'Remove attachment',
+                    child: GestureDetector(
+                      onTap: () => onRemove(index),
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          color: AppColors.background.withValues(
+                            alpha: 0.6,
+                          ),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          LucideIcons.x,
+                          size: 12,
+                          color: AppColors.primary,
+                        ),
                       ),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      LucideIcons.x,
-                      size: 12,
-                      color: AppColors.primary,
                     ),
                   ),
                 ),
@@ -94,4 +101,3 @@ class AttachmentPreview extends StatelessWidget {
     );
   }
 }
-

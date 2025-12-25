@@ -317,7 +317,7 @@ class _ChatMessageBubbleState extends ConsumerState<ChatMessageBubble> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(
-                      LucideIcons.check,
+                      _copiedAll ? LucideIcons.check : LucideIcons.copy,
                       size: 16,
                       color: _copiedAll
                           ? AppColors.accent
