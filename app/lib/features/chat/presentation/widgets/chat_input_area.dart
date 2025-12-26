@@ -375,12 +375,15 @@ class _ChatInputAreaState extends ConsumerState<ChatInputArea> {
                       child: IconButton(
                         tooltip: isEditing ? 'Update message' : 'Send message',
                         icon: widget.isLoading
-                            ? const SizedBox(
-                                width: 16,
-                                height: 16,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: AppColors.background,
+                            ? Semantics(
+                                label: 'Sending message...',
+                                child: const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: AppColors.background,
+                                  ),
                                 ),
                               )
                             : Icon(
