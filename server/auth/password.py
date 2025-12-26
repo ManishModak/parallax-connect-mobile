@@ -2,8 +2,9 @@
 
 import getpass
 import secrets
-from typing import Optional
-from fastapi import Header, HTTPException
+import time
+from typing import Optional, Dict, List
+from fastapi import Header, HTTPException, Request
 
 from ..config import (
     get_password,
@@ -66,7 +67,36 @@ def setup_password():
         print("⚠️  No password set. Server is open.\n")
 
 
-async def check_password(x_password: Optional[str] = Header(default=None)):
+class RateLimiter:
+    """Simple in-memory rate limiter to prevent brute force attacks."""
+    def __init__(self, limit: int = 10, window: int = 60):
+        self.limit = limit
+        self.window = window
+        self.failures: Dict[str, List[float]] = {}
+
+    def is_blocked(self, ip: str) -> bool:
+        """Check if an IP is currently blocked."""
+        now = time.time()
+        if ip in self.failures:
+            # Filter old failures
+            self.failures[ip] = [t for t in self.failures[ip] if t > now - self.window]
+            if len(self.failures[ip]) >= self.limit:
+                return True
+        return False
+
+    def record_failure(self, ip: str):
+        """Record a failed attempt for an IP."""
+        now = time.time()
+        if ip not in self.failures:
+            self.failures[ip] = []
+        self.failures[ip].append(now)
+
+
+# Global rate limiter instance (10 failures per minute)
+auth_rate_limiter = RateLimiter(limit=10, window=60)
+
+
+async def check_password(request: Request, x_password: Optional[str] = Header(default=None)):
     """FastAPI dependency to verify password header."""
     # Always allow MOCK mode
     if SERVER_MODE == "MOCK":
@@ -76,7 +106,17 @@ async def check_password(x_password: Optional[str] = Header(default=None)):
 
     # If a password is configured, enforce it regardless of REQUIRE_PASSWORD/DEBUG
     if pwd:
+        client_ip = request.client.host if request.client else "unknown"
+
+        # Check rate limit first
+        if auth_rate_limiter.is_blocked(client_ip):
+            raise HTTPException(
+                status_code=429,
+                detail="Too many failed login attempts. Please try again later."
+            )
+
         if x_password is None or not secrets.compare_digest(x_password, pwd):
+            auth_rate_limiter.record_failure(client_ip)
             raise HTTPException(status_code=401, detail="Invalid password")
         return True
 
