@@ -90,7 +90,7 @@ NOISE_CLASS_PATTERNS = [
 ]
 
 # Compile regex for faster matching (approx 70% faster than list iteration)
-NOISE_REGEX = re.compile("|".join(map(re.escape, NOISE_CLASS_PATTERNS)))
+NOISE_REGEX = re.compile("|".join(map(re.escape, NOISE_CLASS_PATTERNS)), re.IGNORECASE)
 
 # Prioritize article content containers
 CONTENT_SELECTORS = [
@@ -147,11 +147,11 @@ def _process_scraped_content(
                 continue
             # class_val could be a list or string depending on parser
             if isinstance(class_val, list):
-                classes = " ".join(class_val).lower()
+                classes = " ".join(class_val)
             else:
-                classes = str(class_val).lower()
+                classes = str(class_val)
 
-            # Optimized regex check
+            # Optimized regex check (case-insensitive via regex compilation)
             if NOISE_REGEX.search(classes):
                 elements_to_remove.append(el)
 
@@ -203,9 +203,12 @@ def _process_scraped_content(
             return ""
 
         # Intelligent truncation at sentence boundaries
-        words = text.split()
+        # Optimization: Use maxsplit to avoid splitting the entire text into millions of strings
+        # This is significantly faster (O(k) vs O(N)) and saves memory for large texts
+        words = text.split(maxsplit=max_words)
         if len(words) > max_words:
-            # Find a sentence boundary near max_words
+            # words has max_words + 1 elements (the last one is the rest of the text)
+            # We take the first max_words
             truncated_text = " ".join(words[:max_words])
 
             # Try to end at a sentence boundary
