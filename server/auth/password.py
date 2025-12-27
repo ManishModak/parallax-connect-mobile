@@ -2,8 +2,10 @@
 
 import getpass
 import secrets
+import time
+from collections import defaultdict, deque
 from typing import Optional
-from fastapi import Header, HTTPException
+from fastapi import Header, HTTPException, Request
 
 from ..config import (
     get_password,
@@ -12,6 +14,33 @@ from ..config import (
     SERVER_MODE,
     DEBUG_MODE,
 )
+
+
+class RateLimiter:
+    """Simple in-memory rate limiter to block brute-force attempts."""
+
+    def __init__(self, max_attempts: int = 5, window_seconds: int = 60):
+        self.max_attempts = max_attempts
+        self.window_seconds = window_seconds
+        self.attempts = defaultdict(deque)
+
+    def is_blocked(self, ip: str) -> bool:
+        """Check if an IP is blocked."""
+        now = time.time()
+        # Clean up old attempts for this IP
+        while self.attempts[ip] and self.attempts[ip][0] < now - self.window_seconds:
+            self.attempts[ip].popleft()
+
+        return len(self.attempts[ip]) >= self.max_attempts
+
+    def record_failure(self, ip: str):
+        """Record a failed attempt for an IP."""
+        now = time.time()
+        self.attempts[ip].append(now)
+
+
+# Global rate limiter instance
+_rate_limiter = RateLimiter(max_attempts=5, window_seconds=60)
 
 
 def setup_password():
@@ -66,8 +95,10 @@ def setup_password():
         print("⚠️  No password set. Server is open.\n")
 
 
-async def check_password(x_password: Optional[str] = Header(default=None)):
-    """FastAPI dependency to verify password header."""
+async def check_password(
+    request: Request, x_password: Optional[str] = Header(default=None)
+):
+    """FastAPI dependency to verify password header with rate limiting."""
     # Always allow MOCK mode
     if SERVER_MODE == "MOCK":
         return True
@@ -76,7 +107,17 @@ async def check_password(x_password: Optional[str] = Header(default=None)):
 
     # If a password is configured, enforce it regardless of REQUIRE_PASSWORD/DEBUG
     if pwd:
+        client_ip = request.client.host if request.client else "unknown"
+
+        # Check rate limit before verifying password
+        if _rate_limiter.is_blocked(client_ip):
+            raise HTTPException(
+                status_code=429,
+                detail="Too many failed attempts. Please try again later.",
+            )
+
         if x_password is None or not secrets.compare_digest(x_password, pwd):
+            _rate_limiter.record_failure(client_ip)
             raise HTTPException(status_code=401, detail="Invalid password")
         return True
 
