@@ -8,3 +8,10 @@
 ## 2025-02-14 - Icon Affordance
 **Learning:** Using a state-completion icon (like a checkmark) for an action button (like "Copy") before the action is taken confuses users about the button's purpose and state.
 **Action:** Use action-oriented icons (e.g., Clipboard/Copy) for the default state, and switch to completion icons (e.g., Check) only after the action is successful.
+## 2025-02-14 - Interaction Feedback
+**Learning:** `GestureDetector` provides no visual feedback on touch, making the UI feel unresponsive.
+**Action:** Replace `GestureDetector` with `InkWell` (wrapped in `Material`) for interactive elements to provide ripple effects and better focus states.
+
+## 2025-02-14 - Touch Targets
+**Learning:** Small icons with tight padding (e.g., < 24dp) are difficult to tap accurately.
+**Action:** Ensure interactive elements have a hit test area of at least 40x40dp (or close to it) by increasing padding or using `IconButton`/`InkWell` with larger constraints.
