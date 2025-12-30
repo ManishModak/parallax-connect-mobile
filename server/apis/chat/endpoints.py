@@ -348,12 +348,21 @@ async def vision_endpoint(
                     detail="Unsupported file type for vision endpoint.",
                 )
 
-            image_bytes = await image.read()
-            if len(image_bytes) > MAX_IMAGE_BYTES:
-                raise HTTPException(
-                    status_code=413,
-                    detail=f"Image too large (max {MAX_IMAGE_BYTES // (1024*1024)}MB).",
-                )
+            # Read image in chunks to prevent DoS via memory exhaustion
+            content = bytearray()
+            chunk_size = 1024 * 1024  # 1MB chunks
+            while True:
+                chunk = await image.read(chunk_size)
+                if not chunk:
+                    break
+                content.extend(chunk)
+                if len(content) > MAX_IMAGE_BYTES:
+                    raise HTTPException(
+                        status_code=413,
+                        detail=f"Image too large (max {MAX_IMAGE_BYTES // (1024*1024)}MB).",
+                    )
+            image_bytes = bytes(content)
+
             user_prompt = prompt or ""
             logger.info(
                 f"📸 [{request_id}] Vision request (multipart): {len(image_bytes)} bytes"
