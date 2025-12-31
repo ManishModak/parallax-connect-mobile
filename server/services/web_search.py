@@ -203,7 +203,7 @@ def _process_scraped_content(
             return ""
 
         # Intelligent truncation at sentence boundaries
-        words = text.split()
+        words = text.split(maxsplit=max_words)
         if len(words) > max_words:
             # Find a sentence boundary near max_words
             truncated_text = " ".join(words[:max_words])
