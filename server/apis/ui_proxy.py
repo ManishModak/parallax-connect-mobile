@@ -4,9 +4,10 @@ from fastapi import APIRouter, Depends, Request, HTTPException
 from fastapi.responses import HTMLResponse, Response, StreamingResponse
 
 from ..auth import check_password
-from ..config import PARALLAX_UI_URL
+from ..config import PARALLAX_UI_URL, DEBUG_MODE
 from ..logging_setup import get_logger
 from ..services.http_client import get_async_http_client
+from ..utils.error_handler import handle_service_error
 
 router = APIRouter()
 logger = get_logger(__name__)
@@ -36,9 +37,13 @@ async def ui_index(_: bool = Depends(check_password)):
 
         return HTMLResponse(content=content, status_code=resp.status_code)
     except Exception as e:
+        # Use centralized error handler for consistent logging
+        # For HTML response, we catch and return a custom page, but sanitize the message
         logger.error(f"❌ UI proxy error: {e}")
+        error_msg = str(e) if DEBUG_MODE else "Connection failed"
+
         return HTMLResponse(
-            content=f"<h1>Cannot connect to Parallax UI</h1><p>Error: {e}</p><p>Make sure Parallax is running on port 3001.</p>",
+            content=f"<h1>Cannot connect to Parallax UI</h1><p>Error: {error_msg}</p><p>Make sure Parallax is running on port 3001.</p>",
             status_code=503,
         )
 
@@ -74,8 +79,10 @@ async def ui_proxy(path: str, request: Request, _: bool = Depends(check_password
             media_type=content_type,
         )
     except Exception as e:
-        logger.error(f"❌ UI proxy error for {path}: {e}")
-        return Response(content=str(e), status_code=503)
+        # Use centralized error handler logic manually for Response return
+        # (handle_service_error returns HTTPException, but here we want Response/HTMLResponse sometimes)
+        request_id = getattr(request.state, "request_id", "unknown")
+        raise handle_service_error(e, "UI Proxy", request_id, status_code=503)
 
 
 @router.api_route("/ui-api/{path:path}", methods=["GET", "POST", "PUT", "DELETE"])
@@ -136,5 +143,5 @@ async def ui_api_proxy(path: str, request: Request, _: bool = Depends(check_pass
             media_type=content_type,
         )
     except Exception as e:
-        logger.error(f"❌ UI API proxy error for {path}: {e}")
-        return Response(content=str(e), status_code=503)
+        request_id = getattr(request.state, "request_id", "unknown")
+        raise handle_service_error(e, "UI API Proxy", request_id, status_code=503)
