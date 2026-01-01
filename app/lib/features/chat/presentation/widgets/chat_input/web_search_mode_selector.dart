@@ -58,14 +58,18 @@ class WebSearchModeSelector extends ConsumerWidget {
           child: InkWell(
             onTap: onTap,
             borderRadius: BorderRadius.circular(18),
-            child: Container(
-              height: 36,
-              padding: EdgeInsets.symmetric(horizontal: isActive ? 12 : 0),
-              width: isActive ? null : 36,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
+            child: Semantics(
+              button: true,
+              label: 'Web search mode: $label',
+              excludeSemantics: true,
+              child: Container(
+                height: 36,
+                padding: EdgeInsets.symmetric(horizontal: isActive ? 12 : 0),
+                width: isActive ? null : 36,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
                   Icon(
                     icon,
                     size: 18,
@@ -91,6 +95,7 @@ class WebSearchModeSelector extends ConsumerWidget {
                 ],
               ),
             ),
+          ),
           ),
         ),
       ),
