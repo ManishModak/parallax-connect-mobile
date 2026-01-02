@@ -90,7 +90,10 @@ NOISE_CLASS_PATTERNS = [
 ]
 
 # Compile regex for faster matching (approx 70% faster than list iteration)
-NOISE_REGEX = re.compile("|".join(map(re.escape, NOISE_CLASS_PATTERNS)), re.IGNORECASE)
+# Use word boundaries to prevent partial matches (e.g. "shadow" matching "ad")
+NOISE_REGEX = re.compile(
+    r"\b(" + "|".join(map(re.escape, NOISE_CLASS_PATTERNS)) + r")\b", re.IGNORECASE
+)
 
 # Prioritize article content containers
 CONTENT_SELECTORS = [
@@ -162,7 +165,7 @@ def _process_scraped_content(
                 pass  # Element may already be removed
 
         content = None
-        
+
         text = ""
         content_selectors = [
             "article",
