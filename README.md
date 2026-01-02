@@ -13,6 +13,7 @@
   <a href="#-quick-start">Quick Start</a> •
   <a href="#-architecture">Architecture</a> •
   <a href="#-documentation">Docs</a> •
+  <a href="CONTRIBUTING.md">Contributing</a> •
   <a href="https://youtu.be/1G5gAEA_tz8">📺 Demo Video</a>
 </p>
 
@@ -197,6 +198,7 @@ python run_server.py
 | [Server Setup](SERVER_SETUP.md) | Installation, modes, ngrok, security |
 | [Usage Guide](SERVER_USAGE_GUIDE.md) | API endpoints, payloads, examples |
 | [Mobile App](app/README.md) | Build, run, configuration |
+| [Contributing](CONTRIBUTING.md) | Guidelines for contributors |
 
 ---
 
