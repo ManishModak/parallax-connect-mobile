@@ -20,3 +20,7 @@
 
 **Learning:** Small icons with tight padding (e.g., < 24dp) are difficult to tap accurately.
 **Action:** Ensure interactive elements have a hit test area of at least 40x40dp (or close to it) by increasing padding or using `IconButton`/`InkWell` with larger constraints.
+## 2024-05-24 - Navigation in Long Lists
+
+**Learning:** In chat interfaces or long lists, users often lose context when scrolling up to read history. Without a quick way to return to the bottom (latest content), the experience feels tedious.
+**Action:** Implement a floating "Scroll to Bottom" button that appears when the user scrolls away from the latest content. Ensure it is keyboard accessible and provides feedback.
