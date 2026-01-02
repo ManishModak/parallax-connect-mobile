@@ -364,7 +364,6 @@ class _ChatInputAreaState extends ConsumerState<ChatInputArea> {
                               _selectedAttachments.isNotEmpty) &&
                           !widget.isLoading;
 
-<<<<<<< HEAD
                       return Container(
                         width: 36,
                         height: 36,
@@ -398,33 +397,6 @@ class _ChatInputAreaState extends ConsumerState<ChatInputArea> {
                                   color: canSubmit
                                       ? AppColors.background
                                       : AppColors.secondary,
-=======
-                    return Container(
-                      width: 36,
-                      height: 36,
-                      decoration: BoxDecoration(
-                        color: canSubmit
-                            ? AppColors.primary
-                            : AppColors.surfaceLight,
-                        shape: BoxShape.circle,
-                      ),
-                      child: IconButton(
-                        tooltip: widget.isLoading
-                            ? 'Sending...'
-                            : isEditing
-                                ? 'Update message'
-                                : 'Send message',
-                        icon: widget.isLoading
-                            ? Semantics(
-                                label: 'Sending...',
-                                child: const SizedBox(
-                                  width: 16,
-                                  height: 16,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: AppColors.background,
-                                  ),
->>>>>>> origin/palette-ux-improvements-11635585587676834780
                                 ),
                           onPressed: canSubmit ? _handleSubmit : null,
                           padding: EdgeInsets.zero,
