@@ -1,5 +1,6 @@
 """Parallax Web UI proxy routes."""
 
+import urllib.parse
 from fastapi import APIRouter, Depends, Request, HTTPException
 from fastapi.responses import HTMLResponse, Response, StreamingResponse
 
@@ -10,6 +11,30 @@ from ..services.http_client import get_async_http_client
 
 router = APIRouter()
 logger = get_logger(__name__)
+
+
+def validate_proxy_path(path: str) -> None:
+    """
+    Validate path to prevent directory traversal attacks.
+    Checks for '..' and absolute paths, handling URL encoding.
+    """
+    # 1. Check raw path for obvious traversal
+    if ".." in path or path.startswith("/") or "\\" in path:
+        logger.warning(f"⚠️ Blocked potential path traversal in UI proxy: {path}")
+        raise HTTPException(status_code=400, detail="Invalid path")
+
+    # 2. Check decoded path (handles %2e%2e, %252e%252e, etc.)
+    # We loop a few times to handle nested encoding, but cap it to avoid DoS
+    decoded_path = path
+    for _ in range(3):
+        try:
+            decoded_path = urllib.parse.unquote(decoded_path)
+        except Exception:
+            break
+
+        if ".." in decoded_path or decoded_path.startswith("/") or "\\" in decoded_path:
+            logger.warning(f"⚠️ Blocked encoded path traversal in UI proxy: {path} -> {decoded_path}")
+            raise HTTPException(status_code=400, detail="Invalid path")
 
 
 @router.get("/ui")
@@ -48,9 +73,7 @@ async def ui_index(_: bool = Depends(check_password)):
 async def ui_proxy(path: str, request: Request, _: bool = Depends(check_password)):
     """Proxy all Parallax UI requests (assets, API calls, etc.)."""
     # Security: Prevent path traversal
-    if ".." in path or path.startswith("/") or "\\" in path:
-        logger.warning(f"⚠️ Blocked potential path traversal in UI proxy: {path}")
-        raise HTTPException(status_code=400, detail="Invalid path")
+    validate_proxy_path(path)
 
     try:
         target_url = f"{PARALLAX_UI_URL}/{path}"
@@ -84,9 +107,7 @@ async def ui_proxy(path: str, request: Request, _: bool = Depends(check_password
 async def ui_api_proxy(path: str, request: Request, _: bool = Depends(check_password)):
     """Proxy API calls from the Parallax UI."""
     # Security: Prevent path traversal
-    if ".." in path or path.startswith("/") or "\\" in path:
-        logger.warning(f"⚠️ Blocked potential path traversal in UI API proxy: {path}")
-        raise HTTPException(status_code=400, detail="Invalid path")
+    validate_proxy_path(path)
 
     try:
         target_url = f"{PARALLAX_UI_URL}/{path}"
