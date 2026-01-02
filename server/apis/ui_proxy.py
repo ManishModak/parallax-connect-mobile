@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, Request, HTTPException
 from fastapi.responses import HTMLResponse, Response, StreamingResponse
 
 from ..auth import check_password
-from ..config import PARALLAX_UI_URL
+from ..config import PARALLAX_UI_URL, DEBUG_MODE
 from ..logging_setup import get_logger
 from ..services.http_client import get_async_http_client
 
@@ -37,8 +37,9 @@ async def ui_index(_: bool = Depends(check_password)):
         return HTMLResponse(content=content, status_code=resp.status_code)
     except Exception as e:
         logger.error(f"❌ UI proxy error: {e}")
+        error_msg = str(e) if DEBUG_MODE else "An unexpected error occurred."
         return HTMLResponse(
-            content=f"<h1>Cannot connect to Parallax UI</h1><p>Error: {e}</p><p>Make sure Parallax is running on port 3001.</p>",
+            content=f"<h1>Cannot connect to Parallax UI</h1><p>Error: {error_msg}</p><p>Make sure Parallax is running on port 3001.</p>",
             status_code=503,
         )
 
@@ -75,7 +76,8 @@ async def ui_proxy(path: str, request: Request, _: bool = Depends(check_password
         )
     except Exception as e:
         logger.error(f"❌ UI proxy error for {path}: {e}")
-        return Response(content=str(e), status_code=503)
+        error_msg = str(e) if DEBUG_MODE else "An unexpected error occurred."
+        return Response(content=error_msg, status_code=503)
 
 
 @router.api_route("/ui-api/{path:path}", methods=["GET", "POST", "PUT", "DELETE"])
@@ -137,4 +139,5 @@ async def ui_api_proxy(path: str, request: Request, _: bool = Depends(check_pass
         )
     except Exception as e:
         logger.error(f"❌ UI API proxy error for {path}: {e}")
-        return Response(content=str(e), status_code=503)
+        error_msg = str(e) if DEBUG_MODE else "An unexpected error occurred."
+        return Response(content=error_msg, status_code=503)
