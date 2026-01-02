@@ -30,14 +30,30 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   final ScrollController _scrollController = ScrollController();
   double _dragStartX = 0.0;
   double _dragCurrentX = 0.0;
+  bool _showScrollToBottom = false;
 
   @override
   void initState() {
     super.initState();
+    _scrollController.addListener(_scrollListener);
+  }
+
+  void _scrollListener() {
+    if (!mounted) return;
+    // Show button if we are not at the bottom (threshold of 400 pixels)
+    final show = _scrollController.hasClients &&
+        _scrollController.position.maxScrollExtent - _scrollController.offset >
+            400;
+    if (show != _showScrollToBottom) {
+      setState(() {
+        _showScrollToBottom = show;
+      });
+    }
   }
 
   @override
   void dispose() {
+    _scrollController.removeListener(_scrollListener);
     _scrollController.dispose();
     super.dispose();
   }
@@ -252,99 +268,137 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                         ],
                       ),
                     )
-                  : CustomScrollView(
-                      controller: _scrollController,
-                      slivers: [
-                        SliverPadding(
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          sliver: SliverList(
-                            delegate: SliverChildBuilderDelegate((
-                              context,
-                              index,
-                            ) {
-                              // Retrace Logic:
-                              // If editing, only show messages before the one being edited.
-                              // The edited message itself is in the input area.
-                              if (chatState.editingMessage != null) {
-                                final editingIndex = chatState.messages.indexOf(
-                                  chatState.editingMessage!,
-                                );
-                                if (editingIndex != -1 &&
-                                    index >= editingIndex) {
-                                  return const SizedBox.shrink();
-                                }
-                              }
+                  : Stack(
+                      children: [
+                        CustomScrollView(
+                          controller: _scrollController,
+                          slivers: [
+                            SliverPadding(
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              sliver: SliverList(
+                                delegate: SliverChildBuilderDelegate((
+                                  context,
+                                  index,
+                                ) {
+                                  // Retrace Logic:
+                                  // If editing, only show messages before the one being edited.
+                                  // The edited message itself is in the input area.
+                                  if (chatState.editingMessage != null) {
+                                    final editingIndex = chatState.messages
+                                        .indexOf(chatState.editingMessage!);
+                                    if (editingIndex != -1 &&
+                                        index >= editingIndex) {
+                                      return const SizedBox.shrink();
+                                    }
+                                  }
 
-                              final message = chatState.messages[index];
-                              return ChatMessageBubble(
-                                message: message,
-                                onRetry: () {
-                                  ref
-                                      .read(hapticsHelperProvider)
-                                      .triggerHaptics();
-                                  chatController.retryMessage(message);
-                                },
-                                onEdit: () {
-                                  ref
-                                      .read(hapticsHelperProvider)
-                                      .triggerHaptics();
-                                  chatController.startEditing(message);
-                                },
-                              );
-                            }, childCount: chatState.messages.length),
-                          ),
+                                  final message = chatState.messages[index];
+                                  return ChatMessageBubble(
+                                    message: message,
+                                    onRetry: () {
+                                      ref
+                                          .read(hapticsHelperProvider)
+                                          .triggerHaptics();
+                                      chatController.retryMessage(message);
+                                    },
+                                    onEdit: () {
+                                      ref
+                                          .read(hapticsHelperProvider)
+                                          .triggerHaptics();
+                                      chatController.startEditing(message);
+                                    },
+                                  );
+                                }, childCount: chatState.messages.length),
+                              ),
+                            ),
+                            // Show searching indicator (Only when actually searching)
+                            if (chatState.isSearchingWeb)
+                              SliverToBoxAdapter(
+                                child: SearchingIndicator(
+                                  statusMessage: chatState.searchStatusMessage,
+                                  isSearching: true,
+                                ),
+                              ),
+
+                            // Show analyzing indicator (Minimal style)
+                            if (chatState.isAnalyzingIntent)
+                              SliverToBoxAdapter(
+                                child: SearchingIndicator(
+                                  statusMessage:
+                                      chatState.searchStatusMessage.isNotEmpty
+                                          ? chatState.searchStatusMessage
+                                          : 'Analyzing intent...',
+                                  isSearching:
+                                      true, // Triggers the pulse animation
+                                ),
+                              ),
+
+                            // Show thinking indicator (Only for actual generation/thinking content)
+                            if (chatState.isStreaming &&
+                                chatState.isThinking &&
+                                !chatState.isSearchingWeb &&
+                                !chatState.isAnalyzingIntent)
+                              SliverToBoxAdapter(
+                                child: Builder(
+                                  builder: (context) {
+                                    final showThinking = ref.watch(
+                                      settingsControllerProvider.select(
+                                        (s) => s.showThinking,
+                                      ),
+                                    );
+                                    if (!showThinking) {
+                                      return const SizedBox.shrink();
+                                    }
+
+                                    return CollapsibleThinkingIndicator(
+                                      thinkingContent:
+                                          chatState.thinkingContent,
+                                    );
+                                  },
+                                ),
+                              ),
+                            // Show streaming content
+                            if (chatState.isStreaming &&
+                                chatState.streamingContent.isNotEmpty)
+                              SliverToBoxAdapter(
+                                child: StreamingMessageBubble(
+                                  content: chatState.streamingContent,
+                                  isComplete: false,
+                                ),
+                              ),
+                          ],
                         ),
-                        // Show searching indicator (Only when actually searching)
-                        if (chatState.isSearchingWeb)
-                          SliverToBoxAdapter(
-                            child: SearchingIndicator(
-                              statusMessage: chatState.searchStatusMessage,
-                              isSearching: true,
-                            ),
-                          ),
-
-                        // Show analyzing indicator (Minimal style)
-                        if (chatState.isAnalyzingIntent)
-                          SliverToBoxAdapter(
-                            child: SearchingIndicator(
-                              statusMessage:
-                                  chatState.searchStatusMessage.isNotEmpty
-                                  ? chatState.searchStatusMessage
-                                  : 'Analyzing intent...',
-                              isSearching: true, // Triggers the pulse animation
-                            ),
-                          ),
-
-                        // Show thinking indicator (Only for actual generation/thinking content)
-                        if (chatState.isStreaming &&
-                            chatState.isThinking &&
-                            !chatState.isSearchingWeb &&
-                            !chatState.isAnalyzingIntent)
-                          SliverToBoxAdapter(
-                            child: Builder(
-                              builder: (context) {
-                                final showThinking = ref.watch(
-                                  settingsControllerProvider.select(
-                                    (s) => s.showThinking,
+                        if (_showScrollToBottom)
+                          Positioned(
+                            bottom: 16,
+                            right: 16,
+                            child: Semantics(
+                              label: 'Scroll to bottom',
+                              button: true,
+                              child: Material(
+                                color: AppColors.surfaceLight,
+                                elevation: 4,
+                                shape: const CircleBorder(),
+                                clipBehavior: Clip.antiAlias,
+                                child: InkWell(
+                                  onTap: () {
+                                    ref
+                                        .read(hapticsHelperProvider)
+                                        .triggerHaptics();
+                                    _scrollToBottom();
+                                  },
+                                  child: Container(
+                                    width: 40,
+                                    height: 40,
+                                    alignment: Alignment.center,
+                                    child: const Icon(
+                                      LucideIcons.arrowDown,
+                                      color: AppColors.primary,
+                                      size: 20,
+                                    ),
                                   ),
-                                );
-                                if (!showThinking) {
-                                  return const SizedBox.shrink();
-                                }
-
-                                return CollapsibleThinkingIndicator(
-                                  thinkingContent: chatState.thinkingContent,
-                                );
-                              },
-                            ),
-                          ),
-                        // Show streaming content
-                        if (chatState.isStreaming &&
-                            chatState.streamingContent.isNotEmpty)
-                          SliverToBoxAdapter(
-                            child: StreamingMessageBubble(
-                              content: chatState.streamingContent,
-                              isComplete: false,
+                                ),
+                              ),
                             ),
                           ),
                       ],
