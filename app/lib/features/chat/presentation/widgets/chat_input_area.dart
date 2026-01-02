@@ -381,6 +381,7 @@ class _ChatInputAreaState extends ConsumerState<ChatInputArea> {
                                 child: CircularProgressIndicator(
                                   strokeWidth: 2,
                                   color: AppColors.background,
+                                  semanticsLabel: 'Sending message',
                                 ),
                               )
                             : Icon(
