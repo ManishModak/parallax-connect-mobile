@@ -1,8 +1,9 @@
-"""Middleware for adding security headers to responses."""
+"""Middleware for adding security headers to all responses."""
 
 from starlette.middleware.base import BaseHTTPMiddleware
 from fastapi import Request, Response
 from typing import Callable
+
 
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     """Middleware that adds security-related headers to all responses."""
@@ -23,7 +24,20 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
 
         # HSTS (HTTP Strict Transport Security) - 1 year
-        # Useful if the server is exposed via HTTPS, ignored on HTTP
-        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+        response.headers["Strict-Transport-Security"] = (
+            "max-age=31536000; includeSubDomains"
+        )
+
+        # Content Security Policy
+        # Allow basic functionality while preventing common attacks
+        csp = (
+            "default-src 'self'; "
+            "img-src * data:; "
+            "style-src 'self' 'unsafe-inline'; "
+            "script-src 'self'; "
+            "connect-src *; "
+            "frame-ancestors 'self';"
+        )
+        response.headers["Content-Security-Policy"] = csp
 
         return response
