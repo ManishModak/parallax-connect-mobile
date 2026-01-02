@@ -272,7 +272,7 @@ class _ChatInputAreaState extends ConsumerState<ChatInputArea> {
             borderRadius: BorderRadius.circular(24),
             border: Border.all(
               color: _isFocused
-                  ? AppColors.primary.withOpacity(0.5)
+                  ? AppColors.primary.withValues(alpha: 0.5)
                   : AppColors.surfaceLight,
               width: 1,
             ),

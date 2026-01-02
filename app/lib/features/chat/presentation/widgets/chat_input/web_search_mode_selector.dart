@@ -9,10 +9,7 @@ import '../../view_models/chat_controller.dart';
 class WebSearchModeSelector extends ConsumerWidget {
   final VoidCallback onTap;
 
-  const WebSearchModeSelector({
-    super.key,
-    required this.onTap,
-  });
+  const WebSearchModeSelector({super.key, required this.onTap});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -95,7 +92,6 @@ class WebSearchModeSelector extends ConsumerWidget {
                 ),
               ),
             ),
-          ),
           ),
         ),
       ),
