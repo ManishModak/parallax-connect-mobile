@@ -302,8 +302,9 @@ class _ChatInputAreaState extends ConsumerState<ChatInputArea> {
                   maxLines: 6,
                   minLines: 2,
                   decoration: InputDecoration(
-                    hintText:
-                        isEditing ? 'Edit your message...' : 'Ask anything',
+                    hintText: isEditing
+                        ? 'Edit your message...'
+                        : 'Ask anything',
                     hintStyle: GoogleFonts.inter(color: AppColors.secondary),
                     border: InputBorder.none,
                     contentPadding: const EdgeInsets.symmetric(
@@ -335,9 +336,7 @@ class _ChatInputAreaState extends ConsumerState<ChatInputArea> {
                           // Web Search Mode Selector
                           CompositedTransformTarget(
                             link: _webLayerLink,
-                            child: WebSearchModeSelector(
-                              onTap: _toggleWebMenu,
-                            ),
+                            child: WebSearchModeSelector(onTap: _toggleWebMenu),
                           ),
                         ],
                       ),
@@ -358,46 +357,53 @@ class _ChatInputAreaState extends ConsumerState<ChatInputArea> {
                     const SizedBox(width: 8),
                   ],
                   // Send/Voice/Update Button
-                  Builder(builder: (context) {
-                    final canSubmit = (_controller.text.trim().isNotEmpty ||
-                            _selectedAttachments.isNotEmpty) &&
-                        !widget.isLoading;
+                  Builder(
+                    builder: (context) {
+                      final canSubmit =
+                          (_controller.text.trim().isNotEmpty ||
+                              _selectedAttachments.isNotEmpty) &&
+                          !widget.isLoading;
 
-                    return Container(
-                      width: 36,
-                      height: 36,
-                      decoration: BoxDecoration(
-                        color: canSubmit
-                            ? AppColors.primary
-                            : AppColors.surfaceLight,
-                        shape: BoxShape.circle,
-                      ),
-                      child: IconButton(
-                        tooltip: isEditing ? 'Update message' : 'Send message',
-                        icon: widget.isLoading
-                            ? const SizedBox(
-                                width: 16,
-                                height: 16,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: AppColors.background,
-                                  semanticsLabel: 'Sending message',
+                      return Container(
+                        width: 36,
+                        height: 36,
+                        decoration: BoxDecoration(
+                          color: canSubmit
+                              ? AppColors.primary
+                              : AppColors.surfaceLight,
+                          shape: BoxShape.circle,
+                        ),
+                        child: IconButton(
+                          tooltip: widget.isLoading
+                              ? 'Sending...'
+                              : (isEditing ? 'Update message' : 'Send message'),
+                          icon: widget.isLoading
+                              ? Semantics(
+                                  label: 'Sending message',
+                                  child: const SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: AppColors.background,
+                                    ),
+                                  ),
+                                )
+                              : Icon(
+                                  isEditing
+                                      ? LucideIcons.check
+                                      : LucideIcons.arrowUp,
+                                  size: 20,
+                                  color: canSubmit
+                                      ? AppColors.background
+                                      : AppColors.secondary,
                                 ),
-                              )
-                            : Icon(
-                                isEditing
-                                    ? LucideIcons.check
-                                    : LucideIcons.arrowUp,
-                                size: 20,
-                                color: canSubmit
-                                    ? AppColors.background
-                                    : AppColors.secondary,
-                              ),
-                        onPressed: canSubmit ? _handleSubmit : null,
-                        padding: EdgeInsets.zero,
-                      ),
-                    );
-                  }),
+                          onPressed: canSubmit ? _handleSubmit : null,
+                          padding: EdgeInsets.zero,
+                        ),
+                      );
+                    },
+                  ),
                 ],
               ),
             ],
