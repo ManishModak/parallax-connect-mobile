@@ -16,7 +16,7 @@ from bs4 import BeautifulSoup
 import httpx
 
 from ..logging_setup import get_logger
-from ..utils.security import validate_url
+from ..utils.security import resolve_safe_url
 from ..config import (
     DEBUG_MODE,
     TIMEOUT_FAST,
@@ -831,19 +831,43 @@ class WebSearchService:
                 while redirect_count < max_redirects:
                     # Run validation in executor to avoid blocking loop
                     loop = asyncio.get_running_loop()
-                    is_safe = await loop.run_in_executor(
-                        None, lambda: validate_url(current_url)
+                    safe_ip = await loop.run_in_executor(
+                        None, lambda: resolve_safe_url(current_url)
                     )
 
-                    if not is_safe:
+                    if not safe_ip:
                         logger.warning(
                             f"⚠️ Blocked SSRF attempt to {current_url} (original: {url})"
                         )
                         return ""
 
+                    # SSRF Protection: Connect to validated IP for HTTP
+                    parsed = urlparse(current_url)
+                    request_url = current_url
+                    headers = self._get_headers()
+
+                    if parsed.scheme == "http":
+                        # Rewrite URL to use IP, preventing DNS rebinding
+                        # Construct new netloc using safe_ip
+                        new_netloc = safe_ip
+                        if ":" in safe_ip and "[" not in safe_ip:
+                             # Wrap IPv6 in brackets if not already wrapped
+                             # (socket.getaddrinfo returns raw IP, no brackets)
+                             new_netloc = f"[{safe_ip}]"
+
+                        if parsed.port:
+                             new_netloc = f"{new_netloc}:{parsed.port}"
+
+                        request_url = parsed._replace(netloc=new_netloc).geturl()
+                        headers["Host"] = parsed.netloc # Preserves hostname:port
+
+                    # For HTTPS, we cannot easily rewrite to IP without custom transport/SSL context
+                    # due to certificate verification. We accept the small TOCTOU risk for HTTPS
+                    # as internal sensitive services are typically HTTP.
+
                     resp = await client.get(
-                        current_url,
-                        headers=self._get_headers(),
+                        request_url,
+                        headers=headers,
                         timeout=TIMEOUT_FAST,
                         follow_redirects=False,
                     )
