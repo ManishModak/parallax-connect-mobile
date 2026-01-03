@@ -1,7 +1,7 @@
 
 import unittest
 from unittest.mock import patch, MagicMock
-from server.utils.security import validate_url, is_ip_allowed
+from server.utils.security import resolve_safe_url, validate_url, is_ip_allowed
 
 class TestSecurity(unittest.TestCase):
     def test_is_ip_allowed(self):
@@ -18,9 +18,33 @@ class TestSecurity(unittest.TestCase):
         self.assertFalse(is_ip_allowed("::1"))
         self.assertFalse(is_ip_allowed("fe80::1"))
 
+    # resolve_safe_url tests (Permissive / Pinning)
+    @patch("socket.getaddrinfo")
+    def test_resolve_safe_url_public(self, mock_getaddrinfo):
+        mock_getaddrinfo.return_value = [
+            (None, None, None, None, ("93.184.216.34", 80))
+        ]
+        self.assertEqual(resolve_safe_url("http://example.com"), "93.184.216.34")
+
+    @patch("socket.getaddrinfo")
+    def test_resolve_safe_url_private(self, mock_getaddrinfo):
+        mock_getaddrinfo.return_value = [
+            (None, None, None, None, ("127.0.0.1", 80))
+        ]
+        self.assertIsNone(resolve_safe_url("http://localhost"))
+
+    @patch("socket.getaddrinfo")
+    def test_resolve_safe_url_mixed(self, mock_getaddrinfo):
+        # Should return the safe IP if available
+        mock_getaddrinfo.return_value = [
+            (None, None, None, None, ("127.0.0.1", 80)),
+            (None, None, None, None, ("8.8.8.8", 80))
+        ]
+        self.assertEqual(resolve_safe_url("http://example.com"), "8.8.8.8")
+
+    # validate_url tests (Strict)
     @patch("socket.getaddrinfo")
     def test_validate_url_public(self, mock_getaddrinfo):
-        # Simulate public IP resolution
         mock_getaddrinfo.return_value = [
             (None, None, None, None, ("93.184.216.34", 80))
         ]
@@ -28,21 +52,19 @@ class TestSecurity(unittest.TestCase):
 
     @patch("socket.getaddrinfo")
     def test_validate_url_private(self, mock_getaddrinfo):
-        # Simulate private IP resolution
         mock_getaddrinfo.return_value = [
             (None, None, None, None, ("127.0.0.1", 80))
         ]
         self.assertFalse(validate_url("http://localhost"))
 
     @patch("socket.getaddrinfo")
-    def test_validate_url_rebinding_attempt(self, mock_getaddrinfo):
-        # Simulate one public and one private IP (DNS rebinding scenario - naive check)
-        # Note: validate_url blocks if ANY IP is private
+    def test_validate_url_mixed_fails(self, mock_getaddrinfo):
+        # Mixed should FAIL in strict mode (validate_url)
         mock_getaddrinfo.return_value = [
             (None, None, None, None, ("8.8.8.8", 80)),
             (None, None, None, None, ("127.0.0.1", 80))
         ]
-        self.assertFalse(validate_url("http://attack.com"))
+        self.assertFalse(validate_url("http://example.com"))
 
 if __name__ == "__main__":
     unittest.main()
