@@ -129,12 +129,16 @@ def _process_scraped_content(
         if time_el and time_el.get("datetime"):
             metadata_parts.append(f"Published: {time_el['datetime'][:10]}")
         else:
-            meta_date = soup.find("meta", property="article:published_time")
+            # Optimization: Search in head first if available (avoids full body scan)
+            # This is significantly faster on pages with missing metadata
+            search_scope = soup.head if soup.head else soup
+            meta_date = search_scope.find("meta", property="article:published_time")
             if meta_date and meta_date.get("content"):
                 metadata_parts.append(f"Published: {meta_date['content'][:10]}")
 
         # Try to get author
-        meta_author = soup.find("meta", attrs={"name": "author"})
+        search_scope = soup.head if soup.head else soup
+        meta_author = search_scope.find("meta", attrs={"name": "author"})
         if meta_author and meta_author.get("content"):
             metadata_parts.append(f"Author: {meta_author['content']}")
 
@@ -167,21 +171,8 @@ def _process_scraped_content(
         content = None
 
         text = ""
-        content_selectors = [
-            "article",
-            "main",
-            "[role='main']",
-            ".article-content",
-            ".article-body",
-            ".post-content",
-            ".entry-content",
-            ".content-body",
-            "#article-body",
-            "#content",
-            ".story-body",
-        ]
-
-        for selector in content_selectors:
+        # Optimization: Use global CONTENT_SELECTORS instead of redefining list
+        for selector in CONTENT_SELECTORS:
             try:
                 candidate = soup.select_one(selector)
                 if candidate:
