@@ -2,7 +2,9 @@
 
 import socket
 import ipaddress
+import urllib.parse
 from urllib.parse import urlparse
+from fastapi import HTTPException
 from ..logging_setup import get_logger
 
 logger = get_logger(__name__)
@@ -56,3 +58,29 @@ def validate_url(url: str) -> bool:
     except Exception as e:
         logger.error(f"❌ URL validation error: {e}")
         return False
+
+def validate_proxy_path(path: str) -> str:
+    """
+    Validates a path parameter to prevent path traversal attacks.
+    Handles multiple layers of URL encoding.
+    """
+    decoded = path
+    # Decode recursively to find hidden traversal attempts
+    for _ in range(5):
+        try:
+            prev = decoded
+            decoded = urllib.parse.unquote(decoded)
+            if decoded == prev:
+                break
+        except Exception:
+            break
+
+    if ".." in decoded or "\\" in decoded:
+        logger.warning(f"⚠️ Blocked potential path traversal in UI proxy: {path} (decoded: {decoded})")
+        raise HTTPException(status_code=400, detail="Invalid path")
+
+    if path.startswith("/") or decoded.startswith("/"):
+        logger.warning(f"⚠️ Blocked absolute path in UI proxy: {path}")
+        raise HTTPException(status_code=400, detail="Invalid path")
+
+    return path
