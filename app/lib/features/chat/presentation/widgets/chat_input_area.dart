@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
@@ -254,18 +255,25 @@ class _ChatInputAreaState extends ConsumerState<ChatInputArea> {
       chatControllerProvider.select((state) => state.editingMessage != null),
     );
 
-    return TapRegion(
-      groupId: 'menu_group',
-      onTapOutside: (_) {
-        if (_isAttachmentMenuOpen) {
-          _removeOverlay();
-        }
-        if (_isWebMenuOpen) {
-          _removeWebMenu();
-        }
+    return CallbackShortcuts(
+      bindings: {
+        const SingleActivator(LogicalKeyboardKey.enter, meta: true):
+            _handleSubmit,
+        const SingleActivator(LogicalKeyboardKey.enter, control: true):
+            _handleSubmit,
       },
-      child: Padding(
-        padding: const EdgeInsets.all(4.0),
+      child: TapRegion(
+        groupId: 'menu_group',
+        onTapOutside: (_) {
+          if (_isAttachmentMenuOpen) {
+            _removeOverlay();
+          }
+          if (_isWebMenuOpen) {
+            _removeWebMenu();
+          }
+        },
+        child: Padding(
+          padding: const EdgeInsets.all(4.0),
         child: Container(
           decoration: BoxDecoration(
             color: AppColors.chatInputBackground,
@@ -376,7 +384,9 @@ class _ChatInputAreaState extends ConsumerState<ChatInputArea> {
                         child: IconButton(
                           tooltip: widget.isLoading
                               ? 'Sending...'
-                              : (isEditing ? 'Update message' : 'Send message'),
+                              : (isEditing
+                                  ? 'Update message (Cmd/Ctrl+Enter)'
+                                  : 'Send message (Cmd/Ctrl+Enter)'),
                           icon: widget.isLoading
                               ? Semantics(
                                   label: 'Sending message',
@@ -410,6 +420,6 @@ class _ChatInputAreaState extends ConsumerState<ChatInputArea> {
           ),
         ),
       ),
-    );
+    ));
   }
 }
