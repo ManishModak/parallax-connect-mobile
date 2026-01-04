@@ -1,7 +1,8 @@
 
 import unittest
 from unittest.mock import patch, MagicMock
-from server.utils.security import validate_url, is_ip_allowed
+from fastapi import HTTPException
+from server.utils.security import validate_url, is_ip_allowed, validate_proxy_path
 
 class TestSecurity(unittest.TestCase):
     def test_is_ip_allowed(self):
@@ -43,6 +44,52 @@ class TestSecurity(unittest.TestCase):
             (None, None, None, None, ("127.0.0.1", 80))
         ]
         self.assertFalse(validate_url("http://attack.com"))
+
+    def test_validate_proxy_path_safe(self):
+        # Safe paths
+        self.assertEqual(validate_proxy_path("assets/main.js"), "assets/main.js")
+        self.assertEqual(validate_proxy_path("images/logo.png"), "images/logo.png")
+        self.assertEqual(validate_proxy_path("api/v1/status"), "api/v1/status")
+
+    def test_validate_proxy_path_traversal(self):
+        # Standard traversal
+        with self.assertRaises(HTTPException):
+            validate_proxy_path("../secret")
+        with self.assertRaises(HTTPException):
+            validate_proxy_path("foo/../../etc/passwd")
+
+    def test_validate_proxy_path_encoded(self):
+        # Encoded traversal
+        with self.assertRaises(HTTPException):
+            validate_proxy_path("%2e%2e/secret")
+        with self.assertRaises(HTTPException):
+            validate_proxy_path("..%2fsecret")
+        with self.assertRaises(HTTPException):
+            validate_proxy_path("%2e%2e%2fsecret")
+
+    def test_validate_proxy_path_double_encoded(self):
+        # Double encoded traversal
+        with self.assertRaises(HTTPException):
+            validate_proxy_path("%252e%252e/secret")
+        with self.assertRaises(HTTPException):
+            validate_proxy_path("%252e%252e%252fsecret")
+
+    def test_validate_proxy_path_triple_encoded(self):
+        # Triple encoded traversal
+        with self.assertRaises(HTTPException):
+            validate_proxy_path("%25252e%25252e/secret")
+
+    def test_validate_proxy_path_absolute(self):
+        # Absolute paths
+        with self.assertRaises(HTTPException):
+            validate_proxy_path("/etc/passwd")
+        with self.assertRaises(HTTPException):
+            validate_proxy_path("/secret")
+
+    def test_validate_proxy_path_encoded_absolute(self):
+        # Encoded absolute path
+        with self.assertRaises(HTTPException):
+            validate_proxy_path("%2fetc%2fpasswd")
 
 if __name__ == "__main__":
     unittest.main()
