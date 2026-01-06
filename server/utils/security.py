@@ -2,7 +2,7 @@
 
 import socket
 import ipaddress
-from urllib.parse import urlparse
+from urllib.parse import urlparse, unquote
 from ..logging_setup import get_logger
 
 logger = get_logger(__name__)
@@ -56,3 +56,23 @@ def validate_url(url: str) -> bool:
     except Exception as e:
         logger.error(f"❌ URL validation error: {e}")
         return False
+
+def validate_proxy_path(path: str) -> str:
+    """
+    Validate and decode a proxy path to prevent path traversal.
+    Recursively decodes the path to handle double/triple encoding.
+    Raises ValueError if path contains traversal attempts.
+    """
+    decoded = path
+    # Recursively decode until stable or too many iterations
+    for _ in range(5):
+        new_decoded = unquote(decoded)
+        if new_decoded == decoded:
+            break
+        decoded = new_decoded
+
+    # Check for traversal indicators in the fully decoded string
+    if ".." in decoded or decoded.startswith("/") or "\\" in decoded:
+        raise ValueError("Invalid path: Path traversal detected")
+
+    return decoded

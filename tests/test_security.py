@@ -44,5 +44,48 @@ class TestSecurity(unittest.TestCase):
         ]
         self.assertFalse(validate_url("http://attack.com"))
 
+    def test_validate_proxy_path(self):
+        from server.utils.security import validate_proxy_path
+
+        # Valid paths
+        self.assertEqual(validate_proxy_path("assets/style.css"), "assets/style.css")
+        self.assertEqual(validate_proxy_path("api/v1/user"), "api/v1/user")
+
+        # Traversal attempts
+        with self.assertRaises(ValueError):
+            validate_proxy_path("..")
+        with self.assertRaises(ValueError):
+            validate_proxy_path("../etc/passwd")
+        with self.assertRaises(ValueError):
+            validate_proxy_path("foo/../bar")
+
+        # Encoded traversal
+        with self.assertRaises(ValueError):
+            validate_proxy_path("%2e%2e")
+        with self.assertRaises(ValueError):
+            validate_proxy_path("%2e%2e/etc/passwd")
+
+        # Double encoded traversal
+        with self.assertRaises(ValueError):
+            validate_proxy_path("%252e%252e")
+        with self.assertRaises(ValueError):
+            validate_proxy_path("%252e%252e/etc/passwd")
+
+        # Triple encoded
+        with self.assertRaises(ValueError):
+            validate_proxy_path("%25252e%25252e")
+
+        # Absolute paths
+        with self.assertRaises(ValueError):
+            validate_proxy_path("/etc/passwd")
+        with self.assertRaises(ValueError):
+            validate_proxy_path("%2fetc%2fpasswd")  # /etc/passwd
+
+        # Backslashes
+        with self.assertRaises(ValueError):
+            validate_proxy_path("C:\\Windows")
+        with self.assertRaises(ValueError):
+            validate_proxy_path("%5c")
+
 if __name__ == "__main__":
     unittest.main()
