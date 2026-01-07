@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
@@ -292,28 +293,40 @@ class _ChatInputAreaState extends ConsumerState<ChatInputArea> {
               Semantics(
                 label: isEditing ? 'Edit message input' : 'Message input',
                 textField: true,
-                child: TextField(
-                  controller: _controller,
-                  focusNode: _focusNode,
-                  style: GoogleFonts.inter(
-                    color: AppColors.primary,
-                    fontSize: 16,
-                  ),
-                  maxLines: 6,
-                  minLines: 2,
-                  decoration: InputDecoration(
-                    hintText: isEditing
-                        ? 'Edit your message...'
-                        : 'Ask anything',
-                    hintStyle: GoogleFonts.inter(color: AppColors.secondary),
-                    border: InputBorder.none,
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 4,
-                      vertical: 8,
+                child: CallbackShortcuts(
+                  bindings: {
+                    const SingleActivator(
+                      LogicalKeyboardKey.enter,
+                      meta: true,
+                    ): _handleSubmit,
+                    const SingleActivator(
+                      LogicalKeyboardKey.enter,
+                      control: true,
+                    ): _handleSubmit,
+                  },
+                  child: TextField(
+                    controller: _controller,
+                    focusNode: _focusNode,
+                    style: GoogleFonts.inter(
+                      color: AppColors.primary,
+                      fontSize: 16,
                     ),
-                    isDense: true,
+                    maxLines: 6,
+                    minLines: 2,
+                    decoration: InputDecoration(
+                      hintText: isEditing
+                          ? 'Edit your message...'
+                          : 'Ask anything',
+                      hintStyle: GoogleFonts.inter(color: AppColors.secondary),
+                      border: InputBorder.none,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 4,
+                        vertical: 8,
+                      ),
+                      isDense: true,
+                    ),
+                    onSubmitted: (_) => _handleSubmit(),
                   ),
-                  onSubmitted: (_) => _handleSubmit(),
                 ),
               ),
               const SizedBox(height: 12),
@@ -364,6 +377,13 @@ class _ChatInputAreaState extends ConsumerState<ChatInputArea> {
                               _selectedAttachments.isNotEmpty) &&
                           !widget.isLoading;
 
+                      final isApple = Theme.of(context).platform ==
+                              TargetPlatform.macOS ||
+                          Theme.of(context).platform == TargetPlatform.iOS;
+                      final shortcut = isApple ? 'Cmd+Enter' : 'Ctrl+Enter';
+                      final tooltipAction =
+                          isEditing ? 'Update message' : 'Send message';
+
                       return Container(
                         width: 36,
                         height: 36,
@@ -376,7 +396,7 @@ class _ChatInputAreaState extends ConsumerState<ChatInputArea> {
                         child: IconButton(
                           tooltip: widget.isLoading
                               ? 'Sending...'
-                              : (isEditing ? 'Update message' : 'Send message'),
+                              : '$tooltipAction ($shortcut)',
                           icon: widget.isLoading
                               ? Semantics(
                                   label: 'Sending message',
