@@ -1,9 +1,34 @@
 
 import unittest
 from unittest.mock import patch, MagicMock
-from server.utils.security import validate_url, is_ip_allowed
+from server.utils.security import validate_url, is_ip_allowed, validate_proxy_path
 
 class TestSecurity(unittest.TestCase):
+    def test_validate_proxy_path(self):
+        # Safe paths
+        self.assertTrue(validate_proxy_path("css/style.css"))
+        self.assertTrue(validate_proxy_path("assets/image.png"))
+        self.assertTrue(validate_proxy_path("api/v1/chat"))
+
+        # Simple traversal
+        self.assertFalse(validate_proxy_path("../etc/passwd"))
+        self.assertFalse(validate_proxy_path("css/../../secret"))
+
+        # Absolute paths (blocked)
+        self.assertFalse(validate_proxy_path("/etc/passwd"))
+
+        # Windows separators
+        self.assertFalse(validate_proxy_path("..\\windows\\system32"))
+
+        # Encoded traversal (%2e%2e -> ..)
+        self.assertFalse(validate_proxy_path("%2e%2e/etc/passwd"))
+
+        # Double encoded traversal (%252e%252e -> %2e%2e -> ..)
+        self.assertFalse(validate_proxy_path("%252e%252e/etc/passwd"))
+
+        # Triple encoded
+        self.assertFalse(validate_proxy_path("%25252e%25252e/etc/passwd"))
+
     def test_is_ip_allowed(self):
         # Public IPs
         self.assertTrue(is_ip_allowed("8.8.8.8"))
