@@ -111,6 +111,40 @@ CONTENT_SELECTORS = [
 ]
 
 
+def _clean_element(element) -> None:
+    """
+    Removes noise tags and elements with noise classes from the given element/scope.
+    Modifies the element in-place.
+    """
+    if not element:
+        return
+
+    # 1. Remove noise tags (e.g. script, style, nav)
+    # Using element.find_all restricts search to the subtree, which is faster
+    for tag in element.find_all(NOISE_TAGS):
+        tag.decompose()
+
+    # 2. Remove elements with noise classes (e.g. .ad, .sidebar)
+    elements_to_remove = []
+    for el in element.find_all(class_=True):
+        class_val = el.get("class")
+        if not class_val:
+            continue
+        if isinstance(class_val, list):
+            classes = " ".join(class_val)
+        else:
+            classes = str(class_val)
+
+        if NOISE_REGEX.search(classes):
+            elements_to_remove.append(el)
+
+    for el in elements_to_remove:
+        try:
+            el.decompose()
+        except Exception:
+            pass
+
+
 def _process_scraped_content(
     html_text: str, url: str, max_words: int, scrape_start: float
 ) -> str:
@@ -138,35 +172,10 @@ def _process_scraped_content(
         if meta_author and meta_author.get("content"):
             metadata_parts.append(f"Author: {meta_author['content']}")
 
-        # Extended noise tag removal
-        for tag in soup(NOISE_TAGS):
-            tag.decompose()
-
-        # Safely collect elements to remove first (avoid modifying while iterating)
-        elements_to_remove = []
-        for el in soup.find_all(class_=True):
-            class_val = el.get("class")
-            if not class_val:
-                continue
-            # class_val could be a list or string depending on parser
-            if isinstance(class_val, list):
-                classes = " ".join(class_val)
-            else:
-                classes = str(class_val)
-
-            # Optimized regex check (case-insensitive via regex compilation)
-            if NOISE_REGEX.search(classes):
-                elements_to_remove.append(el)
-
-        for el in elements_to_remove:
-            try:
-                el.decompose()
-            except Exception:
-                pass  # Element may already be removed
-
         content = None
-
         text = ""
+
+        # Priority content selectors
         content_selectors = [
             "article",
             "main",
@@ -181,11 +190,13 @@ def _process_scraped_content(
             ".story-body",
         ]
 
+        # Optimization: Select candidate FIRST, then clean only the candidate
+        # This prevents iterating over the entire DOM to remove noise from unrelated sections
         for selector in content_selectors:
             try:
                 candidate = soup.select_one(selector)
                 if candidate:
-                    # Cache the text to avoid re-extracting
+                    _clean_element(candidate)
                     candidate_text = candidate.get_text(separator=" ", strip=True)
                     if len(candidate_text) > 200:
                         content = candidate
@@ -193,11 +204,11 @@ def _process_scraped_content(
                         break
             except Exception:
                 pass
-            content = None
 
-        # Fallback to body if no article container found
+        # Fallback to body if no valid article container found
         if not content:
             content = soup.body if soup.body else soup
+            _clean_element(content)
             text = content.get_text(separator=" ", strip=True)
 
         # Final safety check
