@@ -20,3 +20,8 @@
 
 **Learning:** Small icons with tight padding (e.g., < 24dp) are difficult to tap accurately.
 **Action:** Ensure interactive elements have a hit test area of at least 40x40dp (or close to it) by increasing padding or using `IconButton`/`InkWell` with larger constraints.
+
+## 2025-02-14 - Keyboard Discoverability
+
+**Learning:** Tooltips for action buttons are often the primary way users discover keyboard shortcuts for those actions.
+**Action:** Append keyboard shortcut hints (e.g., "Send (Cmd+Enter)") to tooltip text, ensuring platform-specific keys are used (Cmd vs Ctrl).
