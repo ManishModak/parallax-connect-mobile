@@ -56,6 +56,10 @@ NOISE_TAGS = [
     "picture",
 ]
 
+# Global noise tags that should always be removed immediately
+# These tags never contain content and often interfere with text extraction
+GLOBAL_NOISE_TAGS = ["script", "style", "noscript", "template"]
+
 # Remove elements by class patterns (ads, sidebars, comments, etc.)
 NOISE_CLASS_PATTERNS = [
     "ad",
@@ -111,6 +115,39 @@ CONTENT_SELECTORS = [
 ]
 
 
+def _clean_element_tree(element):
+    """
+    Cleans a specific element tree (scoped cleaning).
+    This is significantly faster than cleaning the entire DOM.
+    """
+    # Remove noise tags within the scope
+    for tag in element(NOISE_TAGS):
+        tag.decompose()
+
+    # Safely collect elements to remove first (avoid modifying while iterating)
+    elements_to_remove = []
+    # We only search within this element's subtree
+    for el in element.find_all(class_=True):
+        class_val = el.get("class")
+        if not class_val:
+            continue
+        # class_val could be a list or string depending on parser
+        if isinstance(class_val, list):
+            classes = " ".join(class_val)
+        else:
+            classes = str(class_val)
+
+        # Optimized regex check
+        if NOISE_REGEX.search(classes):
+            elements_to_remove.append(el)
+
+    for el in elements_to_remove:
+        try:
+            el.decompose()
+        except Exception:
+            pass  # Element may already be removed
+
+
 def _process_scraped_content(
     html_text: str, url: str, max_words: int, scrape_start: float
 ) -> str:
@@ -138,54 +175,24 @@ def _process_scraped_content(
         if meta_author and meta_author.get("content"):
             metadata_parts.append(f"Author: {meta_author['content']}")
 
-        # Extended noise tag removal
-        for tag in soup(NOISE_TAGS):
+        # PERFORMANCE OPTIMIZATION: Scoped Cleaning
+        # 1. Remove critical global noise (script, style) to ensure text extraction is clean
+        # This is fast and necessary for accurate text length checks
+        for tag in soup(GLOBAL_NOISE_TAGS):
             tag.decompose()
 
-        # Safely collect elements to remove first (avoid modifying while iterating)
-        elements_to_remove = []
-        for el in soup.find_all(class_=True):
-            class_val = el.get("class")
-            if not class_val:
-                continue
-            # class_val could be a list or string depending on parser
-            if isinstance(class_val, list):
-                classes = " ".join(class_val)
-            else:
-                classes = str(class_val)
-
-            # Optimized regex check (case-insensitive via regex compilation)
-            if NOISE_REGEX.search(classes):
-                elements_to_remove.append(el)
-
-        for el in elements_to_remove:
-            try:
-                el.decompose()
-            except Exception:
-                pass  # Element may already be removed
-
         content = None
-
         text = ""
-        content_selectors = [
-            "article",
-            "main",
-            "[role='main']",
-            ".article-content",
-            ".article-body",
-            ".post-content",
-            ".entry-content",
-            ".content-body",
-            "#article-body",
-            "#content",
-            ".story-body",
-        ]
 
-        for selector in content_selectors:
+        # 2. Try to find content container FIRST
+        # Only clean the candidate container if found, avoiding expensive full-DOM traversal
+        for selector in CONTENT_SELECTORS:
             try:
                 candidate = soup.select_one(selector)
                 if candidate:
-                    # Cache the text to avoid re-extracting
+                    # Clean ONLY this subtree
+                    _clean_element_tree(candidate)
+
                     candidate_text = candidate.get_text(separator=" ", strip=True)
                     if len(candidate_text) > 200:
                         content = candidate
@@ -193,11 +200,12 @@ def _process_scraped_content(
                         break
             except Exception:
                 pass
-            content = None
 
-        # Fallback to body if no article container found
+        # 3. Fallback to body if no article container found
         if not content:
             content = soup.body if soup.body else soup
+            # Clean the fallback content
+            _clean_element_tree(content)
             text = content.get_text(separator=" ", strip=True)
 
         # Final safety check
