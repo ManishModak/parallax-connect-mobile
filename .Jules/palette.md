@@ -20,3 +20,8 @@
 
 **Learning:** Small icons with tight padding (e.g., < 24dp) are difficult to tap accurately.
 **Action:** Ensure interactive elements have a hit test area of at least 40x40dp (or close to it) by increasing padding or using `IconButton`/`InkWell` with larger constraints.
+
+## 2025-02-15 - Keyboard Efficiency
+
+**Learning:** Multiline text fields in chat apps often break the standard "Enter to send" expectation, frustrating desktop/power users who expect `Cmd+Enter` or `Ctrl+Enter` to submit.
+**Action:** Implement `CallbackShortcuts` on multiline inputs to support platform-specific submission shortcuts (`Cmd+Enter` on macOS, `Ctrl+Enter` elsewhere) and indicate this in tooltips.
