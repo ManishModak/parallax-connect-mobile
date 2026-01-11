@@ -96,18 +96,19 @@ NOISE_REGEX = re.compile(
 )
 
 # Prioritize article content containers
-CONTENT_SELECTORS = [
-    "article",
-    "main",
-    "[role='main']",
-    ".article-content",
-    ".article-body",
-    ".post-content",
-    ".entry-content",
-    ".content-body",
-    "#article-body",
-    "#content",
-    ".story-body",
+# Optimization: Mapped to dictionary for find() usage which is ~2x faster than select_one()
+CONTENT_SELECTORS_MAP = [
+    {"name": "article"},
+    {"name": "main"},
+    {"attrs": {"role": "main"}},
+    {"class_": "article-content"},
+    {"class_": "article-body"},
+    {"class_": "post-content"},
+    {"class_": "entry-content"},
+    {"class_": "content-body"},
+    {"id": "article-body"},
+    {"id": "content"},
+    {"class_": "story-body"},
 ]
 
 
@@ -167,23 +168,11 @@ def _process_scraped_content(
         content = None
 
         text = ""
-        content_selectors = [
-            "article",
-            "main",
-            "[role='main']",
-            ".article-content",
-            ".article-body",
-            ".post-content",
-            ".entry-content",
-            ".content-body",
-            "#article-body",
-            "#content",
-            ".story-body",
-        ]
 
-        for selector in content_selectors:
+        # Optimization: Use find() instead of select_one() for better performance
+        for selector_args in CONTENT_SELECTORS_MAP:
             try:
-                candidate = soup.select_one(selector)
+                candidate = soup.find(**selector_args)
                 if candidate:
                     # Cache the text to avoid re-extracting
                     candidate_text = candidate.get_text(separator=" ", strip=True)
