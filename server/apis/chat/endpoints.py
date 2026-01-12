@@ -362,7 +362,8 @@ async def vision_endpoint(
                         status_code=413,
                         detail=f"Image too large (max {MAX_IMAGE_BYTES // (1024*1024)}MB).",
                     )
-            image_bytes = bytes(image_bytes)
+            # Optimization: Keep as bytearray to avoid memory copy
+            # image_bytes = bytes(image_bytes)
             user_prompt = prompt or ""
             logger.info(
                 f"📸 [{request_id}] Vision request (multipart): {len(image_bytes)} bytes"
