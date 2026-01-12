@@ -2,7 +2,7 @@
 
 import socket
 import ipaddress
-from urllib.parse import urlparse
+from urllib.parse import urlparse, unquote
 from ..logging_setup import get_logger
 
 logger = get_logger(__name__)
@@ -56,3 +56,29 @@ def validate_url(url: str) -> bool:
     except Exception as e:
         logger.error(f"❌ URL validation error: {e}")
         return False
+
+def validate_proxy_path(path: str) -> bool:
+    """
+    Validate that a proxy path is safe and does not contain directory traversal attacks.
+    Recursively decodes the path to detect hidden traversal attempts (e.g. %252e%252e).
+
+    Args:
+        path: The path component to validate
+
+    Returns:
+        bool: True if path is safe, False otherwise
+    """
+    decoded = path
+    # Recursive decode to find hidden traversal (limit 5 to prevent infinite loops)
+    for _ in range(5):
+        prev = decoded
+        decoded = unquote(prev)
+        if decoded == prev:
+            break
+
+    # Check for traversal indicators in the fully decoded string
+    if ".." in decoded or decoded.startswith("/") or "\\" in decoded:
+        logger.warning(f"⚠️ Blocked path traversal attempt: {path} (decoded: {decoded})")
+        return False
+
+    return True

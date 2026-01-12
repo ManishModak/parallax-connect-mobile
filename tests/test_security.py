@@ -1,7 +1,7 @@
 
 import unittest
 from unittest.mock import patch, MagicMock
-from server.utils.security import validate_url, is_ip_allowed
+from server.utils.security import validate_url, is_ip_allowed, validate_proxy_path
 
 class TestSecurity(unittest.TestCase):
     def test_is_ip_allowed(self):
@@ -43,6 +43,37 @@ class TestSecurity(unittest.TestCase):
             (None, None, None, None, ("127.0.0.1", 80))
         ]
         self.assertFalse(validate_url("http://attack.com"))
+
+    def test_validate_proxy_path(self):
+        # Safe paths
+        self.assertTrue(validate_proxy_path("assets/style.css"))
+        self.assertTrue(validate_proxy_path("api/v1/user"))
+        self.assertTrue(validate_proxy_path("images/logo.png"))
+
+        # Simple traversal
+        self.assertFalse(validate_proxy_path("../etc/passwd"))
+        self.assertFalse(validate_proxy_path("images/../../secret.txt"))
+
+        # Absolute paths (blocked)
+        self.assertFalse(validate_proxy_path("/etc/passwd"))
+
+        # Windows-style separator
+        self.assertFalse(validate_proxy_path("win\\system32"))
+
+        # Encoded traversal (%2e%2e -> ..)
+        self.assertFalse(validate_proxy_path("%2e%2e/etc/passwd"))
+
+        # Double encoded traversal (%252e%252e -> %2e%2e -> ..)
+        self.assertFalse(validate_proxy_path("%252e%252e/etc/passwd"))
+
+        # Triple encoded traversal
+        self.assertFalse(validate_proxy_path("%25252e%25252e/etc/passwd"))
+
+        # Encoded backslash
+        self.assertFalse(validate_proxy_path("win%5Csystem32"))
+
+        # Encoded slash at start
+        self.assertFalse(validate_proxy_path("%2Fetc%2Fpasswd"))
 
 if __name__ == "__main__":
     unittest.main()
