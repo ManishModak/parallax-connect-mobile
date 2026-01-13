@@ -2,7 +2,7 @@
 
 import socket
 import ipaddress
-from urllib.parse import urlparse
+from urllib.parse import urlparse, unquote
 from ..logging_setup import get_logger
 
 logger = get_logger(__name__)
@@ -56,3 +56,39 @@ def validate_url(url: str) -> bool:
     except Exception as e:
         logger.error(f"❌ URL validation error: {e}")
         return False
+
+def validate_proxy_path(path: str) -> bool:
+    """
+    Validate proxy path to prevent traversal attacks.
+    Recursively decodes the path to detect hidden '..' or specific characters.
+    """
+    if not path:
+        return False
+
+    decoded_path = path
+    # Recursively decode up to 5 times to handle multiple encoding layers
+    for _ in range(5):
+        try:
+            prev_path = decoded_path
+            decoded_path = unquote(decoded_path)
+            # If decoding didn't change anything, we reached the raw string
+            if decoded_path == prev_path:
+                break
+        except Exception:
+            # If decoding fails, safer to reject
+            return False
+
+    # Check for traversal indicators in the fully decoded path
+    if ".." in decoded_path:
+        logger.warning(f"⚠️ Blocked path traversal (..): {path}")
+        return False
+
+    if "\\" in decoded_path:
+        logger.warning(f"⚠️ Blocked backslash in path: {path}")
+        return False
+
+    if decoded_path.startswith("/"):
+        logger.warning(f"⚠️ Blocked absolute path start: {path}")
+        return False
+
+    return True
