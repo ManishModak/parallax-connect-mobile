@@ -7,6 +7,7 @@ from ..auth import check_password
 from ..config import PARALLAX_UI_URL, DEBUG_MODE
 from ..logging_setup import get_logger
 from ..services.http_client import get_async_http_client
+from ..utils.security import validate_proxy_path
 
 router = APIRouter()
 logger = get_logger(__name__)
@@ -48,8 +49,7 @@ async def ui_index(_: bool = Depends(check_password)):
 async def ui_proxy(path: str, request: Request, _: bool = Depends(check_password)):
     """Proxy all Parallax UI requests (assets, API calls, etc.)."""
     # Security: Prevent path traversal
-    if ".." in path or path.startswith("/") or "\\" in path:
-        logger.warning(f"⚠️ Blocked potential path traversal in UI proxy: {path}")
+    if not validate_proxy_path(path):
         raise HTTPException(status_code=400, detail="Invalid path")
 
     try:
@@ -84,8 +84,7 @@ async def ui_proxy(path: str, request: Request, _: bool = Depends(check_password
 async def ui_api_proxy(path: str, request: Request, _: bool = Depends(check_password)):
     """Proxy API calls from the Parallax UI."""
     # Security: Prevent path traversal
-    if ".." in path or path.startswith("/") or "\\" in path:
-        logger.warning(f"⚠️ Blocked potential path traversal in UI API proxy: {path}")
+    if not validate_proxy_path(path):
         raise HTTPException(status_code=400, detail="Invalid path")
 
     try:
