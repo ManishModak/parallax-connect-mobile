@@ -20,3 +20,8 @@
 
 **Learning:** Small icons with tight padding (e.g., < 24dp) are difficult to tap accurately.
 **Action:** Ensure interactive elements have a hit test area of at least 40x40dp (or close to it) by increasing padding or using `IconButton`/`InkWell` with larger constraints.
+
+## 2025-10-26 - Keyboard Shortcut Discoverability
+
+**Learning:** Users often expect standard keyboard shortcuts (like Cmd/Ctrl+Enter to send) but may not discover them if they are invisible.
+**Action:** Include keyboard shortcut hints in tooltips for action buttons (e.g., "Send message (Cmd+Enter)") to improve discoverability and accessibility.
