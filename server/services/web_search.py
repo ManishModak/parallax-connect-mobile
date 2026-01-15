@@ -142,30 +142,7 @@ def _process_scraped_content(
         for tag in soup(NOISE_TAGS):
             tag.decompose()
 
-        # Safely collect elements to remove first (avoid modifying while iterating)
-        elements_to_remove = []
-        for el in soup.find_all(class_=True):
-            class_val = el.get("class")
-            if not class_val:
-                continue
-            # class_val could be a list or string depending on parser
-            if isinstance(class_val, list):
-                classes = " ".join(class_val)
-            else:
-                classes = str(class_val)
-
-            # Optimized regex check (case-insensitive via regex compilation)
-            if NOISE_REGEX.search(classes):
-                elements_to_remove.append(el)
-
-        for el in elements_to_remove:
-            try:
-                el.decompose()
-            except Exception:
-                pass  # Element may already be removed
-
         content = None
-
         text = ""
         content_selectors = [
             "article",
@@ -185,11 +162,11 @@ def _process_scraped_content(
             try:
                 candidate = soup.select_one(selector)
                 if candidate:
-                    # Cache the text to avoid re-extracting
+                    # Rough check on dirty text length
                     candidate_text = candidate.get_text(separator=" ", strip=True)
                     if len(candidate_text) > 200:
                         content = candidate
-                        text = candidate_text
+                        # Don't use candidate_text yet, we need to clean first
                         break
             except Exception:
                 pass
@@ -198,6 +175,31 @@ def _process_scraped_content(
         # Fallback to body if no article container found
         if not content:
             content = soup.body if soup.body else soup
+
+        # Optimization: Apply class-based noise removal ONLY to the selected content
+        # This prevents scanning the entire DOM (headers, footers, huge sidebars) for noise
+        elements_to_remove = []
+        if content:
+            for el in content.find_all(class_=True):
+                class_val = el.get("class")
+                if not class_val:
+                    continue
+                # class_val could be a list or string depending on parser
+                if isinstance(class_val, list):
+                    classes = " ".join(class_val)
+                else:
+                    classes = str(class_val)
+
+                # Optimized regex check
+                if NOISE_REGEX.search(classes):
+                    elements_to_remove.append(el)
+
+            for el in elements_to_remove:
+                try:
+                    el.decompose()
+                except Exception:
+                    pass
+
             text = content.get_text(separator=" ", strip=True)
 
         # Final safety check
