@@ -20,3 +20,8 @@
 
 **Learning:** Small icons with tight padding (e.g., < 24dp) are difficult to tap accurately.
 **Action:** Ensure interactive elements have a hit test area of at least 40x40dp (or close to it) by increasing padding or using `IconButton`/`InkWell` with larger constraints.
+
+## 2025-02-15 - Desktop-Like Shortcuts on Mobile
+
+**Learning:** Adding `CallbackShortcuts` to multiline TextFields is critical for desktop-like behavior (Cmd+Enter) on mobile/web forms, as `TextField` doesn't handle these combinations by default.
+**Action:** Always wrap multiline inputs with `CallbackShortcuts` to support platform-standard submission keys (Cmd+Enter/Ctrl+Enter) and expose the shortcut in the submit button tooltip.
