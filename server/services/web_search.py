@@ -6,7 +6,7 @@ Implements Normal, Deep, and Deeper search strategies using DuckDuckGo and scrap
 import asyncio
 import time
 import re
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Tuple
 from collections import deque
 from urllib.parse import urlparse
 
@@ -96,18 +96,19 @@ NOISE_REGEX = re.compile(
 )
 
 # Prioritize article content containers
-CONTENT_SELECTORS = [
-    "article",
-    "main",
-    "[role='main']",
-    ".article-content",
-    ".article-body",
-    ".post-content",
-    ".entry-content",
-    ".content-body",
-    "#article-body",
-    "#content",
-    ".story-body",
+# Optimization: Map selectors to find() arguments to avoid CSS selector parsing
+CONTENT_SELECTORS_MAP: List[Tuple[str, Dict[str, Any]]] = [
+    ("article", {"name": "article"}),
+    ("main", {"name": "main"}),
+    ("[role='main']", {"attrs": {"role": "main"}}),
+    (".article-content", {"class_": "article-content"}),
+    (".article-body", {"class_": "article-body"}),
+    (".post-content", {"class_": "post-content"}),
+    (".entry-content", {"class_": "entry-content"}),
+    (".content-body", {"class_": "content-body"}),
+    ("#article-body", {"id": "article-body"}),
+    ("#content", {"id": "content"}),
+    (".story-body", {"class_": "story-body"}),
 ]
 
 
@@ -167,23 +168,24 @@ def _process_scraped_content(
         content = None
 
         text = ""
-        content_selectors = [
-            "article",
-            "main",
-            "[role='main']",
-            ".article-content",
-            ".article-body",
-            ".post-content",
-            ".entry-content",
-            ".content-body",
-            "#article-body",
-            "#content",
-            ".story-body",
-        ]
 
-        for selector in content_selectors:
+        for _, kwargs in CONTENT_SELECTORS_MAP:
             try:
-                candidate = soup.select_one(selector)
+                # Optimized find() over select_one()
+                # Unpack kwargs properly for find
+                name = kwargs.get("name")
+                attrs = kwargs.get("attrs", {})
+                class_ = kwargs.get("class_")
+                id_ = kwargs.get("id")
+
+                find_kwargs = attrs.copy()
+                if class_:
+                    find_kwargs["class_"] = class_
+                if id_:
+                    find_kwargs["id"] = id_
+
+                candidate = soup.find(name, **find_kwargs)
+
                 if candidate:
                     # Cache the text to avoid re-extracting
                     candidate_text = candidate.get_text(separator=" ", strip=True)
