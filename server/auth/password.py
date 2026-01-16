@@ -150,6 +150,16 @@ def setup_password():
         set_password(None)
         print("⚠️  No password set. Server is open.\n")
 
+def get_client_ip(request: Request) -> str:
+    """
+    Get the client IP address, respecting X-Forwarded-For if present.
+    Essential for rate limiting behind reverse proxies.
+    """
+    forwarded = request.headers.get("X-Forwarded-For")
+    if forwarded:
+        # X-Forwarded-For: client, proxy1, proxy2...
+        return forwarded.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
 
 async def check_password(
     request: Request, x_password: Optional[str] = Header(default=None)
@@ -159,7 +169,7 @@ async def check_password(
     if SERVER_MODE == "MOCK":
         return True
 
-    client_ip = request.client.host if request.client else "unknown"
+    client_ip = get_client_ip(request)
 
     # Check rate limit before anything else
     if _rate_limiter.is_blocked(client_ip):

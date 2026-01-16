@@ -3,7 +3,7 @@ import time
 import asyncio
 from unittest.mock import MagicMock, patch
 from fastapi import Request, HTTPException
-from server.auth.password import check_password, set_password, _rate_limiter
+from server.auth.password import check_password, set_password, _rate_limiter, get_client_ip
 
 class TestRateLimiter(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
@@ -13,8 +13,22 @@ class TestRateLimiter(unittest.IsolatedAsyncioTestCase):
         _rate_limiter.failed_attempts.clear()
         _rate_limiter.blocked_ips.clear()
 
+    async def test_get_client_ip(self):
+        # Case 1: No X-Forwarded-For
+        req = MagicMock(spec=Request)
+        req.headers = {}
+        req.client.host = "1.2.3.4"
+        self.assertEqual(get_client_ip(req), "1.2.3.4")
+
+        # Case 2: X-Forwarded-For present
+        req = MagicMock(spec=Request)
+        req.headers = {"X-Forwarded-For": "10.0.0.1, 192.168.1.1"}
+        req.client.host = "192.168.1.1"
+        self.assertEqual(get_client_ip(req), "10.0.0.1")
+
     async def test_successful_login(self):
         req = MagicMock(spec=Request)
+        req.headers = {}
         req.client.host = "1.2.3.4"
 
         # Should succeed
@@ -26,6 +40,7 @@ class TestRateLimiter(unittest.IsolatedAsyncioTestCase):
 
     async def test_failed_login_rate_limit(self):
         req = MagicMock(spec=Request)
+        req.headers = {}
         req.client.host = "5.6.7.8"
 
         # Fail 5 times (LIMIT)
@@ -45,8 +60,29 @@ class TestRateLimiter(unittest.IsolatedAsyncioTestCase):
             await check_password(x_password="correct-password", request=req)
         self.assertEqual(cm.exception.status_code, 429)
 
+    async def test_failed_login_rate_limit_with_proxy(self):
+        req = MagicMock(spec=Request)
+        req.headers = {"X-Forwarded-For": "203.0.113.1, 10.0.0.1"}
+        req.client.host = "10.0.0.1"
+
+        # Fail 5 times (LIMIT) for the real client IP (203.0.113.1)
+        for _ in range(5):
+            with self.assertRaises(HTTPException) as cm:
+                await check_password(x_password="wrong", request=req)
+            self.assertEqual(cm.exception.status_code, 401)
+
+        # 6th time should be 429
+        with self.assertRaises(HTTPException) as cm:
+            await check_password(x_password="wrong", request=req)
+        self.assertEqual(cm.exception.status_code, 429)
+
+        # Verify blocking was done on the forwarded IP, not the proxy IP
+        self.assertIn("203.0.113.1", _rate_limiter.blocked_ips)
+        self.assertNotIn("10.0.0.1", _rate_limiter.blocked_ips)
+
     async def test_block_expiry(self):
         req = MagicMock(spec=Request)
+        req.headers = {}
         req.client.host = "9.10.11.12"
 
         # Manually block with a future timestamp
