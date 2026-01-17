@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
@@ -254,19 +255,30 @@ class _ChatInputAreaState extends ConsumerState<ChatInputArea> {
       chatControllerProvider.select((state) => state.editingMessage != null),
     );
 
-    return TapRegion(
-      groupId: 'menu_group',
-      onTapOutside: (_) {
-        if (_isAttachmentMenuOpen) {
-          _removeOverlay();
-        }
-        if (_isWebMenuOpen) {
-          _removeWebMenu();
-        }
+    final isApple = Theme.of(context).platform == TargetPlatform.macOS ||
+        Theme.of(context).platform == TargetPlatform.iOS;
+    final shortcutLabel = isApple ? 'Cmd+Enter' : 'Ctrl+Enter';
+
+    return CallbackShortcuts(
+      bindings: {
+        const SingleActivator(LogicalKeyboardKey.enter, meta: true):
+            _handleSubmit,
+        const SingleActivator(LogicalKeyboardKey.enter, control: true):
+            _handleSubmit,
       },
-      child: Padding(
-        padding: const EdgeInsets.all(4.0),
-        child: Container(
+      child: TapRegion(
+        groupId: 'menu_group',
+        onTapOutside: (_) {
+          if (_isAttachmentMenuOpen) {
+            _removeOverlay();
+          }
+          if (_isWebMenuOpen) {
+            _removeWebMenu();
+          }
+        },
+        child: Padding(
+          padding: const EdgeInsets.all(4.0),
+          child: Container(
           decoration: BoxDecoration(
             color: AppColors.chatInputBackground,
             borderRadius: BorderRadius.circular(24),
@@ -376,7 +388,9 @@ class _ChatInputAreaState extends ConsumerState<ChatInputArea> {
                         child: IconButton(
                           tooltip: widget.isLoading
                               ? 'Sending...'
-                              : (isEditing ? 'Update message' : 'Send message'),
+                              : (isEditing
+                                  ? 'Update message ($shortcutLabel)'
+                                  : 'Send message ($shortcutLabel)'),
                           icon: widget.isLoading
                               ? Semantics(
                                   label: 'Sending message',
@@ -410,6 +424,7 @@ class _ChatInputAreaState extends ConsumerState<ChatInputArea> {
           ),
         ),
       ),
+    ),
     );
   }
 }
