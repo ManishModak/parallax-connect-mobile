@@ -50,9 +50,6 @@ class _ChatInputAreaState extends ConsumerState<ChatInputArea> {
   @override
   void initState() {
     super.initState();
-    _controller.addListener(() {
-      if (mounted) setState(() {});
-    });
     _focusNode.addListener(() {
       if (mounted) {
         setState(() {
@@ -357,10 +354,11 @@ class _ChatInputAreaState extends ConsumerState<ChatInputArea> {
                     const SizedBox(width: 8),
                   ],
                   // Send/Voice/Update Button
-                  Builder(
-                    builder: (context) {
+                  ValueListenableBuilder<TextEditingValue>(
+                    valueListenable: _controller,
+                    builder: (context, value, child) {
                       final canSubmit =
-                          (_controller.text.trim().isNotEmpty ||
+                          (value.text.trim().isNotEmpty ||
                               _selectedAttachments.isNotEmpty) &&
                           !widget.isLoading;
 
