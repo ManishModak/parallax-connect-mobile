@@ -1,7 +1,7 @@
 
 import unittest
 from unittest.mock import patch, MagicMock
-from server.utils.security import validate_url, is_ip_allowed
+from server.utils.security import validate_url, is_ip_allowed, validate_proxy_path
 
 class TestSecurity(unittest.TestCase):
     def test_is_ip_allowed(self):
@@ -43,6 +43,44 @@ class TestSecurity(unittest.TestCase):
             (None, None, None, None, ("127.0.0.1", 80))
         ]
         self.assertFalse(validate_url("http://attack.com"))
+
+    def test_validate_proxy_path(self):
+        # Valid paths
+        validate_proxy_path("index.html")
+        validate_proxy_path("css/style.css")
+        validate_proxy_path("js/app.js")
+        validate_proxy_path("assets/image.png")
+
+        # Invalid paths
+        with self.assertRaises(ValueError):
+            validate_proxy_path("../etc/passwd")
+
+        with self.assertRaises(ValueError):
+            validate_proxy_path("/etc/passwd")
+
+        with self.assertRaises(ValueError):
+            validate_proxy_path("..\\windows\\system32")
+
+        # Encoded traversal
+        with self.assertRaises(ValueError):
+            validate_proxy_path("%2e%2e/etc/passwd")
+
+        # Double encoded traversal
+        with self.assertRaises(ValueError):
+            validate_proxy_path("%252e%252e/etc/passwd")
+
+        # Triple encoded traversal
+        with self.assertRaises(ValueError):
+            validate_proxy_path("%25252e%25252e/etc/passwd")
+
+        # Encoded slash
+        with self.assertRaises(ValueError):
+            validate_proxy_path("%2fetc/passwd")
+
+        # Triple encoded slash
+        with self.assertRaises(ValueError):
+            validate_proxy_path("%25252fetc/passwd")
+
 
 if __name__ == "__main__":
     unittest.main()
