@@ -1,7 +1,7 @@
 
 import unittest
 from unittest.mock import patch, MagicMock
-from server.utils.security import validate_url, is_ip_allowed
+from server.utils.security import validate_url, is_ip_allowed, validate_proxy_path
 
 class TestSecurity(unittest.TestCase):
     def test_is_ip_allowed(self):
@@ -43,6 +43,44 @@ class TestSecurity(unittest.TestCase):
             (None, None, None, None, ("127.0.0.1", 80))
         ]
         self.assertFalse(validate_url("http://attack.com"))
+
+    def test_validate_proxy_path_valid(self):
+        self.assertEqual(validate_proxy_path("static/main.js"), "static/main.js")
+        self.assertEqual(validate_proxy_path("api/v1/data"), "api/v1/data")
+        self.assertEqual(validate_proxy_path("foo.bar"), "foo.bar")
+
+    def test_validate_proxy_path_traversal(self):
+        with self.assertRaises(ValueError):
+            validate_proxy_path("..")
+        with self.assertRaises(ValueError):
+            validate_proxy_path("../etc/passwd")
+        with self.assertRaises(ValueError):
+            validate_proxy_path("foo/../bar")
+
+    def test_validate_proxy_path_encoded(self):
+        # %2e%2e -> ..
+        with self.assertRaises(ValueError):
+            validate_proxy_path("%2e%2e")
+        # %2E%2E -> ..
+        with self.assertRaises(ValueError):
+            validate_proxy_path("%2E%2E")
+
+    def test_validate_proxy_path_double_encoded(self):
+        # %252e%252e -> %2e%2e -> ..
+        with self.assertRaises(ValueError):
+            validate_proxy_path("%252e%252e")
+
+    def test_validate_proxy_path_null_byte(self):
+        with self.assertRaises(ValueError):
+            validate_proxy_path("foo%00bar")
+
+    def test_validate_proxy_path_backslash(self):
+        with self.assertRaises(ValueError):
+            validate_proxy_path("foo\\bar")
+
+    def test_validate_proxy_path_absolute(self):
+        with self.assertRaises(ValueError):
+            validate_proxy_path("/etc/passwd")
 
 if __name__ == "__main__":
     unittest.main()
