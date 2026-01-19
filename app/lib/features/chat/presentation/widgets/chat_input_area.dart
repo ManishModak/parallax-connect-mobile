@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
@@ -232,6 +233,10 @@ class _ChatInputAreaState extends ConsumerState<ChatInputArea> {
 
   @override
   Widget build(BuildContext context) {
+    final isApple = Theme.of(context).platform == TargetPlatform.macOS ||
+        Theme.of(context).platform == TargetPlatform.iOS;
+    final shortcutLabel = isApple ? ' (Cmd+Enter)' : ' (Ctrl+Enter)';
+
     // Keep the input field in sync with the currently edited message.
     // Must be in build() because ref is not available in initState for ConsumerStatefulWidget.
     ref.listen<ChatState>(chatControllerProvider, (previous, next) {
@@ -289,10 +294,18 @@ class _ChatInputAreaState extends ConsumerState<ChatInputArea> {
               ),
 
               // Text Input
-              Semantics(
-                label: isEditing ? 'Edit message input' : 'Message input',
-                textField: true,
-                child: TextField(
+              CallbackShortcuts(
+                bindings: {
+                  SingleActivator(
+                    LogicalKeyboardKey.enter,
+                    meta: isApple,
+                    control: !isApple,
+                  ): _handleSubmit,
+                },
+                child: Semantics(
+                  label: isEditing ? 'Edit message input' : 'Message input',
+                  textField: true,
+                  child: TextField(
                   controller: _controller,
                   focusNode: _focusNode,
                   style: GoogleFonts.inter(
@@ -315,6 +328,7 @@ class _ChatInputAreaState extends ConsumerState<ChatInputArea> {
                   ),
                   onSubmitted: (_) => _handleSubmit(),
                 ),
+              ),
               ),
               const SizedBox(height: 12),
               // Bottom Actions Row
@@ -376,7 +390,9 @@ class _ChatInputAreaState extends ConsumerState<ChatInputArea> {
                         child: IconButton(
                           tooltip: widget.isLoading
                               ? 'Sending...'
-                              : (isEditing ? 'Update message' : 'Send message'),
+                              : (isEditing
+                                  ? 'Update message$shortcutLabel'
+                                  : 'Send message$shortcutLabel'),
                           icon: widget.isLoading
                               ? Semantics(
                                   label: 'Sending message',
