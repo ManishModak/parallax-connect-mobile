@@ -2,7 +2,7 @@
 
 import socket
 import ipaddress
-from urllib.parse import urlparse
+from urllib.parse import urlparse, unquote
 from ..logging_setup import get_logger
 
 logger = get_logger(__name__)
@@ -56,3 +56,44 @@ def validate_url(url: str) -> bool:
     except Exception as e:
         logger.error(f"❌ URL validation error: {e}")
         return False
+
+def validate_proxy_path(path: str) -> str:
+    """
+    Validate a proxy path to prevent path traversal.
+    Recursively decodes the path to detect hidden traversal attempts (e.g. %2e%2e).
+
+    Returns the original path if safe.
+    Raises ValueError if path is invalid/dangerous.
+    """
+    decoded = path
+    # Limit recursion to prevent DoS
+    for _ in range(5):
+        try:
+            prev = decoded
+            decoded = unquote(decoded)
+
+            # Check for null bytes which can terminate strings early in some systems
+            if "\0" in decoded:
+                raise ValueError("Null byte detected")
+
+            # Check for path traversal markers
+            if ".." in decoded or "\\" in decoded:
+                raise ValueError("Path traversal detected")
+
+            # If no change, we are done
+            if prev == decoded:
+                break
+        except Exception as e:
+            # If decoding fails or ValueError raised above
+            raise ValueError(f"Invalid path encoding: {str(e)}")
+
+    # Check if the final path attempts to be absolute or root-relative in a dangerous way
+    # Note: We allow paths starting with / if they are just API routes, but typically
+    # a proxy path param in FastAPI doesn't start with / unless passed that way.
+    # We strictly block anything resolving to root or absolute path semantics if intended to be relative.
+    if decoded.startswith("/"):
+        # Depends on usage, but for "ui/{path:path}", path usually shouldn't start with /
+        # If it does, it might be interpreted as absolute on the target system.
+        raise ValueError("Path must be relative")
+
+    return path
