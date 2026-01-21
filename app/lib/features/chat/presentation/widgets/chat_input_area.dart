@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
@@ -254,159 +255,176 @@ class _ChatInputAreaState extends ConsumerState<ChatInputArea> {
       chatControllerProvider.select((state) => state.editingMessage != null),
     );
 
-    return TapRegion(
-      groupId: 'menu_group',
-      onTapOutside: (_) {
-        if (_isAttachmentMenuOpen) {
-          _removeOverlay();
-        }
-        if (_isWebMenuOpen) {
-          _removeWebMenu();
-        }
+    return CallbackShortcuts(
+      bindings: {
+        const SingleActivator(LogicalKeyboardKey.enter, meta: true):
+            _handleSubmit,
+        const SingleActivator(LogicalKeyboardKey.enter, control: true):
+            _handleSubmit,
       },
-      child: Padding(
-        padding: const EdgeInsets.all(4.0),
-        child: Container(
-          decoration: BoxDecoration(
-            color: AppColors.chatInputBackground,
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(
-              color: _isFocused
-                  ? AppColors.primary.withValues(alpha: 0.5)
-                  : AppColors.surfaceLight,
-              width: 1,
+      child: TapRegion(
+        groupId: 'menu_group',
+        onTapOutside: (_) {
+          if (_isAttachmentMenuOpen) {
+            _removeOverlay();
+          }
+          if (_isWebMenuOpen) {
+            _removeWebMenu();
+          }
+        },
+        child: Padding(
+          padding: const EdgeInsets.all(4.0),
+          child: Container(
+            decoration: BoxDecoration(
+              color: AppColors.chatInputBackground,
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(
+                color: _isFocused
+                    ? AppColors.primary.withValues(alpha: 0.5)
+                    : AppColors.surfaceLight,
+                width: 1,
+              ),
             ),
-          ),
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Attachment Previews
-              AttachmentPreview(
-                attachments: _selectedAttachments,
-                onRemove: _removeAttachment,
-              ),
-
-              // Text Input
-              Semantics(
-                label: isEditing ? 'Edit message input' : 'Message input',
-                textField: true,
-                child: TextField(
-                  controller: _controller,
-                  focusNode: _focusNode,
-                  style: GoogleFonts.inter(
-                    color: AppColors.primary,
-                    fontSize: 16,
-                  ),
-                  maxLines: 6,
-                  minLines: 2,
-                  decoration: InputDecoration(
-                    hintText: isEditing
-                        ? 'Edit your message...'
-                        : 'Ask anything',
-                    hintStyle: GoogleFonts.inter(color: AppColors.secondary),
-                    border: InputBorder.none,
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 4,
-                      vertical: 8,
-                    ),
-                    isDense: true,
-                  ),
-                  onSubmitted: (_) => _handleSubmit(),
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Attachment Previews
+                AttachmentPreview(
+                  attachments: _selectedAttachments,
+                  onRemove: _removeAttachment,
                 ),
-              ),
-              const SizedBox(height: 12),
-              // Bottom Actions Row
-              Row(
-                children: [
-                  // Attachment Button
-                  CompositedTransformTarget(
-                    link: _layerLink,
-                    child: _buildAttachmentButton(),
-                  ),
-                  const SizedBox(width: 8),
-                  // Scrollable Middle Section
-                  Expanded(
-                    child: SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          // Web Search Mode Selector
-                          CompositedTransformTarget(
-                            link: _webLayerLink,
-                            child: WebSearchModeSelector(onTap: _toggleWebMenu),
-                          ),
-                        ],
-                      ),
+
+                // Text Input
+                Semantics(
+                  label: isEditing ? 'Edit message input' : 'Message input',
+                  textField: true,
+                  child: TextField(
+                    controller: _controller,
+                    focusNode: _focusNode,
+                    style: GoogleFonts.inter(
+                      color: AppColors.primary,
+                      fontSize: 16,
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  // Cancel Edit Button
-                  if (isEditing) ...[
-                    IconButton(
-                      icon: const Icon(
-                        LucideIcons.x,
-                        size: 20,
-                        color: AppColors.secondary,
+                    maxLines: 6,
+                    minLines: 2,
+                    decoration: InputDecoration(
+                      hintText: isEditing
+                          ? 'Edit your message...'
+                          : 'Ask anything',
+                      hintStyle: GoogleFonts.inter(color: AppColors.secondary),
+                      border: InputBorder.none,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 4,
+                        vertical: 8,
                       ),
-                      onPressed: _handleCancelEdit,
-                      tooltip: 'Cancel Edit',
+                      isDense: true,
+                    ),
+                    onSubmitted: (_) => _handleSubmit(),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                // Bottom Actions Row
+                Row(
+                  children: [
+                    // Attachment Button
+                    CompositedTransformTarget(
+                      link: _layerLink,
+                      child: _buildAttachmentButton(),
                     ),
                     const SizedBox(width: 8),
-                  ],
-                  // Send/Voice/Update Button
-                  Builder(
-                    builder: (context) {
-                      final canSubmit =
-                          (_controller.text.trim().isNotEmpty ||
-                              _selectedAttachments.isNotEmpty) &&
-                          !widget.isLoading;
+                    // Scrollable Middle Section
+                    Expanded(
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            // Web Search Mode Selector
+                            CompositedTransformTarget(
+                              link: _webLayerLink,
+                              child: WebSearchModeSelector(
+                                onTap: _toggleWebMenu,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    // Cancel Edit Button
+                    if (isEditing) ...[
+                      IconButton(
+                        icon: const Icon(
+                          LucideIcons.x,
+                          size: 20,
+                          color: AppColors.secondary,
+                        ),
+                        onPressed: _handleCancelEdit,
+                        tooltip: 'Cancel Edit',
+                      ),
+                      const SizedBox(width: 8),
+                    ],
+                    // Send/Voice/Update Button
+                    Builder(
+                      builder: (context) {
+                        final canSubmit =
+                            (_controller.text.trim().isNotEmpty ||
+                                _selectedAttachments.isNotEmpty) &&
+                            !widget.isLoading;
 
-                      return Container(
-                        width: 36,
-                        height: 36,
-                        decoration: BoxDecoration(
-                          color: canSubmit
-                              ? AppColors.primary
-                              : AppColors.surfaceLight,
-                          shape: BoxShape.circle,
-                        ),
-                        child: IconButton(
-                          tooltip: widget.isLoading
-                              ? 'Sending...'
-                              : (isEditing ? 'Update message' : 'Send message'),
-                          icon: widget.isLoading
-                              ? Semantics(
-                                  label: 'Sending message',
-                                  child: const SizedBox(
-                                    width: 16,
-                                    height: 16,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      color: AppColors.background,
+                        final isApple =
+                            Theme.of(context).platform == TargetPlatform.macOS ||
+                            Theme.of(context).platform == TargetPlatform.iOS;
+                        final shortcut = isApple ? '(Cmd+Enter)' : '(Ctrl+Enter)';
+
+                        return Container(
+                          width: 36,
+                          height: 36,
+                          decoration: BoxDecoration(
+                            color: canSubmit
+                                ? AppColors.primary
+                                : AppColors.surfaceLight,
+                            shape: BoxShape.circle,
+                          ),
+                          child: IconButton(
+                            tooltip: widget.isLoading
+                                ? 'Sending...'
+                                : (isEditing
+                                    ? 'Update message $shortcut'
+                                    : 'Send message $shortcut'),
+                            icon: widget.isLoading
+                                ? Semantics(
+                                    label: 'Sending message',
+                                    child: const SizedBox(
+                                      width: 16,
+                                      height: 16,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: AppColors.background,
+                                      ),
                                     ),
+                                  )
+                                : Icon(
+                                    isEditing
+                                        ? LucideIcons.check
+                                        : LucideIcons.arrowUp,
+                                    size: 20,
+                                    color: canSubmit
+                                        ? AppColors.background
+                                        : AppColors.secondary,
                                   ),
-                                )
-                              : Icon(
-                                  isEditing
-                                      ? LucideIcons.check
-                                      : LucideIcons.arrowUp,
-                                  size: 20,
-                                  color: canSubmit
-                                      ? AppColors.background
-                                      : AppColors.secondary,
-                                ),
-                          onPressed: canSubmit ? _handleSubmit : null,
-                          padding: EdgeInsets.zero,
-                        ),
-                      );
-                    },
-                  ),
-                ],
-              ),
-            ],
+                            onPressed: canSubmit ? _handleSubmit : null,
+                            padding: EdgeInsets.zero,
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
       ),
