@@ -118,6 +118,33 @@ def _process_scraped_content(
     CPU-intensive HTML parsing and cleaning logic.
     Running in a separate thread to avoid blocking the event loop.
     """
+
+    def _clean_node(node):
+        """Scoped cleaning: remove noise tags and classes only within this node."""
+        # 1. Remove noise tags
+        for tag in node(NOISE_TAGS):
+            tag.decompose()
+
+        # 2. Remove noise classes (descendants)
+        elements_to_remove = []
+        for el in node.find_all(class_=True):
+            class_val = el.get("class")
+            if not class_val:
+                continue
+            if isinstance(class_val, list):
+                classes = " ".join(class_val)
+            else:
+                classes = str(class_val)
+
+            if NOISE_REGEX.search(classes):
+                elements_to_remove.append(el)
+
+        for el in elements_to_remove:
+            try:
+                el.decompose()
+            except Exception:
+                pass
+
     try:
         soup = BeautifulSoup(html_text, "lxml")
 
@@ -138,59 +165,36 @@ def _process_scraped_content(
         if meta_author and meta_author.get("content"):
             metadata_parts.append(f"Author: {meta_author['content']}")
 
-        # Extended noise tag removal
-        for tag in soup(NOISE_TAGS):
-            tag.decompose()
-
-        # Safely collect elements to remove first (avoid modifying while iterating)
-        elements_to_remove = []
-        for el in soup.find_all(class_=True):
-            class_val = el.get("class")
-            if not class_val:
-                continue
-            # class_val could be a list or string depending on parser
-            if isinstance(class_val, list):
-                classes = " ".join(class_val)
-            else:
-                classes = str(class_val)
-
-            # Optimized regex check (case-insensitive via regex compilation)
-            if NOISE_REGEX.search(classes):
-                elements_to_remove.append(el)
-
-        for el in elements_to_remove:
-            try:
-                el.decompose()
-            except Exception:
-                pass  # Element may already be removed
-
         content = None
-
         text = ""
-        content_selectors = [
-            "article",
-            "main",
-            "[role='main']",
-            ".article-content",
-            ".article-body",
-            ".post-content",
-            ".entry-content",
-            ".content-body",
-            "#article-body",
-            "#content",
-            ".story-body",
-        ]
 
-        for selector in content_selectors:
+        # Attempt to find content using selectors, cleaning only the candidate
+        for selector in CONTENT_SELECTORS:
             try:
                 candidate = soup.select_one(selector)
-                if candidate:
-                    # Cache the text to avoid re-extracting
-                    candidate_text = candidate.get_text(separator=" ", strip=True)
-                    if len(candidate_text) > 200:
-                        content = candidate
-                        text = candidate_text
-                        break
+                if not candidate:
+                    continue
+
+                # Check if candidate itself is noise
+                class_val = candidate.get("class")
+                if class_val:
+                    if isinstance(class_val, list):
+                        classes = " ".join(class_val)
+                    else:
+                        classes = str(class_val)
+                    if NOISE_REGEX.search(classes):
+                        candidate.decompose()
+                        continue
+
+                # Clean the candidate (scoped)
+                _clean_node(candidate)
+
+                # Check text length
+                candidate_text = candidate.get_text(separator=" ", strip=True)
+                if len(candidate_text) > 200:
+                    content = candidate
+                    text = candidate_text
+                    break
             except Exception:
                 pass
             content = None
@@ -198,6 +202,8 @@ def _process_scraped_content(
         # Fallback to body if no article container found
         if not content:
             content = soup.body if soup.body else soup
+            # Clean the fallback content
+            _clean_node(content)
             text = content.get_text(separator=" ", strip=True)
 
         # Final safety check
