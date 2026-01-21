@@ -94,15 +94,22 @@ async def ui_api_proxy(path: str, request: Request, _: bool = Depends(check_pass
             target_url += f"?{request.query_params}"
 
         client = await get_async_http_client()
-        body = await request.body()
 
-        if len(body) > 1_000_000:
-            raise HTTPException(status_code=413, detail="Request body too large (>1MB)")
+        # Read body with size limit to prevent Memory Exhaustion DoS
+        body = bytearray()
+        MAX_BODY_SIZE = 1_000_000
+
+        async for chunk in request.stream():
+            body.extend(chunk)
+            if len(body) > MAX_BODY_SIZE:
+                raise HTTPException(status_code=413, detail="Request body too large (>1MB)")
+
+        final_body = bytes(body)
 
         resp = await client.request(
             method=request.method,
             url=target_url,
-            content=body if body else None,
+            content=final_body if final_body else None,
             headers={
                 k: v
                 for k, v in request.headers.items()
@@ -124,7 +131,7 @@ async def ui_api_proxy(path: str, request: Request, _: bool = Depends(check_pass
                 async with stream_client.stream(
                     method=request.method,
                     url=target_url,
-                    content=body if body else None,
+                    content=final_body if final_body else None,
                     timeout=20.0,
                 ) as stream_resp:
                     async for chunk in stream_resp.aiter_bytes():
@@ -137,6 +144,8 @@ async def ui_api_proxy(path: str, request: Request, _: bool = Depends(check_pass
             status_code=resp.status_code,
             media_type=content_type,
         )
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"❌ UI API proxy error for {path}: {e}")
         error_msg = str(e) if DEBUG_MODE else "An unexpected error occurred."
