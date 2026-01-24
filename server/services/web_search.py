@@ -111,6 +111,72 @@ CONTENT_SELECTORS = [
 ]
 
 
+def _is_noise(element) -> bool:
+    """
+    Checks if an element or its ancestors match noise patterns.
+    This prevents selecting content that is actually inside a sidebar or ad.
+    """
+    try:
+        # Check current element and parents
+        # Note: parents generator yields parents starting from immediate parent
+        chain = [element]
+        chain.extend(element.parents)
+
+        for node in chain:
+            if node.name == "[document]":
+                break
+
+            # Check tag name (e.g. aside, footer)
+            if node.name in NOISE_TAGS:
+                return True
+
+            # Check classes
+            class_val = node.get("class")
+            if class_val:
+                if isinstance(class_val, list):
+                    classes = " ".join(class_val)
+                else:
+                    classes = str(class_val)
+
+                if NOISE_REGEX.search(classes):
+                    return True
+        return False
+    except Exception:
+        return True  # Fail safe
+
+
+def _clean_element_noise(element):
+    """
+    Removes noise tags and elements with noise classes from the given element/subtree.
+    """
+    try:
+        # 1. Remove noise tags
+        for tag in element(NOISE_TAGS):
+            tag.decompose()
+
+        # 2. Remove noise classes
+        elements_to_remove = []
+        for el in element.find_all(class_=True):
+            class_val = el.get("class")
+            if not class_val:
+                continue
+            if isinstance(class_val, list):
+                classes = " ".join(class_val)
+            else:
+                classes = str(class_val)
+
+            if NOISE_REGEX.search(classes):
+                elements_to_remove.append(el)
+
+        for el in elements_to_remove:
+            try:
+                el.decompose()
+            except Exception:
+                pass
+    except Exception:
+        pass
+
+
 def _process_scraped_content(
     html_text: str, url: str, max_words: int, scrape_start: float
 ) -> str:
@@ -138,34 +204,7 @@ def _process_scraped_content(
         if meta_author and meta_author.get("content"):
             metadata_parts.append(f"Author: {meta_author['content']}")
 
-        # Extended noise tag removal
-        for tag in soup(NOISE_TAGS):
-            tag.decompose()
-
-        # Safely collect elements to remove first (avoid modifying while iterating)
-        elements_to_remove = []
-        for el in soup.find_all(class_=True):
-            class_val = el.get("class")
-            if not class_val:
-                continue
-            # class_val could be a list or string depending on parser
-            if isinstance(class_val, list):
-                classes = " ".join(class_val)
-            else:
-                classes = str(class_val)
-
-            # Optimized regex check (case-insensitive via regex compilation)
-            if NOISE_REGEX.search(classes):
-                elements_to_remove.append(el)
-
-        for el in elements_to_remove:
-            try:
-                el.decompose()
-            except Exception:
-                pass  # Element may already be removed
-
         content = None
-
         text = ""
         content_selectors = [
             "article",
@@ -181,10 +220,19 @@ def _process_scraped_content(
             ".story-body",
         ]
 
+        # Optimization: Try to find valid content candidate FIRST
+        # This avoids cleaning the entire document if we can find a clean candidate
         for selector in content_selectors:
             try:
                 candidate = soup.select_one(selector)
                 if candidate:
+                    # Validate candidate is not inside noise (e.g. article in sidebar)
+                    if _is_noise(candidate):
+                        continue
+
+                    # Clean ONLY the candidate subtree
+                    _clean_element_noise(candidate)
+
                     # Cache the text to avoid re-extracting
                     candidate_text = candidate.get_text(separator=" ", strip=True)
                     if len(candidate_text) > 200:
@@ -197,6 +245,9 @@ def _process_scraped_content(
 
         # Fallback to body if no article container found
         if not content:
+            # Global cleaning
+            _clean_element_noise(soup)
+
             content = soup.body if soup.body else soup
             text = content.get_text(separator=" ", strip=True)
 
