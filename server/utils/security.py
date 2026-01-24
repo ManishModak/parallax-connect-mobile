@@ -2,10 +2,39 @@
 
 import socket
 import ipaddress
-from urllib.parse import urlparse
+from urllib.parse import unquote, urlparse
 from ..logging_setup import get_logger
 
 logger = get_logger(__name__)
+
+def validate_proxy_path(path: str, max_decode_depth: int = 5) -> None:
+    """
+    Validate that a proxy path does not contain traversal attempts.
+    Recursively decodes the path to check for hidden '../'.
+
+    Raises:
+        ValueError: If path is unsafe.
+    """
+    decoded = path
+    # Check original path for traversal markers first
+    if ".." in decoded or "\\" in decoded or "\0" in decoded:
+        raise ValueError(f"Path traversal detected in '{path}'")
+
+    for _ in range(max_decode_depth):
+        prev = decoded
+        decoded = unquote(decoded)
+
+        # Check if decoding revealed traversal
+        if ".." in decoded or "\\" in decoded or "\0" in decoded:
+            raise ValueError(f"Path traversal detected in '{path}' (decoded)")
+
+        if decoded == prev:
+            break
+
+    # Check for absolute path usage (if applicable for the proxy)
+    if decoded.startswith("/"):
+        raise ValueError(f"Path cannot start with '/' in '{path}'")
+
 
 def is_ip_allowed(ip_str: str) -> bool:
     """
