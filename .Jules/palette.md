@@ -20,3 +20,8 @@
 
 **Learning:** Small icons with tight padding (e.g., < 24dp) are difficult to tap accurately.
 **Action:** Ensure interactive elements have a hit test area of at least 40x40dp (or close to it) by increasing padding or using `IconButton`/`InkWell` with larger constraints.
+
+## 2025-02-17 - Keyboard Shortcuts
+
+**Learning:** Multiline text fields often trap the "Enter" key for new lines, making message submission cumbersome for keyboard users.
+**Action:** Wrap the input widget in `CallbackShortcuts` to intercept "Cmd+Enter" (Mac) and "Ctrl+Enter" (Windows/Linux) for immediate submission, and expose this shortcut in the submit button's tooltip.
