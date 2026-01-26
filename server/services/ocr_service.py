@@ -11,7 +11,7 @@ Engine is selected at server startup via run_server.py interactive prompt.
 import asyncio
 import importlib.util
 from concurrent.futures import ThreadPoolExecutor
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any, List, Union
 
 from ..logging_setup import get_logger
 from ..config import DEBUG_MODE
@@ -164,7 +164,7 @@ class OCRService:
             logger.error(f"❌ Failed to initialize EasyOCR: {e}")
             return None
 
-    def _extract_sync(self, image_data: bytes) -> Dict[str, Any]:
+    def _extract_sync(self, image_data: Union[bytes, bytearray]) -> Dict[str, Any]:
         """Synchronous OCR extraction (runs in thread pool)."""
         reader_tuple = self._get_reader()
         if reader_tuple is None:
@@ -181,7 +181,7 @@ class OCRService:
             logger.error(f"❌ OCR extraction failed: {e}")
             return {"text": "", "confidence": 0.0, "error": str(e)}
 
-    def _extract_paddleocr(self, reader, image_data: bytes) -> Dict[str, Any]:
+    def _extract_paddleocr(self, reader, image_data: Union[bytes, bytearray]) -> Dict[str, Any]:
         """Extract text using PaddleOCR."""
         import numpy as np
         from PIL import Image
@@ -256,8 +256,12 @@ class OCRService:
             "engine": "paddleocr",
         }
 
-    def _extract_easyocr(self, reader, image_data: bytes) -> Dict[str, Any]:
+    def _extract_easyocr(self, reader, image_data: Union[bytes, bytearray]) -> Dict[str, Any]:
         """Extract text using EasyOCR."""
+        # EasyOCR might strictly require bytes or string path, ensuring compatibility
+        if isinstance(image_data, bytearray):
+            image_data = bytes(image_data)
+
         results = reader.readtext(image_data)
 
         texts = []
@@ -277,7 +281,7 @@ class OCRService:
             "engine": "easyocr",
         }
 
-    async def extract_text(self, image_data: bytes) -> str:
+    async def extract_text(self, image_data: Union[bytes, bytearray]) -> str:
         """
         Extract text from image bytes.
 
@@ -294,7 +298,7 @@ class OCRService:
         result = await loop.run_in_executor(_executor, self._extract_sync, image_data)
         return result.get("text", "")
 
-    async def analyze_image(self, image_data: bytes) -> Dict[str, Any]:
+    async def analyze_image(self, image_data: Union[bytes, bytearray]) -> Dict[str, Any]:
         """
         Detailed image analysis with OCR.
 
