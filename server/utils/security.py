@@ -2,10 +2,36 @@
 
 import socket
 import ipaddress
-from urllib.parse import urlparse
+from urllib.parse import urlparse, unquote
 from ..logging_setup import get_logger
 
 logger = get_logger(__name__)
+
+
+def validate_proxy_path(path: str) -> None:
+    """
+    Validate a proxy path for traversal attacks.
+    Recursively decodes the path to check for '..' or dangerous characters.
+    Raises ValueError if the path is unsafe.
+    """
+    decoded_path = path
+    # Limit recursion to prevent DoS
+    for _ in range(5):
+        prev = decoded_path
+        decoded_path = unquote(decoded_path)
+
+        if ".." in decoded_path:
+            raise ValueError("Path traversal detected (..)")
+        if "\\" in decoded_path:
+            raise ValueError("Path traversal detected (backslash)")
+        if "\0" in decoded_path:
+            raise ValueError("Null byte detected")
+        if decoded_path.startswith("/"):
+            raise ValueError("Absolute path not allowed")
+
+        if prev == decoded_path:
+            break
+
 
 def is_ip_allowed(ip_str: str) -> bool:
     """

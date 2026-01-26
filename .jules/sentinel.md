@@ -7,3 +7,8 @@
 **Vulnerability:** Unbounded memory consumption when reading uploaded files. `await file.read()` loads the entire file into RAM, bypassing spooling benefits if the file is large.
 **Learning:** `MAX_IMAGE_BYTES` check was performed *after* reading the file, rendering it ineffective against memory exhaustion DoS.
 **Prevention:** Always read uploaded files in chunks and enforce size limits incrementally.
+
+## 2026-05-26 - Double-Encoded Path Traversal in Proxy
+**Vulnerability:** The `ui_proxy.py` endpoint was vulnerable to path traversal via double URL encoding (e.g., `%252e%252e` -> `%2e%2e` -> `..`). The simple string check `if ".." in path` failed because it checked the partially decoded path, while the destination server decoded it again.
+**Learning:** Checks for dangerous characters must account for recursive decoding. A single decoding step is insufficient if the downstream system also performs decoding.
+**Prevention:** Implement recursive decoding until the string stabilizes (up to a limit) before validating the content for dangerous patterns like `..` or null bytes.
