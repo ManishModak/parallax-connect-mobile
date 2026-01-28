@@ -7,3 +7,8 @@
 **Vulnerability:** Unbounded memory consumption when reading uploaded files. `await file.read()` loads the entire file into RAM, bypassing spooling benefits if the file is large.
 **Learning:** `MAX_IMAGE_BYTES` check was performed *after* reading the file, rendering it ineffective against memory exhaustion DoS.
 **Prevention:** Always read uploaded files in chunks and enforce size limits incrementally.
+
+## 2025-02-19 - Memory Exhaustion in Request Body
+**Vulnerability:** The `ui_proxy` endpoint used `await request.body()` to read the full request body before checking its size, allowing attackers to exhaust server memory with large payloads.
+**Learning:** `request.body()` in Starlette/FastAPI reads the entire body into memory. Size checks performed *after* this call are too late to prevent DoS.
+**Prevention:** Use `request.stream()` to read the body in chunks and enforce size limits incrementally during the read process.
