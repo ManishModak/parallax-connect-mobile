@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
@@ -192,8 +193,8 @@ class _ChatInputAreaState extends ConsumerState<ChatInputArea> {
     final isEnabled = attachmentStatus.canUse;
 
     return Container(
-      width: 36,
-      height: 36,
+      width: 40,
+      height: 40,
       decoration: BoxDecoration(
         color: isEnabled
             ? AppColors.surfaceLight.withValues(alpha: 0.5)
@@ -254,17 +255,24 @@ class _ChatInputAreaState extends ConsumerState<ChatInputArea> {
       chatControllerProvider.select((state) => state.editingMessage != null),
     );
 
-    return TapRegion(
-      groupId: 'menu_group',
-      onTapOutside: (_) {
-        if (_isAttachmentMenuOpen) {
-          _removeOverlay();
-        }
-        if (_isWebMenuOpen) {
-          _removeWebMenu();
-        }
+    return CallbackShortcuts(
+      bindings: {
+        const SingleActivator(LogicalKeyboardKey.enter, meta: true):
+            _handleSubmit,
+        const SingleActivator(LogicalKeyboardKey.enter, control: true):
+            _handleSubmit,
       },
-      child: Padding(
+      child: TapRegion(
+        groupId: 'menu_group',
+        onTapOutside: (_) {
+          if (_isAttachmentMenuOpen) {
+            _removeOverlay();
+          }
+          if (_isWebMenuOpen) {
+            _removeWebMenu();
+          }
+        },
+        child: Padding(
         padding: const EdgeInsets.all(4.0),
         child: Container(
           decoration: BoxDecoration(
@@ -365,8 +373,8 @@ class _ChatInputAreaState extends ConsumerState<ChatInputArea> {
                           !widget.isLoading;
 
                       return Container(
-                        width: 36,
-                        height: 36,
+                        width: 40,
+                        height: 40,
                         decoration: BoxDecoration(
                           color: canSubmit
                               ? AppColors.primary
@@ -376,7 +384,9 @@ class _ChatInputAreaState extends ConsumerState<ChatInputArea> {
                         child: IconButton(
                           tooltip: widget.isLoading
                               ? 'Sending...'
-                              : (isEditing ? 'Update message' : 'Send message'),
+                              : (isEditing
+                                  ? 'Update message'
+                                  : 'Send ${Theme.of(context).platform == TargetPlatform.macOS ? "(Cmd+Enter)" : "(Ctrl+Enter)"}'),
                           icon: widget.isLoading
                               ? Semantics(
                                   label: 'Sending message',
@@ -410,6 +420,6 @@ class _ChatInputAreaState extends ConsumerState<ChatInputArea> {
           ),
         ),
       ),
-    );
+    ));
   }
 }
